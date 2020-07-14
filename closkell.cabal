@@ -1,0 +1,70 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 295299783bf9192118c34d25cf18dcd4a404c26ee42b4b489f87b66cd1c25239
+
+name:           closkell
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/DerpyCrabs/closkell#readme>
+homepage:       https://github.com/DerpyCrabs/closkell#readme
+bug-reports:    https://github.com/DerpyCrabs/closkell/issues
+author:         DerpyCrabs
+maintainer:     derpycrabs@gmail.com
+copyright:      2020 DerpyCrabs
+license:        BSD3
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/DerpyCrabs/closkell
+
+library
+  exposed-modules:
+      Data.Env
+      Data.Error
+      Data.Value
+      Eval
+      Lib
+      Parse
+      Types
+  other-modules:
+      Paths_closkell
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , megaparsec
+    , mtl
+  default-language: Haskell2010
+
+executable closkell-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_closkell
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , closkell
+    , megaparsec
+    , mtl
+  default-language: Haskell2010
+
+test-suite closkell-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_closkell
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , closkell
+    , megaparsec
+    , mtl
+  default-language: Haskell2010

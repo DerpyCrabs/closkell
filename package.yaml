@@ -1,0 +1,39 @@
+name: closkell
+version: 0.1.0.0
+github: 'DerpyCrabs/closkell'
+license: BSD3
+author: 'DerpyCrabs'
+maintainer: 'derpycrabs@gmail.com'
+copyright: '2020 DerpyCrabs'
+
+description: Please see the README on GitHub at <https://github.com/DerpyCrabs/closkell#readme>
+
+dependencies:
+  - base >= 4.7 && < 5
+  - megaparsec
+  - mtl
+
+library:
+  source-dirs: src
+
+executables:
+  closkell-exe:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - closkell
+
+tests:
+  closkell-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - closkell

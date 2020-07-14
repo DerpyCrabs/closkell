@@ -1,0 +1,5 @@
+(load "std/std.scm")
+(define username (read))
+(define (repeat i stmt) (if (/= i 0) (do (stmt) (repeat (- i 1) stmt)) '()))
+(define (print-three-times str) (repeat 3 (lambda () (write (concat "hello user " str)))))
+(print-three-times username)
