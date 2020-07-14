@@ -19,7 +19,9 @@ nothingDottedList = DottedList Nothing
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval env val@(String _) = return val
-eval env val@(Number _) = return val
+eval env val@(Character _) = return val
+eval env val@(Integer _) = return val
+eval env val@(Float _) = return val
 eval env val@(Bool _) = return val
 eval env (Atom _ id) = getVar env id
 eval env (List _ [Atom _ "quote", val]) = return val
@@ -78,19 +80,19 @@ makeVarArgs = makeFunc . Just . show
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives =
-  [ ("+", numericBinop (+)),
-    ("-", numericBinop (-)),
-    ("*", numericBinop (*)),
-    ("/", numericBinop div),
-    ("mod", numericBinop mod),
-    ("quotient", numericBinop quot),
-    ("remainder", numericBinop rem),
-    ("=", numBoolBinop (==)),
-    ("<", numBoolBinop (<)),
-    (">", numBoolBinop (>)),
-    ("/=", numBoolBinop (/=)),
-    (">=", numBoolBinop (>=)),
-    ("<=", numBoolBinop (<=)),
+  [ ("+", numericBinop (+) (+)),
+    ("-", numericBinop (-) (-)),
+    ("*", numericBinop (*) (-)),
+    ("/", integerBinop div),
+    ("mod", integerBinop mod),
+    ("quotient", integerBinop quot),
+    ("remainder", integerBinop rem),
+    ("=", numBoolBinop (==) (==)),
+    ("<", numBoolBinop (<) (<)),
+    (">", numBoolBinop (>) (>)),
+    ("/=", numBoolBinop (/=) (/=)),
+    (">=", numBoolBinop (>=) (>=)),
+    ("<=", numBoolBinop (<=) (<=)),
     ("&&", boolBoolBinop (&&)),
     ("||", boolBoolBinop (||)),
     ("string=?", strBoolBinop (==)),
@@ -99,6 +101,7 @@ primitives =
     ("string<=?", strBoolBinop (<=)),
     ("string>=?", strBoolBinop (>=)),
     ("concat", strStringBinop (++)),
+    ("string.from", stringFrom),
     ("car", car),
     ("cdr", cdr),
     ("cons", cons),
@@ -149,20 +152,29 @@ load filename = (liftIO $ readFile filename) >>= liftThrows . (readExprList file
 readAll :: [LispVal] -> IOThrowsError LispVal
 readAll [String filename] = liftM nothingList $ load filename
 
-numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
-numericBinop op [] = throwError $ NumArgs 2 []
-numericBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
-numericBinop op params = Number . foldl1 op <$> mapM unpackNum params
+integerBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
+integerBinop op [] = throwError $ NumArgs 2 []
+integerBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
+integerBinop op params = Integer . foldl1 op <$> mapM unpackInteger params
 
-unpackNum :: LispVal -> ThrowsError Integer
-unpackNum (Number n) = return n
-unpackNum (String n) =
-  let parsed = reads n :: [(Integer, String)]
-   in if null parsed
-        then throwError $ TypeMismatch "number" $ String n
-        else return . fst . head $ parsed
-unpackNum (List _ [n]) = unpackNum n
-unpackNum notNum = throwError $ TypeMismatch "number" notNum
+floatBinop :: (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
+floatBinop op [] = throwError $ NumArgs 2 []
+floatBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
+floatBinop op params = Float . foldl1 op <$> mapM unpackFloat params
+
+numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
+numericBinop opInt opFloat xs
+  | all isInteger xs = integerBinop opInt xs
+  | all isFloat xs = floatBinop opFloat xs
+  | otherwise = throwError $ TypeMismatch "number" $ List Nothing xs
+
+unpackInteger :: LispVal -> ThrowsError Integer
+unpackInteger (Integer n) = return n
+unpackInteger notInteger = throwError $ TypeMismatch "integer" notInteger
+
+unpackFloat :: LispVal -> ThrowsError Double
+unpackFloat (Float n) = return n
+unpackFloat notFloat = throwError $ TypeMismatch "float" notFloat
 
 boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
 boolBinop unpacker op args =
@@ -182,7 +194,21 @@ stringBinop unpacker op args =
       right <- unpacker $ head $ tail args
       return $ String $ left `op` right
 
-numBoolBinop = boolBinop unpackNum
+isInteger (Integer _) = True
+isInteger _ = False
+
+isFloat (Float _) = True
+isFloat _ = False
+
+numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [LispVal] -> ThrowsError LispVal
+numBoolBinop opInt opFloat xs
+  | all isInteger xs = intBoolBinop opInt xs
+  | all isFloat xs = floatBoolBinop opFloat xs
+  | otherwise = throwError $ TypeMismatch "number" $ List Nothing xs
+
+intBoolBinop = boolBinop unpackInteger
+
+floatBoolBinop = boolBinop unpackFloat
 
 strBoolBinop = boolBinop unpackStr
 
@@ -204,6 +230,13 @@ car [DottedList _ (x : xs) _] = return x
 car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
 
+stringFrom [List _ xs] = return $ String $ foldl1 (++) $ map showString xs
+  where
+    showString (String s) = s
+    showString (Character s) = [s]
+    showString other = show other
+stringFrom xs = stringFrom [List Nothing xs]
+
 cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List _ (x : xs)] = return $ nothingList xs
 cdr [DottedList _ [_] x] = return x
@@ -220,7 +253,8 @@ cons badArgList = throwError $ NumArgs 2 badArgList
 
 eqv :: [LispVal] -> ThrowsError LispVal
 eqv [(Bool arg1), (Bool arg2)] = return $ Bool $ arg1 == arg2
-eqv [(Number arg1), (Number arg2)] = return $ Bool $ arg1 == arg2
+eqv [(Integer arg1), (Integer arg2)] = return $ Bool $ arg1 == arg2
+eqv [(Float arg1), (Float arg2)] = return $ Bool $ arg1 == arg2
 eqv [(String arg1), (String arg2)] = return $ Bool $ arg1 == arg2
 eqv [(Atom _ arg1), (Atom _ arg2)] = return $ Bool $ arg1 == arg2
 eqv [(DottedList _ xs x), (DottedList _ ys y)] = eqv [nothingList $ xs ++ [x], nothingList $ ys ++ [y]]
@@ -252,7 +286,7 @@ equal [arg1, arg2] = do
     liftM or $
       mapM
         (unpackEquals arg1 arg2)
-        [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+        [AnyUnpacker unpackInteger, AnyUnpacker unpackFloat, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
   eqvEquals <- eqv [arg1, arg2]
   return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs 2 badArgList

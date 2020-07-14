@@ -7,34 +7,63 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Types
 
 symbol :: Parser Char
-symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
+symbol = oneOf "!$%&|*+-/:<=>?@^_~."
 
 spaces :: Parser ()
 spaces = L.space space1 (L.skipLineComment ";") (L.skipBlockComment "/*" "*/")
 
 parseString :: Parser LispVal
-parseString = do
-  char '"'
-  x <- many (noneOf "\"")
-  char '"'
-  return $ String x
+parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 
 parseAtom :: Parser LispVal
 parseAtom = do
   pos <- getSourcePos
   first <- letterChar <|> symbol
+  _ <- notFollowedBy digitChar
   rest <- many (alphaNumChar <|> symbol)
   let atom = first : rest
   return $ case atom of
-    "#t" -> Bool True
-    "#f" -> Bool False
+    "true" -> Bool True
+    "false" -> Bool False
     _ -> Atom (Just pos) atom
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaces
 
-parseNumber :: Parser LispVal
-parseNumber = Number <$> lexeme L.decimal
+parseUnicodeCharacter :: Parser Char
+parseUnicodeCharacter = toEnum . read <$> count 4 digitChar
+
+parseCharacter :: Parser LispVal
+parseCharacter =
+  Character
+    <$> ( char '\\'
+            >> try (L.symbol spaces "newline" >> return '\n')
+            <|> try (L.symbol spaces "space" >> return ' ')
+            <|> try (L.symbol spaces "tab" >> return '\t')
+            <|> try (L.symbol spaces "formfeed" >> return '\f')
+            <|> try (L.symbol spaces "backspace" >> return '\b')
+            <|> try (L.symbol spaces "return" >> return '\r')
+            <|> try parseUnicodeCharacter
+            <|> alphaNumChar
+        )
+
+parseBinary :: Parser Integer
+parseBinary = char '0' >> char 'b' >> L.binary
+
+parseOctal :: Parser Integer
+parseOctal = char '0' >> char 'o' >> L.octal
+
+parseHexadecimal :: Parser Integer
+parseHexadecimal = char '0' >> char 'x' >> L.hexadecimal
+
+parseDecimal :: Parser Integer
+parseDecimal = L.decimal
+
+parseInteger :: Parser LispVal
+parseInteger = Integer <$> L.signed (return ()) (lexeme (try parseBinary <|> try parseOctal <|> try parseHexadecimal <|> parseDecimal))
+
+parseFloat :: Parser LispVal
+parseFloat = Float <$> L.signed (return ()) (lexeme L.float)
 
 parseList :: Parser LispVal
 parseList = getSourcePos >>= \pos -> List (Just pos) <$> sepBy parseExpr spaces
@@ -55,9 +84,11 @@ parseQuoted = do
 
 parseExpr :: Parser LispVal
 parseExpr =
-  parseAtom
+  try parseAtom
     <|> parseString
-    <|> parseNumber
+    <|> parseCharacter
+    <|> try parseFloat
+    <|> parseInteger
     <|> parseQuoted
     <|> do
       char '('

@@ -34,7 +34,7 @@ until_ pred prompt action = do
 runOne :: [String] -> IO ()
 runOne args = do
   env <- primitiveBindings >>= flip bindVars [("args", List Nothing $ map String $ drop 1 args)]
-  _ <- runIOThrows (show <$> eval env (List Nothing [Atom Nothing "load", String (head args)]))
+  _ <- runIOThrows (show <$> eval env (List Nothing [Atom Nothing "load", String (head args)])) >>= hPutStrLn stderr
   return ()
 
 runRepl :: IO ()

@@ -33,9 +33,11 @@ data LispError
 
 data LispVal
   = Atom (Maybe SourcePos) String
+  | Character Char
   | List (Maybe SourcePos) [LispVal]
   | DottedList (Maybe SourcePos) [LispVal] LispVal
-  | Number Integer
+  | Integer Integer
+  | Float Double
   | String String
   | Bool Bool
   | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)

@@ -8,8 +8,10 @@ import Types
 
 showVal :: LispVal -> String
 showVal (String contents) = "\"" ++ contents ++ "\""
+showVal (Character contents) = "'" ++ [contents] ++ "'"
 showVal (Atom _ name) = name
-showVal (Number contents) = show contents
+showVal (Integer contents) = show contents
+showVal (Float contents) = show contents
 showVal (Bool True) = "#t"
 showVal (Bool False) = "#f"
 showVal (List _ contents) = "(" ++ unwordsList contents ++ ")"
