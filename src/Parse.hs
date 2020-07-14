@@ -91,9 +91,13 @@ parseExpr =
     <|> parseInteger
     <|> parseQuoted
     <|> do
+      _ <- spaces
       char '('
+      _ <- spaces
       x <- try parseList <|> parseDottedList
+      _ <- spaces
       char ')'
+      _ <- spaces
       return x
 
 readOrThrow :: Parser a -> String -> String -> ThrowsError a
