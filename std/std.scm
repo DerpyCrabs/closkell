@@ -1,4 +1,3 @@
-(define (do . stmts) stmts)
 (define (not x)            (if x false true))
 (define (null? obj)        (if (eqv? obj '()) true false))
 (define (list . objs)       objs)

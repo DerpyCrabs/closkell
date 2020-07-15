@@ -17,13 +17,19 @@ nothingList = List Nothing
 
 nothingDottedList = DottedList Nothing
 
-eval :: Env -> LispVal -> IOThrowsError LispVal
+eval :: EnvRef -> LispVal -> IOThrowsError LispVal
 eval env val@(String _) = return val
 eval env val@(Character _) = return val
 eval env val@(Integer _) = return val
 eval env val@(Float _) = return val
 eval env val@(Bool _) = return val
-eval env (Atom _ id) = getVar env id
+eval env (Atom _ id) = do
+  isMacro <- liftIO $ isBound envMacros env id
+  if isMacro
+    then do
+      return (Atom Nothing id)
+    else do
+      getVar env id
 eval env (List _ [Atom _ "quote", val]) = return val
 eval env (List _ [Atom _ "if", pred, conseq, alt]) =
   do
@@ -33,6 +39,8 @@ eval env (List _ [Atom _ "if", pred, conseq, alt]) =
       Bool True -> eval env conseq
       _ -> throwError $ TypeMismatch "boolean" result
 eval env (List _ [Atom _ "set!", Atom _ var, form]) = eval env form >>= setVar env var
+eval env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name
+eval env (List _ (Atom _ "begin" : body)) = nothingList <$> mapM (eval env) body
 eval env (List _ [Atom _ "define", Atom _ var, form]) = eval env form >>= defineVar env var
 eval env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
   makeNormalFunc env params body >>= defineVar env var
@@ -48,8 +56,21 @@ eval env (List _ [Atom _ "load", String filename]) =
   load filename >>= fmap last . mapM (eval env)
 eval env (List _ (function : args)) = do
   func <- eval env function
-  argVals <- mapM (eval env) args
-  apply func argVals
+  case func of
+    (Atom _ name) -> do
+      isMacro <- liftIO $ isBound envMacros env name
+      if isMacro
+        then do
+          macro <- getMacro env name
+          result <- apply macro args
+          liftIO $ putStrLn $ show result
+          eval env result
+        else do
+          argVals <- mapM (eval env) args
+          apply func argVals
+    _ -> do
+      argVals <- mapM (eval env) args
+      apply func argVals
 eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
@@ -66,8 +87,11 @@ apply (Func params varargs body closure) args =
       Just argName -> liftIO $ bindVars env [(argName, nothingList $ remainingArgs)]
       Nothing -> return env
 apply (IOFunc func) args = func args
+apply k _ = throwError $ Default $ "Invalid apply " ++ show k
 
-primitiveBindings :: IO Env
+-- TODO error on applying not function
+
+primitiveBindings :: IO EnvRef
 primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives)
   where
     makeFunc constructor (var, func) = (var, constructor func)
@@ -107,6 +131,7 @@ primitives =
     ("cons", cons),
     ("eq?", eqv),
     ("eqv?", eqv),
+    ("list?", isList),
     ("equal?", equal)
   ]
 
@@ -229,6 +254,10 @@ car [List _ (x : xs)] = return x
 car [DottedList _ (x : xs) _] = return x
 car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
+
+isList :: [LispVal] -> ThrowsError LispVal
+isList [(List _ _)] = return $ Bool True
+isList _ = return $ Bool False
 
 stringFrom [List _ xs] = return $ String $ foldl1 (++) $ map showString xs
   where

@@ -3,7 +3,8 @@ module Types
     IOThrowsError,
     LispError (..),
     LispVal (..),
-    Env,
+    Env (..),
+    EnvRef,
     Parser,
   )
 where
@@ -14,7 +15,9 @@ import Data.Void
 import System.IO (Handle)
 import Text.Megaparsec
 
-type Env = IORef [(String, IORef LispVal)]
+data Env = Env {functions :: [(String, IORef LispVal)], macros :: [(String, IORef LispVal)]}
+
+type EnvRef = IORef Env
 
 type ThrowsError = Either LispError
 
@@ -43,4 +46,4 @@ data LispVal
   | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
   | IOFunc ([LispVal] -> IOThrowsError LispVal)
   | Port Handle
-  | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: Env}
+  | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: EnvRef}

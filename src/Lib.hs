@@ -4,7 +4,7 @@ module Lib
     extractValue,
     trapError,
     IOThrowsError,
-    Env,
+    EnvRef,
     liftThrows,
     primitiveBindings,
     LispVal (..),

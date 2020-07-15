@@ -18,10 +18,10 @@ flushStr str = putStr str >> hFlush stdout
 readPrompt :: String -> IO String
 readPrompt prompt = flushStr prompt >> getLine
 
-evalString :: Env -> String -> IO String
+evalString :: EnvRef -> String -> IO String
 evalString env expr = runIOThrows $ fmap show $ liftThrows (readExpr "repl" expr) >>= eval env
 
-evalAndPrint :: Env -> String -> IO ()
+evalAndPrint :: EnvRef -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= putStrLn
 
 until_ :: Monad m => (t -> Bool) -> m t -> (t -> m a) -> m ()
