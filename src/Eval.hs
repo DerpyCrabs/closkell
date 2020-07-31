@@ -31,6 +31,7 @@ eval env (Atom _ id) = do
     else do
       getVar env id
 eval env (List _ [Atom _ "quote", val]) = return val
+eval env (List _ [Atom _ "unquote", val]) = eval env val >>= eval env
 eval env (List _ [Atom _ "if", pred, conseq, alt]) =
   do
     result <- eval env pred
@@ -41,6 +42,10 @@ eval env (List _ [Atom _ "if", pred, conseq, alt]) =
 eval env (List _ [Atom _ "set!", Atom _ var, form]) = eval env form >>= setVar env var
 eval env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name
 eval env (List _ (Atom _ "begin" : body)) = nothingList <$> mapM (eval env) body
+eval env (List _ [Atom _ "dump", body]) = do
+  res <- eval env body
+  liftIO $ putStrLn $ show res
+  return res
 eval env (List _ [Atom _ "define", Atom _ var, form]) = eval env form >>= defineVar env var
 eval env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
   makeNormalFunc env params body >>= defineVar env var
@@ -63,7 +68,6 @@ eval env (List _ (function : args)) = do
         then do
           macro <- getMacro env name
           result <- apply macro args
-          liftIO $ putStrLn $ show result
           eval env result
         else do
           argVals <- mapM (eval env) args
