@@ -18,6 +18,7 @@ parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 parseAtom :: Parser LispVal
 parseAtom = do
   pos <- getSourcePos
+  _ <- notFollowedBy (char '.')
   first <- letterChar <|> symbol
   _ <- notFollowedBy digitChar
   rest <- many (alphaNumChar <|> symbol)
