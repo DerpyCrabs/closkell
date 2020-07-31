@@ -19,7 +19,9 @@
       accum
       (foldl func (func accum (car lst)) (cdr lst))))
 (define fold foldl)
+(define (fold1 func lst) (fold func (car lst) (cdr lst)))
 (define reduce foldr)
+(define (last lst) (fold1 (lambda (acc stmt) stmt) lst))
 (define (unfold func init pred)
   (if (pred init)
       (cons init '())
@@ -41,3 +43,13 @@
 (define (assoc obj alist)    (fold (mem-helper (curry equal? obj) car) false alist))
 (define (map func lst)      (foldr (lambda (x y) (cons (func x) y)) '() lst))
 (define (filter pred lst)   (foldr (lambda (x y) (if (pred x) (cons x y) y)) '() lst))
+(define (remove pred lst)   (foldr (lambda (x y) (if (not (pred x)) (cons x y) y)) '() lst))
+(define (do . stmts) (last stmts))
+
+(defmacro cond
+  (if (null? body)
+    true
+    (if
+      (unquote (car body))
+      (unquote (car (cdr body)))
+      (cons cond (cdr (cdr body))))))
