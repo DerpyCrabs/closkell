@@ -50,15 +50,15 @@
   '(if (not ~(car body))
       ~(car (cdr body))
       ~(car (cdr (cdr body)))))
-      
+
 (defmacro cond
-  (if-not (null? body)
+  (if (not (null? body))
     (if (eq? (car body) ':else)
-      ~(car (cdr body))
-      (if ~(car body)
+      (quote ~(car (cdr body)))
+      '(if ~(car body)
         ~(car (cdr body))
-        (cons cond (cdr (cdr body)))))
-    nil))
+        ~(cons cond (cdr (cdr body)))))
+    '(quote nil)))
 
 (defmacro let
   (if (null? (car body))
