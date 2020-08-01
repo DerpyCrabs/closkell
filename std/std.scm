@@ -73,7 +73,7 @@
       (quote ~(second body))
       '(if ~(first body)
         ~(second body)
-        ~(cons cond (nnext body))))
+        '(cond ~@(nnext body))))
     '(quote nil)))
 
 (defmacro let

@@ -75,7 +75,13 @@ eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badFo
 
 evalUnquote :: EnvRef -> LispVal -> IOThrowsError LispVal
 evalUnquote env (List _ [Atom _ "unquote", val]) = eval env val
-evalUnquote env (List pos exprs) = List pos <$> mapM (evalUnquote env) exprs
+evalUnquote env (List pos exprs) = List pos <$> concat <$> mapM evalUnquoteSplicing exprs
+  where
+    evalUnquoteSplicing (List _ [Atom _ "unquote-splicing", vals]) = do
+      case vals of
+        (List _ vals) -> return vals
+        _ -> throwError $ Default "failed unquote-splicing"
+    evalUnquoteSplicing other = (\el -> [el]) <$> evalUnquote env other
 evalUnquote env other = return other
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
