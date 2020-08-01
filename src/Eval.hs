@@ -42,10 +42,6 @@ eval env (List _ [Atom _ "if", pred, conseq, alt]) =
 eval env (List _ [Atom _ "set!", Atom _ var, form]) = eval env form >>= setVar env var
 eval env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name
 eval env (List _ (Atom _ "begin" : body)) = nothingList <$> mapM (eval env) body
-eval env (List _ [Atom _ "dump", body]) = do
-  res <- eval env body
-  liftIO $ putStrLn $ show res
-  return res
 eval env (List _ [Atom _ "define", Atom _ var, form]) = eval env form >>= defineVar env var
 eval env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
   makeNormalFunc env params body >>= defineVar env var
@@ -154,6 +150,7 @@ ioPrimitives =
     ("close-output-port", closePort),
     ("read", readProc),
     ("write", writeProc),
+    ("dump", dumpProc),
     ("read-contents", readContents),
     ("read-all", readAll)
   ]
@@ -175,8 +172,12 @@ readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . Right . String
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
 writeProc [String obj] = writeProc [String obj, Port stdout]
-writeProc [String obj, Port port] = liftIO $ hPutStrLn port obj >> (return $ Bool True)
+writeProc [String obj, Port port] = liftIO $ hPutStrLn port obj >> (return $ Atom Nothing "nil")
 writeProc (obj : _) = throwError $ TypeMismatch "string" obj
+
+dumpProc :: [LispVal] -> IOThrowsError LispVal
+dumpProc [obj] = writeProc [String (show obj), Port stdout]
+dumpProc [obj, Port port] = writeProc [String (show obj), Port port]
 
 readContents :: [LispVal] -> IOThrowsError LispVal
 readContents [String filename] = liftM String $ liftIO $ readFile filename
