@@ -83,6 +83,14 @@ parseQuoted = do
   x <- parseExpr
   return $ List (Just pos) [Atom (Just pos) "quote", x]
 
+parseEmptyList :: Parser LispVal
+parseEmptyList = do
+  pos <- getSourcePos
+  char '('
+  spaces
+  char ')'
+  return $ List (Just pos) [Atom (Just pos) "quote", List (Just pos) []]
+
 parseExpr :: Parser LispVal
 parseExpr =
   try parseAtom
@@ -91,14 +99,15 @@ parseExpr =
     <|> try parseFloat
     <|> parseInteger
     <|> parseQuoted
+    <|> try parseEmptyList
     <|> do
-      _ <- spaces
+      spaces
       char '('
-      _ <- spaces
+      spaces
       x <- try parseList <|> parseDottedList
-      _ <- spaces
+      spaces
       char ')'
-      _ <- spaces
+      spaces
       return x
 
 readOrThrow :: Parser a -> String -> String -> ThrowsError a
