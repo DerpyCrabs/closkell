@@ -30,7 +30,7 @@ eval env (Atom _ id) = do
       return (Atom Nothing id)
     else do
       getVar env id
-eval env (List _ [Atom _ "quote", val]) = return val
+eval env (List _ [Atom _ "quote", val]) = evalUnquote env val
 eval env (List _ [Atom _ "unquote", val]) = eval env val >>= eval env
 eval env (List _ [Atom _ "if", pred, conseq, alt]) =
   do
@@ -77,6 +77,11 @@ eval env (List _ (function : args)) = do
       apply func argVals
 eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
+evalUnquote :: EnvRef -> LispVal -> IOThrowsError LispVal
+evalUnquote env (List _ [Atom _ "unquote", val]) = eval env val
+evalUnquote env (List pos exprs) = List pos <$> mapM (evalUnquote env) exprs
+evalUnquote env other = return other
+
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
 apply (Func params varargs body closure) args =
@@ -102,6 +107,7 @@ primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc) ioPrimiti
 
 makeFunc varargs env params body = return $ Func (map show params) varargs body env
 
+makeNormalFunc :: EnvRef -> [LispVal] -> [LispVal] -> ExceptT LispError IO LispVal
 makeNormalFunc = makeFunc Nothing
 
 makeVarArgs = makeFunc . Just . show
