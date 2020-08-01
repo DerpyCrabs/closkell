@@ -7,7 +7,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Types
 
 symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=>?@^_~."
+symbol = oneOf "!$%&|*+-/:<=>?@^_."
 
 spaces :: Parser ()
 spaces = L.space space1 (L.skipLineComment ";") (L.skipBlockComment "/*" "*/")
@@ -83,6 +83,13 @@ parseQuoted = do
   x <- parseExpr
   return $ List (Just pos) [Atom (Just pos) "quote", x]
 
+parseUnquoted :: Parser LispVal
+parseUnquoted = do
+  pos <- getSourcePos
+  char '~'
+  x <- parseExpr
+  return $ List (Just pos) [Atom (Just pos) "unquote", x]
+
 parseEmptyList :: Parser LispVal
 parseEmptyList = do
   pos <- getSourcePos
@@ -99,6 +106,7 @@ parseExpr =
     <|> try parseFloat
     <|> parseInteger
     <|> parseQuoted
+    <|> parseUnquoted
     <|> try parseEmptyList
     <|> do
       spaces
