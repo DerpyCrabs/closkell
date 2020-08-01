@@ -1,5 +1,5 @@
 (define (not x)            (if x false true))
-(define (null? obj)        (if (eqv? obj '()) true false))
+(define (null? obj)        (if (eqv? obj ()) true false))
 (define (list . objs)       objs)
 (define (id obj)           obj)
 (define (flip func)        (lambda (arg1 arg2) (func arg2 arg1)))
@@ -41,15 +41,27 @@
 (define (assq obj alist)     (fold (mem-helper (curry eq? obj) car) false alist))
 (define (assv obj alist)     (fold (mem-helper (curry eqv? obj) car) false alist))
 (define (assoc obj alist)    (fold (mem-helper (curry equal? obj) car) false alist))
-(define (map func lst)      (foldr (lambda (x y) (cons (func x) y)) '() lst))
-(define (filter pred lst)   (foldr (lambda (x y) (if (pred x) (cons x y) y)) '() lst))
-(define (remove pred lst)   (foldr (lambda (x y) (if (not (pred x)) (cons x y) y)) '() lst))
+(define (map func lst)      (foldr (lambda (x y) (cons (func x) y)) () lst))
+(define (filter pred lst)   (foldr (lambda (x y) (if (pred x) (cons x y) y)) () lst))
+(define (remove pred lst)   (foldr (lambda (x y) (if (not (pred x)) (cons x y) y)) () lst))
 (define (do . stmts) (last stmts))
 
+(defmacro if-not
+  '(if (not ~(car body))
+      ~(car (cdr body))
+      ~(car (cdr (cdr body)))))
+      
 (defmacro cond
-  (if (null? body)
-    true
-    (if
-      (unquote (car body))
-      (unquote (car (cdr body)))
-      (cons cond (cdr (cdr body))))))
+  (if-not (null? body)
+    (if (eq? (car body) ':else)
+      ~(car (cdr body))
+      (if ~(car body)
+        ~(car (cdr body))
+        (cons cond (cdr (cdr body)))))
+    nil))
+
+(defmacro let
+  (if (null? (car body))
+    (car (cdr body))
+    '((lambda (~(car (car (car body)))) (let ~(cdr (car body)) ~(car (cdr body))))
+      ~(car (cdr (car (car body)))))))
