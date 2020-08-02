@@ -10,6 +10,7 @@ module Lib
     nullEnv,
     LispVal (..),
     LispError (..),
+    readExprList,
     bindVars,
     StateRef,
     nullState,
