@@ -38,6 +38,7 @@ data LispError
   | NotFunction String String
   | Parsing (ParseErrorBundle String Void)
   | UnboundVar String String
+  | FromCode LispVal
   | Default String
 
 data LispVal
