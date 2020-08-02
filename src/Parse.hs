@@ -13,6 +13,10 @@ symbol = oneOf "!$%&|*+-/:<=>?^_."
 spaces :: Parser ()
 spaces = L.space space1 (L.skipLineComment ";") (L.skipBlockComment "/*" "*/")
 
+lparen = lexeme $ char '('
+
+rparen = lexeme $ char ')'
+
 parseString :: Parser LispVal
 parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 
@@ -72,8 +76,7 @@ parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parse
   where
     parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
     skipExpr = do
-      char '#'
-      char '_'
+      char '#' >> char '_'
       _ <- parseExpr
       return Nothing
 
@@ -101,36 +104,29 @@ parseUnquoted = do
 parseUnquoteSplicing :: Parser LispVal
 parseUnquoteSplicing = do
   pos <- getSourcePos
-  char '~'
-  char '@'
+  char '~' >> char '@'
   x <- parseExpr
   return $ List (Just pos) [Atom (Just pos) "unquote-splicing", x]
 
 parseEmptyList :: Parser LispVal
 parseEmptyList = do
   pos <- getSourcePos
-  char '('
-  spaces
-  char ')'
+  lparen >> rparen
   return $ List (Just pos) [Atom (Just pos) "quote", List (Just pos) []]
 
 parseLambdaShorthand :: Parser LispVal
 parseLambdaShorthand = do
   pos <- getSourcePos
-  char '#'
-  char '('
-  spaces
-  inner <- parseList
-  spaces
-  char ')'
+  char '#' >> lparen
+  inner <- lexeme parseList
+  rparen
   return $ List (Just pos) (Atom Nothing "lambda" : DottedList Nothing [] (Atom Nothing "%&") : [inner])
 
 parseLambdaShorthandArgs =
   try parseSingle <|> parseNth
   where
     parseSingle = do
-      char '%'
-      char '%'
+      char '%' >> char '%'
       return (List Nothing [Atom Nothing "car", Atom Nothing "%&"])
     parseNth :: Parser LispVal
     parseNth = do
@@ -140,7 +136,7 @@ parseLambdaShorthandArgs =
 
 parseExpr :: Parser LispVal
 parseExpr =
-  try parseLambdaShorthandArgs
+  spaces >> try parseLambdaShorthandArgs
     <|> try parseAtom
     <|> parseLambdaShorthand
     <|> parseString
@@ -152,13 +148,9 @@ parseExpr =
     <|> parseUnquoted
     <|> try parseEmptyList
     <|> do
-      spaces
-      char '('
-      spaces
-      x <- try parseList <|> parseDottedList
-      spaces
-      char ')'
-      spaces
+      lparen
+      x <- lexeme (try parseList <|> parseDottedList)
+      rparen
       return x
 
 readOrThrow :: Parser a -> String -> String -> ThrowsError a
