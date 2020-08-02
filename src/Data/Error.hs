@@ -23,6 +23,7 @@ showError (TypeMismatch expected found) =
     ++ ", found "
     ++ show found
 showError (Parsing parseErr) = errorBundlePretty parseErr
+showError (Default err) = err
 
 instance Show LispError where show = showError
 

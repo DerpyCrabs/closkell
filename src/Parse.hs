@@ -7,7 +7,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Types
 
 symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=>?@^_~."
+symbol = oneOf "!$%&|*+-/:<=>?^_."
 
 spaces :: Parser ()
 spaces = L.space space1 (L.skipLineComment ";") (L.skipBlockComment "/*" "*/")
@@ -18,6 +18,7 @@ parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 parseAtom :: Parser LispVal
 parseAtom = do
   pos <- getSourcePos
+  _ <- notFollowedBy (char '.')
   first <- letterChar <|> symbol
   _ <- notFollowedBy digitChar
   rest <- many (alphaNumChar <|> symbol)
@@ -82,6 +83,29 @@ parseQuoted = do
   x <- parseExpr
   return $ List (Just pos) [Atom (Just pos) "quote", x]
 
+parseUnquoted :: Parser LispVal
+parseUnquoted = do
+  pos <- getSourcePos
+  char '~'
+  x <- parseExpr
+  return $ List (Just pos) [Atom (Just pos) "unquote", x]
+
+parseUnquoteSplicing :: Parser LispVal
+parseUnquoteSplicing = do
+  pos <- getSourcePos
+  char '~'
+  char '@'
+  x <- parseExpr
+  return $ List (Just pos) [Atom (Just pos) "unquote-splicing", x]
+
+parseEmptyList :: Parser LispVal
+parseEmptyList = do
+  pos <- getSourcePos
+  char '('
+  spaces
+  char ')'
+  return $ List (Just pos) [Atom (Just pos) "quote", List (Just pos) []]
+
 parseExpr :: Parser LispVal
 parseExpr =
   try parseAtom
@@ -90,14 +114,17 @@ parseExpr =
     <|> try parseFloat
     <|> parseInteger
     <|> parseQuoted
+    <|> try parseUnquoteSplicing
+    <|> parseUnquoted
+    <|> try parseEmptyList
     <|> do
-      _ <- spaces
+      spaces
       char '('
-      _ <- spaces
+      spaces
       x <- try parseList <|> parseDottedList
-      _ <- spaces
+      spaces
       char ')'
-      _ <- spaces
+      spaces
       return x
 
 readOrThrow :: Parser a -> String -> String -> ThrowsError a

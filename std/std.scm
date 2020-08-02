@@ -1,6 +1,5 @@
-(define (do . stmts) stmts)
 (define (not x)            (if x false true))
-(define (null? obj)        (if (eqv? obj '()) true false))
+(define (null? obj)        (if (eqv? obj ()) true false))
 (define (list . objs)       objs)
 (define (id obj)           obj)
 (define (flip func)        (lambda (arg1 arg2) (func arg2 arg1)))
@@ -20,7 +19,9 @@
       accum
       (foldl func (func accum (car lst)) (cdr lst))))
 (define fold foldl)
+(define (fold1 func lst) (fold func (car lst) (cdr lst)))
 (define reduce foldr)
+(define (last lst) (fold1 (lambda (acc stmt) stmt) lst))
 (define (unfold func init pred)
   (if (pred init)
       (cons init '())
@@ -40,5 +41,72 @@
 (define (assq obj alist)     (fold (mem-helper (curry eq? obj) car) false alist))
 (define (assv obj alist)     (fold (mem-helper (curry eqv? obj) car) false alist))
 (define (assoc obj alist)    (fold (mem-helper (curry equal? obj) car) false alist))
-(define (map func lst)      (foldr (lambda (x y) (cons (func x) y)) '() lst))
-(define (filter pred lst)   (foldr (lambda (x y) (if (pred x) (cons x y) y)) '() lst))
+(define (map func lst)      (foldr (lambda (x y) (cons (func x) y)) () lst))
+(define (filter pred lst)   (foldr (lambda (x y) (if (pred x) (cons x y) y)) () lst))
+(define (remove pred lst)   (foldr (lambda (x y) (if (not (pred x)) (cons x y) y)) () lst))
+(define (do . stmts) (last stmts))
+
+(define (dec i) (- i 1))
+(define (inc i) (+ i 1))
+
+(define first car)
+(define next cdr)
+(define (second lst) (first (next lst)))
+(define (ffirst lst) (first (first lst)))
+(define (nnext lst) (next (next lst)))
+(define (nfirst lst) (next (first lst)))
+(define (fnext lst) (first (next lst)))
+(define (nthnext lst n)
+  (if (= n 0)
+    (first lst)
+    (nthnext (next lst) (dec n))))
+(define (third lst) (nthnext lst 2))
+
+(define (append . lists)
+  (if (= (length lists) 1)
+    (first lists)
+    (foldr cons (apply append (next lists)) (first lists))))
+
+(define (splitAt i lst)
+  (if (<= i 0)
+    (list () lst)
+    (if (null? lst)
+      (list () ())
+      (let ((nextRes (splitAt (dec i) (next lst))))
+        (if (= i 1)
+          (list (list (first lst)) (next lst))
+          (list (cons (first lst) (first nextRes)) (second nextRes)))))))
+    
+(define (insertAt i elem lst)
+  (let ((parts (splitAt i lst)))
+    (append (first parts) (list elem) (second parts))))
+
+(defmacro if-not
+  '(if (not ~(first body))
+      ~(second body)
+      ~(third body)))
+
+(defmacro cond
+  (if-not (null? body)
+    (if (eq? (first body) ':else)
+      (second body)
+      '(if ~(first body)
+        ~(second body)
+        (cond ~@(nnext body))))
+    '(quote nil)))
+
+(defmacro let
+  (if (null? (first body))
+    (second body)
+    '((lambda (~(first (ffirst body))) (let ~(nfirst body) ~(second body)))
+      ~(second (ffirst body)))))
+      
+(defmacro ->>
+  (if-not (null? (next body))
+    '(->> ~(append (second body) (list (first body))) ~@(nnext body))
+    (first body)))
+    
+(defmacro ->
+  (if-not (null? (next body))
+    '(-> ~(insertAt 1 (first body) (second body)) ~@(nnext body))
+    (first body)))

@@ -9,6 +9,7 @@ where
 import Control.Monad.Except
 import Data.Env
 import Data.Error
+import Data.State
 import Parse
 import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, stdout)
 import Types
@@ -17,57 +18,107 @@ nothingList = List Nothing
 
 nothingDottedList = DottedList Nothing
 
-eval :: Env -> LispVal -> IOThrowsError LispVal
-eval env val@(String _) = return val
-eval env val@(Character _) = return val
-eval env val@(Integer _) = return val
-eval env val@(Float _) = return val
-eval env val@(Bool _) = return val
-eval env (Atom _ id) = getVar env id
-eval env (List _ [Atom _ "quote", val]) = return val
-eval env (List _ [Atom _ "if", pred, conseq, alt]) =
+eval :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
+eval state env val@(String _) = return val
+eval state env val@(Character _) = return val
+eval state env val@(Integer _) = return val
+eval state env val@(Float _) = return val
+eval state env val@(Bool _) = return val
+eval state env (Atom _ id) = do
+  isMacro <- liftIO $ isBound envMacros env id
+  if isMacro
+    then do
+      return (Atom Nothing id)
+    else do
+      getVar env id
+eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
+eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
+  func <- eval state env func
+  (List _ args) <- eval state env args
+  apply state func args
+eval state env (List _ (Atom _ "apply" : func : args)) = do
+  func <- eval state env func
+  args <- mapM (eval state env) args
+  apply state func args
+eval state env (List _ [Atom _ "unquote", val]) = eval state env val >>= eval state env
+eval state env (List _ [Atom _ "gensym"]) = do
+  counter <- liftIO $ nextGensymCounter state
+  return $ Atom Nothing (show counter)
+eval state env (List _ [Atom _ "gensym", (String prefix)]) = do
+  counter <- liftIO $ nextGensymCounter state
+  return $ Atom Nothing ((prefix ++) $ show counter)
+eval state env (List _ [Atom _ "if", pred, conseq, alt]) =
   do
-    result <- eval env pred
+    result <- eval state env pred
     case result of
-      Bool False -> eval env alt
-      Bool True -> eval env conseq
+      Bool False -> eval state env alt
+      Bool True -> eval state env conseq
       _ -> throwError $ TypeMismatch "boolean" result
-eval env (List _ [Atom _ "set!", Atom _ var, form]) = eval env form >>= setVar env var
-eval env (List _ [Atom _ "define", Atom _ var, form]) = eval env form >>= defineVar env var
-eval env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
+eval state env (List _ [Atom _ "set!", Atom _ var, form]) = eval state env form >>= setVar env var
+eval state env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name
+eval state env (List _ (Atom _ "begin" : body)) = nothingList <$> mapM (eval state env) body
+eval state env (List _ [Atom _ "define", Atom _ var, form]) = eval state env form >>= defineVar env var
+eval state env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
   makeNormalFunc env params body >>= defineVar env var
-eval env (List _ (Atom _ "define" : DottedList _ (Atom _ var : params) varargs : body)) =
+eval state env (List _ (Atom _ "define" : DottedList _ (Atom _ var : params) varargs : body)) =
   makeVarArgs varargs env params body >>= defineVar env var
-eval env (List _ (Atom _ "lambda" : List _ params : body)) =
+eval state env (List _ (Atom _ "lambda" : List _ params : body)) =
   makeNormalFunc env params body
-eval env (List _ (Atom _ "lambda" : DottedList _ params varargs : body)) =
+eval state env (List _ (Atom _ "lambda" : DottedList _ params varargs : body)) =
   makeVarArgs varargs env params body
-eval env (List _ (Atom _ "lambda" : varargs@(Atom _ _) : body)) =
+eval state env (List _ (Atom _ "lambda" : varargs@(Atom _ _) : body)) =
   makeVarArgs varargs env [] body
-eval env (List _ [Atom _ "load", String filename]) =
-  load filename >>= fmap last . mapM (eval env)
-eval env (List _ (function : args)) = do
-  func <- eval env function
-  argVals <- mapM (eval env) args
-  apply func argVals
-eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+eval state env (List _ [Atom _ "load", String filename]) =
+  load filename >>= fmap last . mapM (eval state env)
+eval state env (List _ (function : args)) = do
+  func <- eval state env function
+  case func of
+    (Atom _ name) -> do
+      isMacro <- liftIO $ isBound envMacros env name
+      if isMacro
+        then do
+          macro <- getMacro env name
+          result <- apply state macro args
+          eval state env result
+        else do
+          argVals <- mapM (eval state env) args
+          apply state func argVals
+    _ -> do
+      argVals <- mapM (eval state env) args
+      apply state func argVals
+eval state env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
-apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
-apply (PrimitiveFunc func) args = liftThrows $ func args
-apply (Func params varargs body closure) args =
+evalUnquote :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
+evalUnquote state env (List pos exprs) = List pos <$> concat <$> mapM evalUnquoteSplicing exprs
+  where
+    evalUnquoteSplicing (List _ [Atom _ "unquote-splicing", vals]) = do
+      vals <- eval state env vals
+      case vals of
+        (List _ vals) -> return vals
+        _ -> throwError $ Default "failed unquote-splicing"
+    evalUnquoteSplicing (List _ [Atom _ "unquote", val]) = (\el -> [el]) <$> eval state env val
+    evalUnquoteSplicing other = (\el -> [el]) <$> evalUnquote state env other
+evalUnquote state env other = return other
+
+apply :: StateRef -> LispVal -> [LispVal] -> IOThrowsError LispVal
+apply state (PrimitiveFunc func) args = liftThrows $ func args
+apply state (Func params varargs body closure) args =
   if num params /= num args && varargs == Nothing
     then throwError $ NumArgs (num params) args
     else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
   where
     remainingArgs = drop (length params) args
     num = toInteger . length
-    evalBody env = liftM last $ mapM (eval env) body
+    evalBody env = liftM last $ mapM (eval state env) body
     bindVarArgs arg env = case arg of
       Just argName -> liftIO $ bindVars env [(argName, nothingList $ remainingArgs)]
       Nothing -> return env
-apply (IOFunc func) args = func args
+apply state (IOFunc func) args = func args
+apply state k _ = throwError $ Default $ "Invalid apply " ++ show k
 
-primitiveBindings :: IO Env
+-- TODO error on applying not function
+
+primitiveBindings :: IO EnvRef
 primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives)
   where
     makeFunc constructor (var, func) = (var, constructor func)
@@ -107,25 +158,22 @@ primitives =
     ("cons", cons),
     ("eq?", eqv),
     ("eqv?", eqv),
+    ("list?", isList),
     ("equal?", equal)
   ]
 
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
 ioPrimitives =
-  [ ("apply", applyProc),
-    ("open-input-file", makePort ReadMode),
+  [ ("open-input-file", makePort ReadMode),
     ("open-output-file", makePort WriteMode),
     ("close-input-port", closePort),
     ("close-output-port", closePort),
     ("read", readProc),
     ("write", writeProc),
+    ("dump", dumpProc),
     ("read-contents", readContents),
     ("read-all", readAll)
   ]
-
-applyProc :: [LispVal] -> IOThrowsError LispVal
-applyProc [func, List _ args] = apply func args
-applyProc (func : args) = apply func args
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode
@@ -140,8 +188,12 @@ readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . Right . String
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
 writeProc [String obj] = writeProc [String obj, Port stdout]
-writeProc [String obj, Port port] = liftIO $ hPutStrLn port obj >> (return $ Bool True)
+writeProc [String obj, Port port] = liftIO $ hPutStrLn port obj >> (return $ Atom Nothing "nil")
 writeProc (obj : _) = throwError $ TypeMismatch "string" obj
+
+dumpProc :: [LispVal] -> IOThrowsError LispVal
+dumpProc [obj] = writeProc [String (show obj), Port stdout]
+dumpProc [obj, Port port] = writeProc [String (show obj), Port port]
 
 readContents :: [LispVal] -> IOThrowsError LispVal
 readContents [String filename] = liftM String $ liftIO $ readFile filename
@@ -229,6 +281,10 @@ car [List _ (x : xs)] = return x
 car [DottedList _ (x : xs) _] = return x
 car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
+
+isList :: [LispVal] -> ThrowsError LispVal
+isList [(List _ _)] = return $ Bool True
+isList _ = return $ Bool False
 
 stringFrom [List _ xs] = return $ String $ foldl1 (++) $ map showString xs
   where
