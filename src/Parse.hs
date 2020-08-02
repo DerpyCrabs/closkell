@@ -106,9 +106,35 @@ parseEmptyList = do
   char ')'
   return $ List (Just pos) [Atom (Just pos) "quote", List (Just pos) []]
 
+parseLambdaShorthand :: Parser LispVal
+parseLambdaShorthand = do
+  pos <- getSourcePos
+  char '#'
+  char '('
+  spaces
+  inner <- parseList
+  spaces
+  char ')'
+  return $ List (Just pos) (Atom Nothing "lambda" : DottedList Nothing [] (Atom Nothing "%&") : [inner])
+
+parseLambdaShorthandArgs =
+  try parseSingle <|> parseNth
+  where
+    parseSingle = do
+      char '%'
+      char '%'
+      return (List Nothing [Atom Nothing "car", Atom Nothing "%&"])
+    parseNth :: Parser LispVal
+    parseNth = do
+      char '%'
+      n <- digitChar
+      return (List Nothing [Atom Nothing "nth", Integer (read [n] - 1), Atom Nothing "%&"])
+
 parseExpr :: Parser LispVal
 parseExpr =
-  try parseAtom
+  try parseLambdaShorthandArgs
+    <|> try parseAtom
+    <|> parseLambdaShorthand
     <|> parseString
     <|> parseCharacter
     <|> try parseFloat

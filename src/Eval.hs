@@ -159,6 +159,7 @@ primitives =
     ("eq?", eqv),
     ("eqv?", eqv),
     ("list?", isList),
+    ("nth", nth),
     ("equal?", equal)
   ]
 
@@ -306,6 +307,10 @@ cons [x, List _ xs] = return $ nothingList $ x : xs
 cons [x, DottedList _ xs xlast] = return $ nothingDottedList (x : xs) xlast
 cons [x1, x2] = return $ nothingDottedList [x1] x2
 cons badArgList = throwError $ NumArgs 2 badArgList
+
+nth :: [LispVal] -> ThrowsError LispVal
+nth [Integer i, List _ xs] | length xs > (fromIntegral i) = return $ xs !! (fromIntegral i)
+nth k = throwError $ Default ("nth error: " ++ show k)
 
 eqv :: [LispVal] -> ThrowsError LispVal
 eqv [(Bool arg1), (Bool arg2)] = return $ Bool $ arg1 == arg2

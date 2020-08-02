@@ -56,11 +56,7 @@
 (define (nnext lst) (next (next lst)))
 (define (nfirst lst) (next (first lst)))
 (define (fnext lst) (first (next lst)))
-(define (nthnext lst n)
-  (if (= n 0)
-    (first lst)
-    (nthnext (next lst) (dec n))))
-(define (third lst) (nthnext lst 2))
+(define (third lst) (nth 2 lst))
 
 (define (append . lists)
   (if (= (length lists) 1)
