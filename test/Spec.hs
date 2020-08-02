@@ -28,10 +28,53 @@ parsingTests =
           ("0b101  ", Integer 5),
           ("0o77", Integer 63)
         ]
+    it "parses booleans" $
+      testTable
+        (fmap head . runParse)
+        [ ("true", Bool True),
+          ("  false  ", Bool False)
+        ]
+    it "parses strings" $
+      testTable
+        (fmap head . runParse)
+        [ ("\"test\"", String "test"),
+          (" \"\\n \" ", String "\n "),
+          ("\"\\0222\"", String "\0222"),
+          ("\"\\f\"", String "\f")
+        ]
+    it "parses characters" $
+      testTable
+        (fmap head . runParse)
+        [ ("\\t", Character 't'),
+          (" \\formfeed ", Character '\f'),
+          ("\\0222", Character '\0222')
+        ]
+    it "parses floats" $
+      testTable
+        (fmap head . runParse)
+        [ ("0.345", Float 0.345)
+        ]
+    it "parses atoms" $
+      testTable
+        (fmap head . runParse)
+        [ ("test", atom "test"),
+          ("$", atom "$"),
+          ("test5", atom "test5"),
+          ("test!$%&|*+-/:<=>?&^_.", atom "test!$%&|*+-/:<=>?&^_.")
+        ]
+    it "parses lists" $
+      testTable
+        (fmap head . runParse)
+        [(" ( 3 4 5)", list [Integer 3, Integer 4, Integer 5])]
+    it "parses dotted lists" $
+      testTable
+        (fmap head . runParse)
+        [("(tt1 tt2 . tt3)", DottedList Nothing [atom "tt1", atom "tt2"] (atom "tt3"))]
     it "parses top level expressions" $
       testTable
         runParse
-        [ (" (t 5) (k 6)", [func "t" [Integer 5], func "k" [Integer 6]])
+        [ (" (t 5) (k 6)", [func "t" [Integer 5], func "k" [Integer 6]]),
+          ("(t 5)\n(k 6) ", [func "t" [Integer 5], func "k" [Integer 6]])
         ]
 
 evaluationTests =
