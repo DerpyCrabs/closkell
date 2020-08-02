@@ -1,6 +1,7 @@
 module Parse (readExpr, readExprList) where
 
 import Control.Monad.Except
+import Data.Maybe (catMaybes)
 import Text.Megaparsec hiding (spaces)
 import Text.Megaparsec.Char hiding (space)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -67,7 +68,14 @@ parseFloat :: Parser LispVal
 parseFloat = Float <$> L.signed (return ()) (lexeme L.float)
 
 parseList :: Parser LispVal
-parseList = getSourcePos >>= \pos -> List (Just pos) <$> sepBy parseExpr spaces
+parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parseExprOrSkip spaces
+  where
+    parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
+    skipExpr = do
+      char '#'
+      char '_'
+      _ <- parseExpr
+      return Nothing
 
 parseDottedList :: Parser LispVal
 parseDottedList = do
