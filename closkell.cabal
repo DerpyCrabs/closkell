@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 295299783bf9192118c34d25cf18dcd4a404c26ee42b4b489f87b66cd1c25239
+-- hash: 8362a7f7ccb080be7046e5e74bfd1738c55c16144becca6890017c5429627606
 
 name:           closkell
 version:        0.1.0.0
@@ -25,6 +25,7 @@ library
   exposed-modules:
       Data.Env
       Data.Error
+      Data.State
       Data.Value
       Eval
       Lib

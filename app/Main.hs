@@ -18,11 +18,11 @@ flushStr str = putStr str >> hFlush stdout
 readPrompt :: String -> IO String
 readPrompt prompt = flushStr prompt >> getLine
 
-evalString :: EnvRef -> String -> IO String
-evalString env expr = runIOThrows $ fmap show $ liftThrows (readExpr "repl" expr) >>= eval env
+evalString :: StateRef -> EnvRef -> String -> IO String
+evalString state env expr = runIOThrows $ fmap show $ liftThrows (readExpr "repl" expr) >>= eval state env
 
-evalAndPrint :: EnvRef -> String -> IO ()
-evalAndPrint env expr = evalString env expr >>= putStrLn
+evalAndPrint :: StateRef -> EnvRef -> String -> IO ()
+evalAndPrint state env expr = evalString state env expr >>= putStrLn
 
 until_ :: Monad m => (t -> Bool) -> m t -> (t -> m a) -> m ()
 until_ pred prompt action = do
@@ -34,11 +34,15 @@ until_ pred prompt action = do
 runOne :: [String] -> IO ()
 runOne args = do
   env <- primitiveBindings >>= flip bindVars [("args", List Nothing $ map String $ drop 1 args)]
-  _ <- runIOThrows (show <$> eval env (List Nothing [Atom Nothing "load", String (head args)])) >>= hPutStrLn stderr
+  state <- nullState
+  _ <- runIOThrows (show <$> eval state env (List Nothing [Atom Nothing "load", String (head args)])) >>= hPutStrLn stderr
   return ()
 
 runRepl :: IO ()
-runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "> ") . evalAndPrint
+runRepl = do
+  env <- primitiveBindings
+  state <- nullState
+  until_ (== "quit") (readPrompt "> ") (evalAndPrint state env)
 
 runIOThrows :: IOThrowsError String -> IO String
 runIOThrows action = extractValue <$> runExceptT (trapError action)

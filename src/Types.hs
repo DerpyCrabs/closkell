@@ -6,6 +6,8 @@ module Types
     Env (..),
     EnvRef,
     Parser,
+    State (..),
+    StateRef,
   )
 where
 
@@ -13,11 +15,15 @@ import Control.Monad.Except
 import Data.IORef
 import Data.Void
 import System.IO (Handle)
-import Text.Megaparsec
+import Text.Megaparsec hiding (State)
 
 data Env = Env {functions :: [(String, IORef LispVal)], macros :: [(String, IORef LispVal)]}
 
 type EnvRef = IORef Env
+
+newtype State = State {gensymCounter :: Integer}
+
+type StateRef = IORef State
 
 type ThrowsError = Either LispError
 
