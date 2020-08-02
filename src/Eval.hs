@@ -32,7 +32,14 @@ eval state env (Atom _ id) = do
     else do
       getVar env id
 eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
-eval state env (List _ (Atom _ "apply" : args)) = applyProc state args
+eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
+  func <- eval state env func
+  (List _ args) <- eval state env args
+  apply state func args
+eval state env (List _ (Atom _ "apply" : func : args)) = do
+  func <- eval state env func
+  args <- mapM (eval state env) args
+  apply state func args
 eval state env (List _ [Atom _ "unquote", val]) = eval state env val >>= eval state env
 eval state env (List _ [Atom _ "gensym"]) = do
   counter <- liftIO $ nextGensymCounter state
@@ -82,13 +89,14 @@ eval state env (List _ (function : args)) = do
 eval state env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 evalUnquote :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
-evalUnquote state env (List _ [Atom _ "unquote", val]) = eval state env val
 evalUnquote state env (List pos exprs) = List pos <$> concat <$> mapM evalUnquoteSplicing exprs
   where
     evalUnquoteSplicing (List _ [Atom _ "unquote-splicing", vals]) = do
+      vals <- eval state env vals
       case vals of
         (List _ vals) -> return vals
         _ -> throwError $ Default "failed unquote-splicing"
+    evalUnquoteSplicing (List _ [Atom _ "unquote", val]) = (\el -> [el]) <$> eval state env val
     evalUnquoteSplicing other = (\el -> [el]) <$> evalUnquote state env other
 evalUnquote state env other = return other
 
@@ -166,10 +174,6 @@ ioPrimitives =
     ("read-contents", readContents),
     ("read-all", readAll)
   ]
-
-applyProc :: StateRef -> [LispVal] -> IOThrowsError LispVal
-applyProc state [func, List _ args] = apply state func args
-applyProc state (func : args) = apply state func args
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode

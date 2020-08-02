@@ -62,6 +62,25 @@
     (nthnext (next lst) (dec n))))
 (define (third lst) (nthnext lst 2))
 
+(define (append . lists)
+  (if (= (length lists) 1)
+    (first lists)
+    (foldr cons (apply append (next lists)) (first lists))))
+
+(define (splitAt i lst)
+  (if (<= i 0)
+    (list () lst)
+    (if (null? lst)
+      (list () ())
+      (let ((nextRes (splitAt (dec i) (next lst))))
+        (if (= i 1)
+          (list (list (first lst)) (next lst))
+          (list (cons (first lst) (first nextRes)) (second nextRes)))))))
+    
+(define (insertAt i elem lst)
+  (let ((parts (splitAt i lst)))
+    (append (first parts) (list elem) (second parts))))
+
 (defmacro if-not
   '(if (not ~(first body))
       ~(second body)
@@ -70,10 +89,10 @@
 (defmacro cond
   (if-not (null? body)
     (if (eq? (first body) ':else)
-      (quote ~(second body))
+      (second body)
       '(if ~(first body)
         ~(second body)
-        '(cond ~@(nnext body))))
+        (cond ~@(nnext body))))
     '(quote nil)))
 
 (defmacro let
@@ -81,3 +100,13 @@
     (second body)
     '((lambda (~(first (ffirst body))) (let ~(nfirst body) ~(second body)))
       ~(second (ffirst body)))))
+      
+(defmacro ->>
+  (if-not (null? (next body))
+    '(->> ~(append (second body) (list (first body))) ~@(nnext body))
+    (first body)))
+    
+(defmacro ->
+  (if-not (null? (next body))
+    '(-> ~(insertAt 1 (first body) (second body)) ~@(nnext body))
+    (first body)))
