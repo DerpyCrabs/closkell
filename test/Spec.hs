@@ -12,9 +12,9 @@ parsingTests =
    in do
         it "parses empty list" $
           test
-            [ ("()", List Nothing [Atom Nothing "quote", List Nothing []]),
-              ("(   )", List Nothing [Atom Nothing "quote", List Nothing []]),
-              (" () ", List Nothing [Atom Nothing "quote", List Nothing []])
+            [ ("()", func "quote" [list []]),
+              ("(   )", func "quote" [list []]),
+              (" () ", func "quote" [list []])
             ]
         it "parses integers" $
           test
@@ -29,7 +29,7 @@ evaluationTests =
   let test = testTable runEval
    in do
         it "evaluates primitive types" $ test [(Integer 1, Right $ Integer 1), (String "test", Right $ String "test")]
-        it "evaluates primitive functions" $ test [(List Nothing [Atom Nothing "+", Integer 1, Integer 2], Right $ Integer 3)]
+        it "evaluates primitive functions" $ test [(func "+" [Integer 1, Integer 2], Right $ Integer 3)]
 
 runEval :: LispVal -> IO (Either LispError LispVal)
 runEval val = runExceptT $ do
@@ -45,3 +45,9 @@ testTable runTest [] = return ()
 testTable runTest ((input, expected) : tests) = do
   res <- runTest input
   (res `shouldBe` expected) >> testTable runTest tests
+
+list = List Nothing
+
+atom = Atom Nothing
+
+func f args = List Nothing (atom f : args)
