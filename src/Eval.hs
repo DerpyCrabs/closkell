@@ -7,6 +7,7 @@ module Eval
 where
 
 import Control.Monad.Except
+import Data.Bifunctor (Bifunctor (first))
 import Data.Env
 import Data.Error
 import Data.State
@@ -55,7 +56,7 @@ eval state env (List _ [Atom _ "if", pred, conseq, alt]) =
       Bool True -> eval state env conseq
       _ -> throwError $ TypeMismatch "boolean" result
 eval state env (List _ [Atom _ "set!", Atom _ var, form]) = eval state env form >>= setVar env var
-eval state env (List _ [Atom _ "throw!", obj]) = eval state env obj >>= throwError . FromCode
+eval state env (List _ [Atom _ "io.throw!", obj]) = eval state env obj >>= throwError . FromCode
 eval state env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name
 eval state env (List _ (Atom _ "begin" : body)) = nothingList <$> mapM (eval state env) body
 eval state env (List _ [Atom _ "define", Atom _ var, form]) = eval state env form >>= defineVar env var
@@ -63,6 +64,8 @@ eval state env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) 
   makeNormalFunc env params body >>= defineVar env var
 eval state env (List _ (Atom _ "define" : DottedList _ (Atom _ var : params) varargs : body)) =
   makeVarArgs varargs env params body >>= defineVar env var
+eval state env (List _ (Atom _ "lambda" : (List _ [Atom _ "quote", List _ []]) : body)) =
+  makeNormalFunc env [] body
 eval state env (List _ (Atom _ "lambda" : List _ params : body)) =
   makeNormalFunc env params body
 eval state env (List _ (Atom _ "lambda" : DottedList _ params varargs : body)) =
@@ -147,35 +150,38 @@ primitives =
     ("<=", numBoolBinop (<=) (<=)),
     ("&&", boolBoolBinop (&&)),
     ("||", boolBoolBinop (||)),
-    ("string=?", strBoolBinop (==)),
-    ("string<?", strBoolBinop (<)),
-    ("string>?", strBoolBinop (>)),
-    ("string<=?", strBoolBinop (<=)),
-    ("string>=?", strBoolBinop (>=)),
-    ("concat", strStringBinop (++)),
+    ("string.concat", strStringBinop (++)),
     ("string.from", stringFrom),
+    ("string.toList", stringToList),
     ("car", car),
     ("cdr", cdr),
     ("cons", cons),
-    ("eq?", eqv),
-    ("eqv?", eqv),
-    ("list?", isList),
     ("nth", nth),
-    ("equal?", equal)
+    ("eq?", eq),
+    ("list?", isList),
+    ("atom?", isAtom),
+    ("integer?", isInteger),
+    ("string?", isString),
+    ("character?", isCharacter),
+    ("float?", isFloat),
+    ("bool?", isBool),
+    ("port?", isPort),
+    ("dotted-list?", isDottedList)
   ]
 
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
 ioPrimitives =
-  [ ("open-input-file", makePort ReadMode),
-    ("open-output-file", makePort WriteMode),
-    ("close-input-port", closePort),
-    ("close-output-port", closePort),
-    ("read", readProc),
-    ("write", writeProc),
-    ("dump", dumpProc),
-    ("read-contents", readContents),
-    ("read-all", readAll)
-  ]
+  first ("io." ++)
+    <$> [ ("open-input-file", makePort ReadMode),
+          ("open-output-file", makePort WriteMode),
+          ("close-input-port", closePort),
+          ("close-output-port", closePort),
+          ("read", readProc),
+          ("write", writeProc),
+          ("dump", dumpProc),
+          ("read-contents", readContents),
+          ("read-all", readAll)
+        ]
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode
@@ -221,6 +227,12 @@ numericBinop opInt opFloat xs
   | all isInteger xs = integerBinop opInt xs
   | all isFloat xs = floatBinop opFloat xs
   | otherwise = throwError $ TypeMismatch "number" $ List Nothing xs
+  where
+    isInteger (Integer _) = True
+    isInteger _ = False
+
+    isFloat (Float _) = True
+    isFloat _ = False
 
 unpackInteger :: LispVal -> ThrowsError Integer
 unpackInteger (Integer n) = return n
@@ -248,17 +260,17 @@ stringBinop unpacker op args =
       right <- unpacker $ head $ tail args
       return $ String $ left `op` right
 
-isInteger (Integer _) = True
-isInteger _ = False
-
-isFloat (Float _) = True
-isFloat _ = False
-
 numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [LispVal] -> ThrowsError LispVal
 numBoolBinop opInt opFloat xs
   | all isInteger xs = intBoolBinop opInt xs
   | all isFloat xs = floatBoolBinop opFloat xs
   | otherwise = throwError $ TypeMismatch "number" $ List Nothing xs
+  where
+    isInteger (Integer _) = True
+    isInteger _ = False
+
+    isFloat (Float _) = True
+    isFloat _ = False
 
 intBoolBinop = boolBinop unpackInteger
 
@@ -284,16 +296,44 @@ car [DottedList _ (x : xs) _] = return x
 car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
 
-isList :: [LispVal] -> ThrowsError LispVal
 isList [(List _ _)] = return $ Bool True
 isList _ = return $ Bool False
 
+isAtom [(Atom _ _)] = return $ Bool True
+isAtom _ = return $ Bool False
+
+isInteger [(Integer _)] = return $ Bool True
+isInteger _ = return $ Bool False
+
+isString [(String _)] = return $ Bool True
+isString _ = return $ Bool False
+
+isCharacter [(Character _)] = return $ Bool True
+isCharacter _ = return $ Bool False
+
+isFloat [(Float _)] = return $ Bool True
+isFloat _ = return $ Bool False
+
+isBool [(Bool _)] = return $ Bool True
+isBool _ = return $ Bool False
+
+isPort [(Port _)] = return $ Bool True
+isPort _ = return $ Bool False
+
+isDottedList [(DottedList _ _ _)] = return $ Bool True
+isDottedList _ = return $ Bool False
+
+stringFrom :: [LispVal] -> ThrowsError LispVal
 stringFrom [List _ xs] = return $ String $ foldl1 (++) $ map showString xs
   where
     showString (String s) = s
     showString (Character s) = [s]
     showString other = show other
 stringFrom xs = stringFrom [List Nothing xs]
+
+stringToList :: [LispVal] -> ThrowsError LispVal
+stringToList [String str] = return $ nothingList (Character <$> str)
+stringToList other = throwError $ TypeMismatch "string" (nothingList other)
 
 cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List _ (x : xs)] = return $ nothingList xs
@@ -313,42 +353,5 @@ nth :: [LispVal] -> ThrowsError LispVal
 nth [Integer i, List _ xs] | length xs > (fromIntegral i) = return $ xs !! (fromIntegral i)
 nth k = throwError $ Default ("nth error: " ++ show k)
 
-eqv :: [LispVal] -> ThrowsError LispVal
-eqv [(Bool arg1), (Bool arg2)] = return $ Bool $ arg1 == arg2
-eqv [(Integer arg1), (Integer arg2)] = return $ Bool $ arg1 == arg2
-eqv [(Float arg1), (Float arg2)] = return $ Bool $ arg1 == arg2
-eqv [(String arg1), (String arg2)] = return $ Bool $ arg1 == arg2
-eqv [(Atom _ arg1), (Atom _ arg2)] = return $ Bool $ arg1 == arg2
-eqv [(DottedList _ xs x), (DottedList _ ys y)] = eqv [nothingList $ xs ++ [x], nothingList $ ys ++ [y]]
-eqv [(List _ arg1), (List _ arg2)] =
-  return $
-    Bool $
-      (length arg1 == length arg2)
-        && (all eqvPair $ zip arg1 arg2)
-  where
-    eqvPair (x1, x2) = case eqv [x1, x2] of
-      Left err -> False
-      Right (Bool val) -> val
-eqv [_, _] = return $ Bool False
-eqv badArgList = throwError $ NumArgs 2 badArgList
-
-data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
-
-unpackEquals :: LispVal -> LispVal -> Unpacker -> ThrowsError Bool
-unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
-  do
-    unpacked1 <- unpacker arg1
-    unpacked2 <- unpacker arg2
-    return $ unpacked1 == unpacked2
-    `catchError` (const $ return False)
-
-equal :: [LispVal] -> ThrowsError LispVal
-equal [arg1, arg2] = do
-  primitiveEquals <-
-    liftM or $
-      mapM
-        (unpackEquals arg1 arg2)
-        [AnyUnpacker unpackInteger, AnyUnpacker unpackFloat, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
-  eqvEquals <- eqv [arg1, arg2]
-  return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
-equal badArgList = throwError $ NumArgs 2 badArgList
+eq :: [LispVal] -> ThrowsError LispVal
+eq (x : xs) = return $ Bool $ (foldr (\elem acc -> elem == x && acc) True xs)

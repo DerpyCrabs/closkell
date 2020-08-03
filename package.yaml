@@ -12,6 +12,9 @@ dependencies:
   - base >= 4.7 && < 5
   - megaparsec
   - mtl
+  # needed for ide autocompletion
+  # TODO fix ide config
+  - hspec
 
 library:
   source-dirs: src

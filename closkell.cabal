@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 64127ccc8d292aa99778ce6e0ed2ec314edcdee53f5bfd302610868e02925c77
+-- hash: d7764932638a57077135417d6647f20abe6c891f459116b4afc23a9add27d699
 
 name:           closkell
 version:        0.1.0.0
@@ -37,6 +37,7 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , hspec
     , megaparsec
     , mtl
   default-language: Haskell2010
@@ -51,6 +52,7 @@ executable closkell-exe
   build-depends:
       base >=4.7 && <5
     , closkell
+    , hspec
     , megaparsec
     , mtl
   default-language: Haskell2010
