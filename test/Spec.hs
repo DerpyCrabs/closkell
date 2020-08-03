@@ -22,11 +22,11 @@ parsingTests =
     it "parses integers" $
       testTable
         (fmap head . runParse)
-        [ ("20", Integer 20),
-          ("  0x3F  ", Integer 63),
-          ("  0x3f", Integer 63),
-          ("0b101  ", Integer 5),
-          ("0o77", Integer 63)
+        [ ("20", int 20),
+          ("  0x3F  ", int 63),
+          ("  0x3f", int 63),
+          ("0b101  ", int 5),
+          ("0o77", int 63)
         ]
     it "parses booleans" $
       testTable
@@ -65,7 +65,7 @@ parsingTests =
     it "parses lists" $
       testTable
         (fmap head . runParse)
-        [(" ( 3 4 5)", list [Integer 3, Integer 4, Integer 5])]
+        [(" ( 3 4 5)", list [int 3, int 4, int 5])]
     it "parses dotted lists" $
       testTable
         (fmap head . runParse)
@@ -78,36 +78,36 @@ parsingTests =
       testTable
         (fmap head . runParse)
         [ ("#(+ %%)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "car" [atom "%&"]]])),
-          ("#(+ %1 %5)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "nth" [Integer 0, atom "%&"], func "nth" [Integer 4, atom "%&"]]]))
+          ("#(+ %1 %5)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]]))
         ]
     it "parses top level expressions" $
       testTable
         runParse
-        [ (" (t 5) (k 6)", [func "t" [Integer 5], func "k" [Integer 6]]),
-          ("(t 5)\n(k 6) ", [func "t" [Integer 5], func "k" [Integer 6]])
+        [ (" (t 5) (k 6)", [func "t" [int 5], func "k" [int 6]]),
+          ("(t 5)\n(k 6) ", [func "t" [int 5], func "k" [int 6]])
         ]
 
 evaluationTests =
   let test = testTable runEval
    in do
-        it "evaluates primitive types" $ test [(Integer 1, Right $ Integer 1), (String "test", Right $ String "test")]
-        it "evaluates primitive functions" $ test [(func "+" [Integer 1, Integer 2], Right $ Integer 3)]
+        it "evaluates primitive types" $ test [(int 1, Right $ int 1), (String "test", Right $ String "test")]
+        it "evaluates primitive functions" $ test [(func "+" [int 1, int 2], Right $ int 3)]
 
 macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)
       getAtom (Right [Atom _ at]) = at
    in do
-        it "can expand macro" $ test [("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 3 4)", Right $ Integer 7)]
-        it "supports quoting" $ test [("'(4 5)", Right $ list [Integer 4, Integer 5])]
-        it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [Integer 4, Integer 4])]
-        it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [Integer 4, Integer 5, Integer 6])]
+        it "can expand macro" $ test [("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 3 4)", Right $ int 7)]
+        it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
+        it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
+        it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
         it "supports gensym without prefix" $ do
           sym <- getAtom <$> runInterpret "(gensym)"
           sym `shouldSatisfy` all isDigit
         it "supports gensym with prefix" $ do
           sym <- getAtom <$> runInterpret "(gensym \"prefix\")"
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
-        it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [Integer 4, Integer 5, Integer 6, Integer 7])]
+        it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
 runEval :: LispVal -> IO (Either LispError LispVal)
 runEval val = runExceptT $ do
@@ -138,3 +138,5 @@ dottedList = DottedList Nothing
 atom = Atom Nothing
 
 func f args = List Nothing (atom f : args)
+
+int = Integer
