@@ -69,7 +69,17 @@ parsingTests =
     it "parses dotted lists" $
       testTable
         (fmap head . runParse)
-        [("(tt1 tt2 . tt3)", DottedList Nothing [atom "tt1", atom "tt2"] (atom "tt3"))]
+        [("(tt1 tt2 . tt3)", dottedList [atom "tt1", atom "tt2"] (atom "tt3"))]
+    it "parses lambda shorthand" $
+      testTable
+        (fmap head . runParse)
+        [("#(+ %&)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [atom "%&"]]))]
+    it "parses lambda shorthand arguments" $
+      testTable
+        (fmap head . runParse)
+        [ ("#(+ %%)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "car" [atom "%&"]]])),
+          ("#(+ %1 %5)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "nth" [Integer 0, atom "%&"], func "nth" [Integer 4, atom "%&"]]]))
+        ]
     it "parses top level expressions" $
       testTable
         runParse
@@ -122,6 +132,8 @@ testTable runTest ((input, expected) : tests) = do
   (res `shouldBe` expected) >> testTable runTest tests
 
 list = List Nothing
+
+dottedList = DottedList Nothing
 
 atom = Atom Nothing
 
