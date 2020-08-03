@@ -80,6 +80,18 @@ parsingTests =
         [ ("#(+ %%)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "car" [atom "%&"]]])),
           ("#(+ %1 %5)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]]))
         ]
+    it "parses quoted expressions" $
+      testTable
+        (fmap head . runParse)
+        [("'(3 4 5)", func "quote" [list [int 3, int 4, int 5]])]
+    it "parses unquoted expressions" $
+      testTable
+        (fmap head . runParse)
+        [("~(3 4 5)", func "unquote" [list [int 3, int 4, int 5]])]
+    it "parses unquote-spliced expressions" $
+      testTable
+        (fmap head . runParse)
+        [("~@(3 4 5)", func "unquote-splicing" [list [int 3, int 4, int 5]])]
     it "parses top level expressions" $
       testTable
         runParse
