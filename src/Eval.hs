@@ -55,10 +55,8 @@ eval state env (List _ [Atom _ "if", pred, conseq, alt]) =
       Bool False -> eval state env alt
       Bool True -> eval state env conseq
       _ -> throwError $ TypeMismatch "boolean" result
-eval state env (List _ [Atom _ "set!", Atom _ var, form]) = eval state env form >>= setVar env var
 eval state env (List _ [Atom _ "io.throw!", obj]) = eval state env obj >>= throwError . FromCode
 eval state env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name
-eval state env (List _ (Atom _ "begin" : body)) = nothingList <$> mapM (eval state env) body
 eval state env (List _ [Atom _ "define", Atom _ var, form]) = eval state env form >>= defineVar env var
 eval state env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
   makeNormalFunc env params body >>= defineVar env var
