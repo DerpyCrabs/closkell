@@ -124,8 +124,18 @@ macrosTests =
         it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
 compilingTests =
-  let test = testTable runCompile in do
-    it "doesn't alter IO primitives" $ test [("(io/write 5)", Right $ [func "io/write" [int 5]])]
+  let test = testTable runCompile
+      testLast = testTable (fmap (fmap last) . runCompile)
+  in do
+    it "doesn't alter IO primitives" $ testLast [("(io.write 5)", Right $ func "io.write" [int 5])]
+    it "evaluates pure code" $ testLast [("(+ 3 5)", Right $ int 8)]
+    it "doesn't evaluate impure code" $ testLast [("(+ (io.read) 5)", Right $ func "+" [func "io.read" [], int 5])]
+    it "can evaluate pure functions" $ testLast [
+      ("(define (sum x y) (+ x y)) (sum 3 5)", Right $ int 8),
+      ("(#(+ %1 %2) 3 5)", Right $ int 8),
+      ("(+ (#(+ %1 %2) 3 5) 2)", Right $ int 10)
+      ]
+    it "evaluates pure code inside of impure" $ testLast [("(io.dump (+ 3 5))", Right $ func "io.dump" [int 8])]
     
 runCompile :: String -> IO (Either LispError [LispVal])
 runCompile code = runExceptT $ do
