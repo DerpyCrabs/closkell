@@ -10,6 +10,7 @@ main = hspec $ do
   describe "Parsing" parsingTests
   describe "Evaluation" evaluationTests
   describe "Macros" macrosTests
+  describe "Compiling" compilingTests
 
 parsingTests =
   do
@@ -122,6 +123,17 @@ macrosTests =
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
         it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
+compilingTests =
+  let test = testTable runCompile in do
+    it "doesn't alter IO primitives" $ test [("(io/write 5)", Right $ [func "io/write" [int 5]])]
+    
+runCompile :: String -> IO (Either LispError [LispVal])
+runCompile code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  env <- liftIO primitiveBindings
+  state <- liftIO nullState
+  compile parsedVals
+  
 runEval :: LispVal -> IO (Either LispError LispVal)
 runEval val = runExceptT $ do
   env <- liftIO primitiveBindings
