@@ -1,39 +1,43 @@
 (load "std/std.scm")
-; (define username (read))
-; (define (repeat i stmt) (if (/= i 0) (do (stmt) (repeat (- i 1) stmt)) '()))
-; (define (print-three-times str) (repeat 3 (lambda () (write (concat "hello user " str)))))
-; (print-three-times username)
-; (write
-;   (string.from
-;     (+ -4 -0o13 -0b11 0xFF)
-;     (+ 0.5 -0.25)
-;     "kek \t \2022 \n"
-;     \tab \k \2022 \newline))
-    
-; (write (string.from (reverse '("1" "2"))))
+(define username (io.read))
+(define (repeat i stmt)
+  (if (/= i 0)
+    (do
+      (stmt)
+      (repeat (- i 1) stmt))
+    'nil))
+(define (print-three-times str)
+  (repeat 3 (lambda () (io.write (string.concat "hello user " str)))))
+(print-three-times username)
 
-; (defmacro reverseBody (cons 'begin (reverse body)))
+(io.write
+  (string.from
+    (+ -4 -0o13 -0b11 0xFF)
+    (+ 0.5 -0.25)
+    "kek \t \2022 \n"
+    \tab \k \2022 \newline))
+    
+
 
 (cond 
-  (< 5 4) (write "first")
-  (< 3 4) (write "second")
-  (= 5 4) (write "third")
-  :else (write "kek"))
+  (< 5 4) (io.write "first")
+  (< 3 4) (io.write "second")
+  (= 5 4) (io.write "third")
+  :else (io.write "kek"))
 
-; (do
-;   (write "6")
-;   (write "7")
-;   (write "8"))
+(do
+  (io.write "6")
+  (io.write "7")
+  (io.write "8"))
   
 (let
   ((kek "lol")
    (pek "kek"))
-  (write (concat kek pek)))
+  (io.write (string.concat kek pek)))
 
-; (let
-;   ((kek "5"))
-;   (write kek))
-; (reverseBody (write "1") (write "2") (write "3"))
+(let
+  ((kek "5"))
+  (io.write kek))
 
 (define (fib i)
   (cond
@@ -48,23 +52,47 @@
       1
       (+ (fib2 (- i 1)) (fib2 (- i 2))))))
     
-; (dump (fib 20))
+(io.dump (fib 10))
 
-(let ((x '(2 1))) (dump '(5 4 3 ~@x)))
-; (dump (gensym))
-; (dump (gensym))
-; (dump (gensym "kek"))
-; (write (string.from (fib 2)))
+(let ((x '(2 1))) (io.dump '(5 4 3 ~@x)))
+(io.dump (gensym))
+(io.dump (gensym))
+(io.dump (gensym "kek"))
+(io.write (string.from (fib 2)))
 
-; (dump (apply + '(4 5)))
-; (dump (append '(1 2 3) '(4 5 6) '(7 8)))
-(dump
+(io.dump (apply + '(4 5)))
+(io.dump (append '(1 2 3) '(4 5 6) '(7 8)))
+
+(cond 
+  (< 5 4) (io.write "first")
+  (< 3 4) (io.write "second")
+  (= 5 4) (io.write "third")
+  :else (io.write "kek"))
+
+(do
+  (io.write "6")
+  (io.write "7")
+  (io.write "8"))
+  
+(let
+  ((kek "lol")
+   (pek "kek"))
+  (io.write (string.concat kek pek)))
+(io.dump
   (->> '(1 2 3 4)
     (filter even?)
     (map inc)))   
 
-(dump
+(io.dump
   (-> 1
     (+ 1)
     (dec)
     (cons '(2 3))))
+
+(if (= 2 3)
+  (io.throw! (+ 2 2))
+  (io.write "not throwed"))
+    
+(io.dump ((curry + 1 2) 3 4))
+
+(io.dump (string.toList (string.from 5 4)))
