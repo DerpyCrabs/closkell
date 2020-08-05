@@ -1,6 +1,7 @@
 module Lib
   ( readExpr,
     eval,
+    compile,
     extractValue,
     trapError,
     IOThrowsError,
@@ -26,3 +27,4 @@ import Eval
 import Parse
 import Types
 import Eval.Primitive
+import Compile
