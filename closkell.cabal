@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d7764932638a57077135417d6647f20abe6c891f459116b4afc23a9add27d699
+-- hash: a8a9ca8343cce959d1658adb2c362047c22219c5a048511cfbccd8d9fe253116
 
 name:           closkell
 version:        0.1.0.0
@@ -28,6 +28,7 @@ library
       Data.State
       Data.Value
       Eval
+      Eval.Primitive
       Lib
       Parse
       Types

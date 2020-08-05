@@ -3,6 +3,7 @@ import Data.Char (isDigit)
 import Data.List (isPrefixOf)
 import Lib
 import Test.Hspec
+import Data.Value
 
 main :: IO ()
 main = hspec $ do
@@ -142,13 +143,3 @@ testTable runTest [] = return ()
 testTable runTest ((input, expected) : tests) = do
   res <- runTest input
   (res `shouldBe` expected) >> testTable runTest tests
-
-list = List Nothing
-
-dottedList = DottedList Nothing
-
-atom = Atom Nothing
-
-func f args = List Nothing (atom f : args)
-
-int = Integer

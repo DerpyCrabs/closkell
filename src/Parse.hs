@@ -1,4 +1,4 @@
-module Parse (readExpr, readExprList) where
+module Parse (readExpr, readExprList, load) where
 
 import Control.Monad.Except
 import Data.Maybe (catMaybes)
@@ -6,6 +6,7 @@ import Text.Megaparsec hiding (spaces)
 import Text.Megaparsec.Char hiding (space)
 import qualified Text.Megaparsec.Char.Lexer as L
 import Types
+import Data.Error
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?^_."
@@ -165,3 +166,6 @@ readExprList = readOrThrow $ do
   exprs <- sepEndBy parseExpr spaces
   _ <- eof
   return exprs
+
+load :: String -> IOThrowsError [LispVal]
+load filename = (liftIO $ readFile filename) >>= liftThrows . (readExprList filename)

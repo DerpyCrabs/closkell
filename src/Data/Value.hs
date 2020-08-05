@@ -1,5 +1,6 @@
 module Data.Value
   ( LispVal (..),
+  list, dottedList, atom, int, func
   )
 where
 
@@ -31,3 +32,13 @@ instance Show LispVal where show = showVal
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
+
+list = List Nothing
+
+dottedList = DottedList Nothing
+
+atom = Atom Nothing
+
+func f args = List Nothing (atom f : args)
+
+int = Integer

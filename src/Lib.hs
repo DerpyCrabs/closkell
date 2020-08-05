@@ -25,3 +25,4 @@ import Data.Value
 import Eval
 import Parse
 import Types
+import Eval.Primitive
