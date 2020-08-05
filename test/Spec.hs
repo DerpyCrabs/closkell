@@ -7,10 +7,10 @@ import Data.Value
 
 main :: IO ()
 main = hspec $ do
-  describe "Parsing" parsingTests
-  describe "Evaluation" evaluationTests
-  describe "Macros" macrosTests
-  describe "Compiling" compilingTests
+  describe "Parser" parsingTests
+  describe "Eval" evaluationTests
+  describe "Macro system" macrosTests
+  describe "Compiler" compilingTests
 
 parsingTests =
   do
