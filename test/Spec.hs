@@ -104,24 +104,24 @@ parsingTests =
 evaluationTests =
   let test = testTable runEval
    in do
-        it "evaluates primitive types" $ test [(int 1, Right $ int 1), (String "test", Right $ String "test")]
-        it "evaluates primitive functions" $ test [(func "+" [int 1, int 2], Right $ int 3)]
+    it "evaluates primitive types" $ test [(int 1, Right $ int 1), (String "test", Right $ String "test")]
+    it "evaluates primitive functions" $ test [(func "+" [int 1, int 2], Right $ int 3)]
 
 macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)
       getAtom (Right [Atom _ at]) = at
    in do
-        it "can expand macro" $ test [("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 3 4)", Right $ int 7)]
-        it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
-        it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
-        it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
-        it "supports gensym without prefix" $ do
-          sym <- getAtom <$> runInterpret "(gensym)"
-          sym `shouldSatisfy` all isDigit
-        it "supports gensym with prefix" $ do
-          sym <- getAtom <$> runInterpret "(gensym \"prefix\")"
-          sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
-        it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
+    it "can expand macro" $ test [("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 3 4)", Right $ int 7)]
+    it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
+    it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
+    it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
+    it "supports gensym without prefix" $ do
+      sym <- getAtom <$> runInterpret "(gensym)"
+      sym `shouldSatisfy` all isDigit
+    it "supports gensym with prefix" $ do
+      sym <- getAtom <$> runInterpret "(gensym \"prefix\")"
+      sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
+    it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
 compilingTests =
   let test = testTable runCompile
@@ -129,19 +129,25 @@ compilingTests =
   in do
     it "doesn't alter IO primitives" $ testLast [("(io.write 5)", Right $ func "io.write" [int 5])]
     it "evaluates pure code" $ testLast [("(+ 3 5)", Right $ int 8)]
-    it "doesn't evaluate impure code" $ testLast [("(+ (io.read) 5)", Right $ func "+" [func "io.read" [], int 5])]
+    it "doesn't evaluate impure code" $ testLast [
+      ("(+ (io.read) 5)", Right $ func "+" [func "io.read" [], int 5])]
     it "can evaluate pure functions" $ testLast [
       ("(define (sum x y) (+ x y)) (sum 3 5)", Right $ int 8),
       ("(#(+ %1 %2) 3 5)", Right $ int 8),
       ("(+ (#(+ %1 %2) 3 5) 2)", Right $ int 10)
       ]
-    it "evaluates pure code inside of impure" $ testLast [("(io.dump (+ 3 5))", Right $ func "io.dump" [int 8])]
+    it "handles quote" $ testLast [
+      ("(car '(5 4))", Right $ int 5)
+      ]
+    it "evaluates pure code inside of impure" $ testLast [
+      ("(io.dump (+ 3 5))", Right $ func "io.dump" [int 8]), 
+      ("(io.dump (+ (io.read) (+ 3 5)))", Right $ func "io.dump" [func "+" [func "io.read" [], int 8]])]
     
 runCompile :: String -> IO (Either LispError [LispVal])
 runCompile code = runExceptT $ do
-  parsedVals <- lift $ runParse code
   env <- liftIO primitiveBindings
   state <- liftIO nullState
+  parsedVals <- lift $ runParse code
   compile parsedVals
   
 runEval :: LispVal -> IO (Either LispError LispVal)
@@ -162,6 +168,4 @@ runInterpret code = runExceptT $ do
 
 testTable :: (Show b, Eq b) => (a -> IO b) -> [(a, b)] -> IO ()
 testTable runTest [] = return ()
-testTable runTest ((input, expected) : tests) = do
-  res <- runTest input
-  (res `shouldBe` expected) >> testTable runTest tests
+testTable runTest ((input, expected) : tests) = (runTest input `shouldReturn` expected) >> testTable runTest tests
