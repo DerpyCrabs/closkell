@@ -168,4 +168,4 @@ readExprList = readOrThrow $ do
   return exprs
 
 load :: String -> IOThrowsError [LispVal]
-load filename = (liftIO $ readFile filename) >>= liftThrows . (readExprList filename)
+load filename = liftIO (readFile filename) >>= liftThrows . readExprList filename

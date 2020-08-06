@@ -86,15 +86,15 @@ eval state env (List _ (function : args)) = do
 eval state env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 evalUnquote :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
-evalUnquote state env (List pos exprs) = List pos <$> concat <$> mapM evalUnquoteSplicing exprs
+evalUnquote state env (List pos exprs) = List pos . concat <$> mapM evalUnquoteSplicing exprs
   where
     evalUnquoteSplicing (List _ [Atom _ "unquote-splicing", vals]) = do
       vals <- eval state env vals
       case vals of
         (List _ vals) -> return vals
         _ -> throwError $ Default "failed unquote-splicing"
-    evalUnquoteSplicing (List _ [Atom _ "unquote", val]) = (\el -> [el]) <$> eval state env val
-    evalUnquoteSplicing other = (\el -> [el]) <$> evalUnquote state env other
+    evalUnquoteSplicing (List _ [Atom _ "unquote", val]) = (: []) <$> eval state env val
+    evalUnquoteSplicing other = (: []) <$> evalUnquote state env other
 evalUnquote state env other = return other
 
 apply :: StateRef -> LispVal -> [LispVal] -> IOThrowsError LispVal

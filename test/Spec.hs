@@ -93,7 +93,8 @@ parsingTests =
     it "parses unquote-spliced expressions" $
       testTable
         (fmap head . runParse)
-        [("~@(3 4 5)", func "unquote-splicing" [list [int 3, int 4, int 5]])]
+        [("~@(3 4 5)", func "unquote-splicing" [list [int 3, int 4, int 5]]),
+         ("'~@'(5 4)", func "quote" [func "unquote-splicing" [func "quote" [list [int 5, int 4]]]])]
     it "parses top level expressions" $
       testTable
         runParse
@@ -138,6 +139,13 @@ compilingTests =
       ]
     it "handles quote" $ testLast [
       ("(car '(5 4))", Right $ int 5)
+      ]
+    it "handles unquote and unquote-splicing inside of quote" $ testLast [
+      ("(car '((unquote-splicing '(1 4))))", Right $ int 1),
+      ("(car '(~(+ 1 1) 4))", Right $ int 2)
+      ] 
+    it "doesn't evaluate IO inside of unquote" $ testLast [
+      ("'(~(io.read) 5)", Right $ func "quote" [list [func "unquote" [func "io.read" []], int 5]])
       ]
     it "evaluates pure code inside of impure" $ testLast [
       ("(io.dump (+ 3 5))", Right $ func "io.dump" [int 8]), 
