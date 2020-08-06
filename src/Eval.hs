@@ -36,7 +36,7 @@ eval state env (List _ (Atom _ "apply" : func : args)) = do
   func <- eval state env func
   args <- mapM (eval state env) args
   apply state func args
-eval state env (List _ [Atom _ "unquote", val]) = eval state env val >>= eval state env
+eval state env (List _ [Atom _ "unquote", val]) = eval state env val
 eval state env (List _ [Atom _ "gensym"]) = do
   counter <- liftIO $ nextGensymCounter state
   return $ Atom Nothing (show counter)
