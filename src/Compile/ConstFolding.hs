@@ -21,17 +21,19 @@ constFolding' state env (val:vals) = do
 constFolding' state env [] = return []
   
 evalPure :: StateRef -> EnvRef -> LispVal -> IOThrowsError (Either LispVal LispVal)
+evalPure state env (List _ [Atom _ "quote", val]) = do
+  quotedArg <- evalPureUnquote state env val
+  case quotedArg of
+    Right arg -> return $ Right arg
+    Left arg -> return $ Left (func "quote" [arg])
 evalPure state env val@(Atom _ atom) = if "io." `isPrefixOf` atom
     then return (Left val)
     else return (Right val)
 evalPure state env val@(List _ (function:args)) = do
   evaledFunc <- evalPure state env function
   case evaledFunc of
-    Right (Atom _ "quote") -> do
-      quotedArg <- evalPureUnquote state env (head args)
-      case quotedArg of
-        Right arg -> return $ Right arg
-        Left arg -> return $ Left (func "quote" [arg])
+    Right (Atom _ name) | name `elem` ["quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> 
+      evalPure state env (List Nothing (extractVal evaledFunc : args))
     _ -> do
       evaledArgs <- mapM (evalPure state env) args
       if all isRight (evaledFunc:evaledArgs)
