@@ -153,6 +153,13 @@ compilingTests =
     it "evaluates pure code inside of impure" $ testLast [
       ("(io.dump (+ 3 5))", Right $ func "io.dump" [int 8]), 
       ("(io.dump (+ (io.read) (+ 3 5)))", Right $ func "io.dump" [func "+" [func "io.read" [], int 8]])]
+    it "handles if" $ testLast [
+      ("(if (= 1 1) 2 3)", Right $ int 2),
+      ("(if (= 2 1) 2 3)", Right $ int 3),
+      ("(if (= (io.read) \"k\") 2 3)", Right $ func "if" [func "=" [func "io.read" [], String "k"], int 2, int 3]),
+      ("(if (= 1 1) (io.read) 3)", Right $ func "io.read" []),
+      ("(if (= 1 2) (io.read) (io.write))", Right $ func "io.write" [])
+      ]
     
 runCompile :: String -> IO (Either LispError [LispVal])
 runCompile code = runExceptT $ do

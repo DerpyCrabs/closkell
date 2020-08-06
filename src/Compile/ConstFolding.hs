@@ -26,9 +26,15 @@ evalPure state env (List _ [Atom _ "quote", val]) = do
   case quotedArg of
     Right arg -> return $ Right arg
     Left arg -> return $ Left (func "quote" [arg])
+evalPure state env (List _ [Atom _ "if", pred, conseq, alt]) = do
+  evaledPred <- evalPure state env pred
+  case evaledPred of
+    Right (Bool True) -> evalPure state env conseq
+    Right (Bool False) -> evalPure state env alt
+    Left pred -> return $ Left $ list [atom "if", pred, conseq, alt]
 evalPure state env val@(Atom _ atom) = if "io." `isPrefixOf` atom
-    then return (Left val)
-    else return (Right val)
+  then return (Left val)
+  else return (Right val)
 evalPure state env val@(List _ (function:args)) = do
   evaledFunc <- evalPure state env function
   case evaledFunc of
