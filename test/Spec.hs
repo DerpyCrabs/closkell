@@ -160,6 +160,10 @@ compilingTests =
       ("(if (= 1 1) (io.read) 3)", Right $ func "io.read" []),
       ("(if (= 1 2) (io.read) (io.write))", Right $ func "io.write" [])
       ]
+    it "handles gensym" $ testLast [
+      ("(gensym)", Right $ atom "1"),
+      ("(gensym \"k\")", Right $ atom "k1")
+      ]
     
 runCompile :: String -> IO (Either LispError [LispVal])
 runCompile code = runExceptT $ do

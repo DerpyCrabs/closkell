@@ -21,6 +21,13 @@ constFolding' state env (val:vals) = do
 constFolding' state env [] = return []
   
 evalPure :: StateRef -> EnvRef -> LispVal -> IOThrowsError (Either LispVal LispVal)
+evalPure state env (List _ [Atom _ "unquote", val]) = evalPure state env val
+evalPure state env (List _ [Atom _ "gensym"]) = do
+  counter <- liftIO $ nextGensymCounter state
+  return $ Right $ Atom Nothing (show counter)
+evalPure state env (List _ [Atom _ "gensym", (String prefix)]) = do
+  counter <- liftIO $ nextGensymCounter state
+  return $ Right $ Atom Nothing ((prefix ++) $ show counter)
 evalPure state env (List _ [Atom _ "quote", val]) = do
   quotedArg <- evalPureUnquote state env val
   case quotedArg of
@@ -45,7 +52,6 @@ evalPure state env val@(List _ (function:args)) = do
       if all isRight (evaledFunc:evaledArgs)
         then Right <$> eval state env val
         else return $ Left $ list $ extractVal <$> (evaledFunc:evaledArgs)
-  
 evalPure state env val = return $ Right val
 
 evalPureUnquote :: StateRef -> EnvRef -> LispVal -> IOThrowsError (Either LispVal LispVal)
