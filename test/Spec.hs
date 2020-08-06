@@ -107,6 +107,9 @@ evaluationTests =
    in do
     it "evaluates primitive types" $ test [(int 1, Right $ int 1), (String "test", Right $ String "test")]
     it "evaluates primitive functions" $ test [(func "+" [int 1, int 2], Right $ int 3)]
+    it "can apply evaluated special forms to args" $ test [
+      (list [func "car" [func "quote" [list [atom "quote"]]], list [int 4, int 5]], Right $ list [int 4, int 5])
+      ]
 
 macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)

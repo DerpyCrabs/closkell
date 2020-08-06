@@ -67,9 +67,11 @@ eval state env (List _ (Atom _ "lambda" : varargs@(Atom _ _) : body)) =
   makeVarArgs varargs env [] body
 eval state env (List _ [Atom _ "load", String filename]) =
   load filename >>= fmap last . mapM (eval state env)
-eval state env (List _ (function : args)) = do
-  func <- eval state env function
-  case func of
+eval state env (List pos (function : args)) = do
+  evaledFunc <- eval state env function
+  case evaledFunc of
+    (Atom _ name) | name `elem` ["quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> do
+      eval state env (List pos (evaledFunc : args))
     (Atom _ name) -> do
       isMacro <- liftIO $ isBound envMacros env name
       if isMacro
@@ -79,10 +81,10 @@ eval state env (List _ (function : args)) = do
           eval state env result
         else do
           argVals <- mapM (eval state env) args
-          apply state func argVals
+          apply state evaledFunc argVals
     _ -> do
       argVals <- mapM (eval state env) args
-      apply state func argVals
+      apply state evaledFunc argVals
 eval state env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 evalUnquote :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
