@@ -27,6 +27,7 @@ executables:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
+      - -haddock
     dependencies:
       - closkell
 
@@ -38,6 +39,7 @@ tests:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
+      - -haddock
     dependencies:
       - closkell
       - hspec
