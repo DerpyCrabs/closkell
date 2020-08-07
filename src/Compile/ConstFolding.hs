@@ -23,6 +23,8 @@ constFolding' state env (val:vals) = do
 constFolding' state env [] = return []
   
 evalPure :: StateRef -> EnvRef -> LispVal -> IOThrowsError (Either LispVal LispVal)
+evalPure state env val@(List _ [Atom _ "forbid-folding", arg]) = return $ Left arg
+  
 evalPure state env val@(List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name >> (returnVar val)
 
 evalPure state env (List _ [Atom _ "define", Atom _ var, form]) = do
@@ -94,7 +96,7 @@ evalPure state env (List _ [Atom _ "apply", func, args]) = do
 evalPure state env val@(List _ (function:args)) = do
   evaledFunc <- evalPure state env function
   case evaledFunc of
-    Right (Atom _ name) | name `elem` ["quote", "unquote", "apply", "io.throw!", "if", "gensym"] -> 
+    Right (Atom _ name) | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "if", "gensym"] -> 
       evalPure state env (List Nothing (extractVal evaledFunc : args))
     Right (Atom _ name) -> do
       isMacro <- liftIO $ isBound envMacros env name

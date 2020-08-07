@@ -27,6 +27,7 @@ eval state env (Atom _ id) = do
       return (Atom Nothing id)
     else do
       getVar env id
+eval state env (List _ [Atom _ "forbid-folding", arg]) = eval state env arg
 eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
 eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
   func <- eval state env func
@@ -66,7 +67,7 @@ eval state env (List _ [Atom _ "load", String filename]) =
 eval state env (List pos (function : args)) = do
   evaledFunc <- eval state env function
   case evaledFunc of
-    (Atom _ name) | name `elem` ["quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> do
+    (Atom _ name) | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> do
       eval state env (List pos (evaledFunc : args))
     (Atom _ name) -> do
       isMacro <- liftIO $ isBound envMacros env name

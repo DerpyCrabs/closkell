@@ -110,6 +110,9 @@ evaluationTests =
     it "can apply evaluated special forms to args" $ test [
       (list [func "car" [func "quote" [list [atom "quote"]]], list [int 4, int 5]], Right $ list [int 4, int 5])
       ]
+    it "ignores forbid-folding special form" $ test [
+      (func "forbid-folding" [func "+" [int 3, int 5]], Right $ int 8)
+      ]
 
 macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)
@@ -184,6 +187,9 @@ compilingTests =
     it "handles gensym" $ testLast [
       ("(gensym)", Right $ atom "1"),
       ("(gensym \"k\")", Right $ atom "k1")
+      ]
+    it "doesn't evaluate arg of forbid-folding special form" $ testLast [
+      ("(+ (forbid-folding (+ 1 2)) 4)", Right $ func "+" [func "+" [int 1, int 2], int 4])
       ]
 
 runCompile :: String -> IO (Either LispError [LispVal])
