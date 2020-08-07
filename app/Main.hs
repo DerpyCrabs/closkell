@@ -4,6 +4,7 @@ import Control.Monad.Except
 import Lib
 import System.Environment
 import System.IO
+import Data.List (intercalate)
 
 main :: IO ()
 main = do
@@ -50,14 +51,22 @@ runIOThrows :: IOThrowsError String -> IO String
 runIOThrows action = extractValue <$> runExceptT (trapError action)
 
 compileCommand :: [String] -> IO ()
-compileCommand args = do
-  let filename = head args
+compileCommand ["-o", outFile, inFile] = do
+  compiled <- compileFile inFile
+  let text = show <$> compiled
+  writeFile outFile (intercalate "\n" text)
+compileCommand [inFile] = do
+  compiled <- compileFile inFile
+  mapM_ print compiled
+
+compileFile filename = do
   contents <- readFile filename
   let ast = readExprList filename contents
   case ast of
-    Left err -> putStrLn "Parsing error: " >> print err
+    Left err -> putStrLn "Parsing error: " >> error (show err)
     Right ast -> do 
       compiled <- runExceptT $ compile ast
       case compiled of
-        Left err -> putStrLn "Compiling error: " >> print err
-        Right compiled -> mapM_ print compiled
+        Left err -> putStrLn "Compiling error: " >> error (show err)
+        Right compiled -> return compiled
+   
