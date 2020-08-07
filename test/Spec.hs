@@ -79,8 +79,8 @@ parsingTests =
     it "parses lambda shorthand arguments" $
       testTable
         (fmap head . runParse)
-        [ ("#(+ %%)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "car" [atom "%&"]]])),
-          ("#(+ %1 %5)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]]))
+        [ ("#(+ %%)", lambda [] (Just $ atom "%&") [func "+" [func "car" [atom "%&"]]]),
+          ("#(+ %1 %5)", lambda [] (Just $ atom "%&") [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]])
         ]
     it "parses quoted expressions" $
       testTable
@@ -135,10 +135,31 @@ compilingTests =
     it "evaluates pure code" $ testLast [("(+ 3 5)", Right $ int 8)]
     it "doesn't evaluate impure code" $ testLast [
       ("(+ (io.read) 5)", Right $ func "+" [func "io.read" [], int 5])]
-    it "can evaluate pure functions" $ testLast [
+    it "evaluates pure functions" $ testLast [
       ("(define (sum x y) (+ x y)) (sum 3 5)", Right $ int 8),
       ("(#(+ %1 %2) 3 5)", Right $ int 8),
       ("(+ (#(+ %1 %2) 3 5) 2)", Right $ int 10)
+      ]
+    it "evaluates pure code in define form" $ testLast [
+      ("(define a (+ 1 2))", Right $ list [atom "define", atom "a", int 3])
+      ]
+    it "doesn't evaluate impure code in define form" $ testLast [
+      ("(define a (io.read))", Right $ list [atom "define", atom "a", func "io.read" []])
+      ]
+    it "doesn't evaluate impure code inside of inline functions" $ testLast [
+      ("(#(+ (io.read) %1) 4)", Right $ list [lambda [] (Just $ atom "%&") [func "+" [func "io.read" [], func "nth" [int 0, atom "%&"]]], int 4])
+      ]
+    it "handles apply" $ testLast [
+      ("(apply + '(4 5))", Right $ int 9),
+      ("(apply + '(~(io.read) 5))", Right $ list [atom "apply", atom "+", func "quote" [list [func "unquote" [func "io.read" []], int 5]]])
+      ]
+    it "doesn't evaluate impure code inside of defined function" $ testLast [
+      ("(define (test x) (io.read)) (test 1)", Right $ func "test" [int 1]),
+      ("(define (test x) (+ (io.read) 4)) (test 1)", Right $ func "test" [int 1])
+      ]
+    it "handles macros" $ testLast [
+      ("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 1 2)", Right $ int 3),
+      ("(defmacro sum '(+ ~(io.read) ~(car (cdr body)))) (sum 1 2)", Right $ func "sum" [int 1, int 2])
       ]
     it "handles quote" $ testLast [
       ("(car '(5 4))", Right $ int 5)
@@ -164,7 +185,7 @@ compilingTests =
       ("(gensym)", Right $ atom "1"),
       ("(gensym \"k\")", Right $ atom "k1")
       ]
-    
+
 runCompile :: String -> IO (Either LispError [LispVal])
 runCompile code = runExceptT $ do
   env <- liftIO primitiveBindings

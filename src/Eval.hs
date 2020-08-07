@@ -32,10 +32,6 @@ eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
   func <- eval state env func
   (List _ args) <- eval state env args
   apply state func args
-eval state env (List _ (Atom _ "apply" : func : args)) = do
-  func <- eval state env func
-  args <- mapM (eval state env) args
-  apply state func args
 eval state env (List _ [Atom _ "unquote", val]) = eval state env val
 eval state env (List _ [Atom _ "gensym"]) = do
   counter <- liftIO $ nextGensymCounter state
@@ -114,9 +110,3 @@ apply state (Func params varargs body closure) args =
       Nothing -> return env
 apply state (IOFunc func) args = func args
 apply state k _ = throwError $ Default $ "Invalid apply " ++ show k
-
-makeFunc varargs env params body = return $ Func (map show params) varargs body env
-
-makeNormalFunc = makeFunc Nothing
-
-makeVarArgs = makeFunc . Just . show
