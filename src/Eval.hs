@@ -27,16 +27,13 @@ eval state env (Atom _ id) = do
       return (Atom Nothing id)
     else do
       getVar env id
+eval state env (List _ [Atom _ "forbid-folding", arg]) = eval state env arg
 eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
 eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
   func <- eval state env func
   (List _ args) <- eval state env args
   apply state func args
-eval state env (List _ (Atom _ "apply" : func : args)) = do
-  func <- eval state env func
-  args <- mapM (eval state env) args
-  apply state func args
-eval state env (List _ [Atom _ "unquote", val]) = eval state env val >>= eval state env
+eval state env (List _ [Atom _ "unquote", val]) = eval state env val
 eval state env (List _ [Atom _ "gensym"]) = do
   counter <- liftIO $ nextGensymCounter state
   return $ Atom Nothing (show counter)
@@ -70,7 +67,7 @@ eval state env (List _ [Atom _ "load", String filename]) =
 eval state env (List pos (function : args)) = do
   evaledFunc <- eval state env function
   case evaledFunc of
-    (Atom _ name) | name `elem` ["quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> do
+    (Atom _ name) | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> do
       eval state env (List pos (evaledFunc : args))
     (Atom _ name) -> do
       isMacro <- liftIO $ isBound envMacros env name
@@ -88,15 +85,15 @@ eval state env (List pos (function : args)) = do
 eval state env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 evalUnquote :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
-evalUnquote state env (List pos exprs) = List pos <$> concat <$> mapM evalUnquoteSplicing exprs
+evalUnquote state env (List pos exprs) = List pos . concat <$> mapM evalUnquoteSplicing exprs
   where
     evalUnquoteSplicing (List _ [Atom _ "unquote-splicing", vals]) = do
       vals <- eval state env vals
       case vals of
         (List _ vals) -> return vals
         _ -> throwError $ Default "failed unquote-splicing"
-    evalUnquoteSplicing (List _ [Atom _ "unquote", val]) = (\el -> [el]) <$> eval state env val
-    evalUnquoteSplicing other = (\el -> [el]) <$> evalUnquote state env other
+    evalUnquoteSplicing (List _ [Atom _ "unquote", val]) = (: []) <$> eval state env val
+    evalUnquoteSplicing other = (: []) <$> evalUnquote state env other
 evalUnquote state env other = return other
 
 apply :: StateRef -> LispVal -> [LispVal] -> IOThrowsError LispVal
@@ -114,9 +111,3 @@ apply state (Func params varargs body closure) args =
       Nothing -> return env
 apply state (IOFunc func) args = func args
 apply state k _ = throwError $ Default $ "Invalid apply " ++ show k
-
-makeFunc varargs env params body = return $ Func (map show params) varargs body env
-
-makeNormalFunc = makeFunc Nothing
-
-makeVarArgs = makeFunc . Just . show

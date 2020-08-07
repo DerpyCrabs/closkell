@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a8a9ca8343cce959d1658adb2c362047c22219c5a048511cfbccd8d9fe253116
+-- hash: fb3098a91bf1375db022a0ca029dee89ada2e45015bf3459d97882c9e7c2c107
 
 name:           closkell
 version:        0.1.0.0
@@ -23,6 +23,8 @@ source-repository head
 
 library
   exposed-modules:
+      Compile
+      Compile.ConstFolding
       Data.Env
       Data.Error
       Data.State
@@ -49,7 +51,7 @@ executable closkell-exe
       Paths_closkell
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -haddock
   build-depends:
       base >=4.7 && <5
     , closkell
@@ -65,7 +67,7 @@ test-suite closkell-test
       Paths_closkell
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -haddock
   build-depends:
       base >=4.7 && <5
     , closkell
