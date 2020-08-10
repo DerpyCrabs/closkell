@@ -31,12 +31,12 @@
   (io.write "8"))
   
 (let
-  ((kek "lol")
-   (pek "kek"))
+  (kek "lol")
+  (pek "kek")
   (io.write (string.concat kek pek)))
 
 (let
-  ((kek "5"))
+  (kek "5")
   (io.write kek))
 
 (define (fib i)
@@ -54,7 +54,7 @@
     
 (io.dump (fib 10))
 
-(let ((x '(2 1))) (io.dump '(5 4 3 ~@x)))
+(let (x '(2 1)) (io.dump '(5 4 3 ~@x)))
 (io.dump (gensym))
 (io.dump (gensym))
 (io.dump (gensym "kek"))
@@ -75,9 +75,10 @@
   (io.write "8"))
   
 (let
-  ((kek "lol")
-   (pek "kek"))
+  (kek "lol")
+  (pek "kek")
   (io.write (string.concat kek pek)))
+
 (io.dump
   (->> '(1 2 3 4)
     (filter even?)
@@ -88,6 +89,13 @@
     (+ 1)
     (dec)
     (cons '(2 3))))
+(let
+  (even #(
+    if (= %% 0)
+    %1
+    (+ 1 (odd (dec %1)))))
+  (odd #(+ 1 (even (dec %1))))
+  (io.dump (even 10)))
 
 (if (= 2 3)
   (io.throw! (+ 2 2))

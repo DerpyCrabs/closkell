@@ -10,9 +10,9 @@ import Data.Env
 import Data.Error
 import Data.State
 import Data.Value
-import Types
 import Eval.Primitive
-import Parse (readExprList, load)
+import Parse (load, readExprList)
+import Types
 
 eval :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
 eval state env val@(String _) = return val
@@ -25,8 +25,7 @@ eval state env (Atom _ id) = do
   if isMacro
     then do
       return (Atom Nothing id)
-    else do
-      getVar env id
+    else getVar env id
 eval state env (List _ [Atom _ "forbid-folding", arg]) = eval state env arg
 eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
 eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
@@ -54,6 +53,19 @@ eval state env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) 
   makeNormalFunc env params body >>= defineVar env var
 eval state env (List _ (Atom _ "define" : DottedList _ (Atom _ var : params) varargs : body)) =
   makeVarArgs varargs env params body >>= defineVar env var
+eval state env (List _ (Atom _ "let" : bindsAndExpr)) = do
+  let binds = init bindsAndExpr
+  let expr = last bindsAndExpr
+  newEnv <- liftIO $ bindVars env (vars binds)
+  evaledVars <- mapM (evalVar newEnv) (vars binds)
+  mapM_ (\(name, var) -> setVar newEnv name var) evaledVars
+  eval state newEnv expr
+  where
+    matchVars (List _ [Atom _ name, var]) = (name, var)
+    vars binds = matchVars <$> binds
+    evalVar env (name, var) = do
+      evaledVar <- eval state env var
+      return (name, evaledVar)
 eval state env (List _ (Atom _ "lambda" : (List _ [Atom _ "quote", List _ []]) : body)) =
   makeNormalFunc env [] body
 eval state env (List _ (Atom _ "lambda" : List _ params : body)) =

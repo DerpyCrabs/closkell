@@ -1,17 +1,16 @@
 module Eval.Primitive
-  (
-    primitiveBindings
+  ( primitiveBindings,
   )
 where
 
-import Types
-import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, stdout)
-import Data.Env
+import Control.Monad.Except
 import Data.Bifunctor (Bifunctor (first))
+import Data.Env
 import Data.Error
 import Data.Value
 import Parse (load)
-import Control.Monad.Except
+import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, stdout)
+import Types
 
 primitiveBindings :: IO EnvRef
 primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives)
