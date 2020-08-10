@@ -21,11 +21,10 @@ eval state env val@(Integer _) = return val
 eval state env val@(Float _) = return val
 eval state env val@(Bool _) = return val
 eval state env (Atom _ id) = do
-  isMacro <- liftIO $ isBound envMacros env id
-  if isMacro
-    then do
-      return (Atom Nothing id)
-    else getVar env id
+  var <- getVar env id
+  case var of
+    (Macro _ _) -> return $ atom id
+    _ -> return var
 eval state env (List _ [Atom _ "forbid-folding", arg]) = eval state env arg
 eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
 eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
@@ -47,7 +46,8 @@ eval state env (List _ [Atom _ "if", pred, conseq, alt]) =
       Bool True -> eval state env conseq
       _ -> throwError $ TypeMismatch "boolean" result
 eval state env (List _ [Atom _ "io.throw!", obj]) = eval state env obj >>= throwError . FromCode
-eval state env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Func [] (Just "body") body env) >>= defineMacro env name
+eval state env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Macro body env) >>= defineVar env name
+eval state env (List _ (Atom _ "macro" : body)) = return (Macro body env)
 eval state env (List _ [Atom _ "define", Atom _ var, form]) = eval state env form >>= defineVar env var
 eval state env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
   makeNormalFunc env params body >>= defineVar env var
@@ -82,13 +82,12 @@ eval state env (List pos (function : args)) = do
     (Atom _ name) | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> do
       eval state env (List pos (evaledFunc : args))
     (Atom _ name) -> do
-      isMacro <- liftIO $ isBound envMacros env name
-      if isMacro
-        then do
-          macro <- getMacro env name
-          result <- apply state macro args
+      var <- getVar env name
+      case var of
+        (Macro _ _) -> do
+          result <- apply state var args
           eval state env result
-        else do
+        _ -> do
           argVals <- mapM (eval state env) args
           apply state evaledFunc argVals
     _ -> do
@@ -121,5 +120,6 @@ apply state (Func params varargs body closure) args =
     bindVarArgs arg env = case arg of
       Just argName -> liftIO $ bindVars env [(argName, list $ remainingArgs)]
       Nothing -> return env
+apply state (Macro body closure) args = apply state (Func [] (Just "body") body closure) args
 apply state (IOFunc func) args = func args
 apply state k _ = throwError $ Default $ "Invalid apply " ++ show k

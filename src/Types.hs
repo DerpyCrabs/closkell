@@ -17,7 +17,7 @@ import Data.Void
 import System.IO (Handle)
 import Text.Megaparsec hiding (State)
 
-data Env = Env {functions :: [(String, IORef LispVal)], macros :: [(String, IORef LispVal)]}
+newtype Env = Env {functions :: [(String, IORef LispVal)]}
 
 type EnvRef = IORef Env
 
@@ -55,6 +55,7 @@ data LispVal
   | IOFunc ([LispVal] -> IOThrowsError LispVal)
   | Port Handle
   | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: EnvRef}
+  | Macro {body :: [LispVal], closure :: EnvRef}
 
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2
