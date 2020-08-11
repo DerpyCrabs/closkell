@@ -4,5 +4,4 @@
     (let
       (sum (get "sum" $$module.test))
       (test2.sub (get "sub" $$module.test2))
-      (do
-        (test2.sub (sum 3 4) 5))))
+      (test2.sub (sum 3 4) 5)))

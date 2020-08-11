@@ -5,6 +5,7 @@ import Types
 import Data.Value
 import Parse
 
+moduleSystem (List _ (Atom _ "executable":loadExprs):[expr])  = (:[]) <$> handleLoads loadExprs expr
 moduleSystem (List _ (Atom _ "executable":loadExprs):exprs)  = (:[]) <$> handleLoads loadExprs (func "do" exprs)
 moduleSystem exprs  = moduleSystem $ func "executable" []:exprs
 
