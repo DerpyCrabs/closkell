@@ -40,6 +40,7 @@ primitives =
     ("car", car),
     ("cdr", cdr),
     ("cons", cons),
+    ("get", get),
     ("nth", nth),
     ("eq?", eq),
     ("list?", isList),
@@ -176,6 +177,11 @@ car [List _ (x : xs)] = return x
 car [DottedList _ (x : xs) _] = return x
 car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
+
+get :: [LispVal] -> ThrowsError LispVal
+get [String key, List _ (String k : val : rest)] | key == k = return val
+  | otherwise = get [String key, list rest]
+get badArgList = throwError $ NumArgs 2 badArgList
 
 isList [(List _ _)] = return $ Bool True
 isList _ = return $ Bool False
