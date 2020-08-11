@@ -12,16 +12,15 @@ Already implemented:
 - some clojure macros to test macro implementation
 - primitive REPL
 - tests for parser and macro system
-- primitive compiler with the following optimizations:
+- separation of pure and effectful code
+- primitive compiler with the following features:
+  - module system
   - constant folding
 
 Future research directions:
 
-- separation of pure and effectful code
 - type system (sum types, parametric polymorphism, dependent types)
 - type inference
 - compiler optimizations:
-  - rewriting AST with expanded macros and inlined constants/functions
   - automatic concurrency insertion for evaluation of pure sibling expressions
-  - outputting rewritten source code or binary representation of already parsed AST
   - dead code elimination
