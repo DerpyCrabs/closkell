@@ -59,6 +59,37 @@ evalPure state env (List _ (Atom _ "do" : body)) = do
   if all isRight evaledBody
     then Right <$> eval state env (extractVal $ last $ evaledBody)
     else return $ Left $ func "do" $ extractVal <$> evaledBody
+evalPure state env (List _ ((Atom _ "let"):bindsAndExpr)) = do
+  let binds = init bindsAndExpr
+  let expr = last bindsAndExpr
+  let vars = matchVar <$> binds
+  newEnv <- liftIO $ bindVars env vars
+  evaledVars <- evalVars newEnv vars
+  case evaledVars of
+    Right (vars) -> do
+      mapM_ (\(name, var) -> setVar newEnv name var) vars
+      evaledExpr <- evalPure state newEnv expr
+      case evaledExpr of
+        Right res -> return $ Right res
+        Left res -> do
+          return $ Left (list (concat [[atom "let"], binds, [res]]))
+    Left (vars) -> do
+      return $ Left (list (concat [[atom "let"], binds, [expr]]))
+  where
+    matchVar (List _ [Atom _ name, var]) = (name, var)
+    vars binds = matchVar <$> binds
+    evalVar env (name, var) = do
+      evaledVar <- evalPure state env var
+      return (name, evaledVar)
+    evalVars :: EnvRef -> [(String, LispVal)] -> IOThrowsError (Either [(String, LispVal)] [(String, LispVal)])
+    evalVars env vars = let
+      sequenceVars vars
+        | all isRight (snd <$> vars) = Right $ (\(n, v) -> (n, extractVal v)) <$> vars
+        | otherwise = Left $ (\(n, v) -> (n, extractVal v)) <$> vars
+      in do 
+        evaledVars <- mapM (evalVar env) vars
+        return $ sequenceVars evaledVars
+  
 evalPure state env (List _ (Atom _ "lambda" : (List _ [Atom _ "quote", List _ []]) : body)) =
   makeNormalFunc env [] body >>= returnVar
 evalPure state env (List _ (Atom _ "lambda" : List _ params : body)) =

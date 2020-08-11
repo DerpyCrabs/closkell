@@ -199,6 +199,12 @@ constFoldingTests =
       ("(do (+ 4 5) (+ 7 8))", Right $ int 15),
       ("(do (io.dump 5) (+ 4 5))", Right $ func "do" [func "io.dump" [int 5], int 9])
       ]
+    it "supports let special form" $ testLast [
+      ("(let (tt1 5) (tt2 6) (+ tt1 tt2))", Right $ int 11),
+      ("(let (tt1 (io.read)) (tt2 (+ 3 6)) (+ tt1 tt2))", Right $ list [atom "let", list [atom "tt1", func "io.read" []], list [atom "tt2", func "+" [int 3, int 6]], func "+" [atom "tt1", atom "tt2"]]),
+      ("(let (tt1 5) (tt2 (+ 3 6)) (io.dump tt1 tt2 (+ 3 9)))", Right $ list [atom "let", list [atom "tt1", int 5], list [atom "tt2", func "+" [int 3, int 6]], func "io.dump" [int 5, int 9, int 12]]),
+      ("(let (tt1 (lambda (x) (io.dump (tt2 x)))) (tt2 (lambda (y) (if (io.dump) (tt1 y) 0))) (io.dump (tt1 1)))", Right $ list [atom "let", list [atom "tt1", lambda [atom "x"] Nothing [func "io.dump" [func "tt2" [atom "x"]]]], list [atom "tt2", lambda [atom "y"] Nothing [list [atom "if", func "io.dump" [], func "tt1" [atom "y"], int 0]]], func "io.dump" [func "tt1" [int 1]]])     
+      ]
       
 -- moduleSystemTests :: Spec
 moduleSystemTests = let
