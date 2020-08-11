@@ -4,13 +4,17 @@ import Data.List (isPrefixOf)
 import Lib
 import Test.Hspec
 import Data.Value
+import Compile.ConstFolding
+import Compile.ModuleSystem
+
 
 main :: IO ()
 main = hspec $ do
   describe "Parser" parsingTests
   describe "Eval" evaluationTests
   describe "Macro system" macrosTests
-  describe "Compiler" compilingTests
+  describe "Constant folding" constFoldingTests
+  describe "Module system" moduleSystemTests
 
 parsingTests =
   do
@@ -113,12 +117,16 @@ evaluationTests =
     it "ignores forbid-folding special form" $ test [
       (func "forbid-folding" [func "+" [int 3, int 5]], Right $ int 8)
       ]
+    it "handles get function" $ test [
+      (func "get" [String "k", func "quote" [list [String "b", int 5, String "k", int 6]]], Right $ int 6),
+      (func "get" [String "b", func "quote" [list [String "b", int 5, String "k", int 6]]], Right $ int 5)
+      ]
 
 macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)
       getAtom (Right [Atom _ at]) = at
    in do
-    it "can expand macro" $ test [("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 3 4)", Right $ int 7)]
+    it "can expand macro" $ test [("(let (sum (macro '(+ ~(car body) ~(car (cdr body))))) (sum 3 4))", Right $ int 7)]
     it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
     it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
     it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
@@ -130,24 +138,16 @@ macrosTests =
       sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
     it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
-compilingTests =
-  let test = testTable runCompile
-      testLast = testTable (fmap (fmap last) . runCompile)
+constFoldingTests =
+  let testLast = testTable ((fmap (last <$>) .) runConstFolding)
   in do
     it "doesn't alter IO primitives" $ testLast [("(io.write 5)", Right $ func "io.write" [int 5])]
     it "evaluates pure code" $ testLast [("(+ 3 5)", Right $ int 8)]
     it "doesn't evaluate impure code" $ testLast [
       ("(+ (io.read) 5)", Right $ func "+" [func "io.read" [], int 5])]
     it "evaluates pure functions" $ testLast [
-      ("(define (sum x y) (+ x y)) (sum 3 5)", Right $ int 8),
       ("(#(+ %1 %2) 3 5)", Right $ int 8),
       ("(+ (#(+ %1 %2) 3 5) 2)", Right $ int 10)
-      ]
-    it "evaluates pure code in define form" $ testLast [
-      ("(define a (+ 1 2))", Right $ list [atom "define", atom "a", int 3])
-      ]
-    it "doesn't evaluate impure code in define form" $ testLast [
-      ("(define a (io.read))", Right $ list [atom "define", atom "a", func "io.read" []])
       ]
     it "doesn't evaluate impure code inside of inline functions" $ testLast [
       ("(#(+ (io.read) %1) 4)", Right $ list [lambda [] (Just $ atom "%&") [func "+" [func "io.read" [], func "nth" [int 0, atom "%&"]]], int 4])
@@ -156,13 +156,9 @@ compilingTests =
       ("(apply + '(4 5))", Right $ int 9),
       ("(apply + '(~(io.read) 5))", Right $ list [atom "apply", atom "+", func "quote" [list [func "unquote" [func "io.read" []], int 5]]])
       ]
-    it "doesn't evaluate impure code inside of defined function" $ testLast [
-      ("(define (test x) (io.read)) (test 1)", Right $ func "test" [int 1]),
-      ("(define (test x) (+ (io.read) 4)) (test 1)", Right $ func "test" [int 1])
-      ]
     it "handles macros" $ testLast [
-      ("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 1 2)", Right $ int 3),
-      ("(defmacro sum '(+ ~(io.read) ~(car (cdr body)))) (sum 1 2)", Right $ func "sum" [int 1, int 2])
+      ("(let (sum (macro '(+ ~(car body) ~(car (cdr body))))) (sum 1 2))", Right $ list [atom "let", list [atom "sum", func "macro" [func "quote" [func "+" [func "unquote" [func "car" [atom "body"]], func "unquote" [func "car" [func "cdr" [atom "body"]]]]]]], int 3]),
+      ("(let (sum (macro '(+ ~(io.read) ~(car (cdr body))))) (sum 1 2))", Right $ list [atom "let", list [atom "sum", func "macro" [func "quote" [func "+" [func "unquote" [func "io.read" []], func "unquote" [func "car" [func "cdr" [atom "body"]]]]]]], func "sum" [int 1, int 2]])
       ]
     it "handles quote" $ testLast [
       ("(car '(5 4))", Right $ int 5)
@@ -191,13 +187,45 @@ compilingTests =
     it "doesn't evaluate arg of forbid-folding special form" $ testLast [
       ("(+ (forbid-folding (+ 1 2)) 4)", Right $ func "+" [func "+" [int 1, int 2], int 4])
       ]
+    it "supports do special form" $ testLast [
+      ("(do (io.dump 5) (io.dump 6))", Right $ func "do" [func "io.dump" [int 5], func "io.dump" [int 6]]),
+      ("(do (+ 4 5) (+ 7 8))", Right $ int 15),
+      ("(do (io.dump 5) (+ 4 5))", Right $ func "do" [func "io.dump" [int 5], int 9])
+      ]
+    it "supports let special form" $ testLast [
+      ("(let (tt1 5) (tt2 6) (+ tt1 tt2))", Right $ list [atom "let", list [atom "tt1", int 5], list [atom "tt2", int 6], int 11]),
+      ("(let (tt1 (io.read)) (tt2 (+ 3 6)) (+ tt1 tt2))", Right $ list [atom "let", list [atom "tt1", func "io.read" []], list [atom "tt2", func "+" [int 3, int 6]], func "+" [atom "tt1", atom "tt2"]]),
+      ("(let (tt1 5) (tt2 (+ 3 6)) (io.dump tt1 tt2 (+ 3 9)))", Right $ list [atom "let", list [atom "tt1", int 5], list [atom "tt2", func "+" [int 3, int 6]], func "io.dump" [int 5, int 9, int 12]]),
+      ("(let (tt1 (lambda (x) (io.dump (tt2 x)))) (tt2 (lambda (y) (if (io.dump) (tt1 y) 0))) (io.dump (tt1 1)))", Right $ list [atom "let", list [atom "tt1", lambda [atom "x"] Nothing [func "io.dump" [func "tt2" [atom "x"]]]], list [atom "tt2", lambda [atom "y"] Nothing [list [atom "if", func "io.dump" [], func "tt1" [atom "y"], int 0]]], func "io.dump" [func "tt1" [int 1]]]),
+      ("(let (sum 5) '(~sum))", Right $ list [atom "let", list [atom "sum", int 5], func "quote" [list [int 5]]])    
+      ]
+      
+moduleSystemTests = let
+  test path = runFolderTest runModuleSystem ("test/ModuleSystem/" ++ path)
+    in do
+      it "transforms executable modules without executable header" $ test "test1"
+      it "transforms executable modules without loads" $ test "test2"
+      it "loads module with default prefix" $ test "test3"
+      it "loads module with custom prefix" $ test "test4"
+      it "loads module without prefix" $ test "test5"
+      it "loads multiple modules" $ test "test6"
 
-runCompile :: String -> IO (Either LispError [LispVal])
-runCompile code = runExceptT $ do
-  env <- liftIO primitiveBindings
-  state <- liftIO nullState
+runConstFolding :: String -> IO (Either LispError [LispVal])
+runConstFolding code = runExceptT $ do
   parsedVals <- lift $ runParse code
-  compile parsedVals
+  constFolding parsedVals
+  
+runFolderTest runner testPath = do
+  input <- readFile (testPath ++ "/input.clsk")
+  expected <- readFile (testPath ++ "/expected.clsk")
+  parsedExpected <- runParse expected
+  runner input `shouldReturn` Right parsedExpected
+  return ()
+
+runModuleSystem :: String -> IO (Either LispError [LispVal])
+runModuleSystem code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  moduleSystem parsedVals
   
 runEval :: LispVal -> IO (Either LispError LispVal)
 runEval val = runExceptT $ do

@@ -44,13 +44,10 @@ eval state env (List _ [Atom _ "if", pred, conseq, alt]) =
       Bool True -> eval state env conseq
       _ -> throwError $ TypeMismatch "boolean" result
 eval state env (List _ [Atom _ "io.throw!", obj]) = eval state env obj >>= throwError . FromCode
-eval state env (List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Macro body env) >>= defineVar env name
 eval state env (List _ (Atom _ "macro" : body)) = return (Macro body env)
-eval state env (List _ [Atom _ "define", Atom _ var, form]) = eval state env form >>= defineVar env var
-eval state env (List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
-  makeNormalFunc env params body >>= defineVar env var
-eval state env (List _ (Atom _ "define" : DottedList _ (Atom _ var : params) varargs : body)) =
-  makeVarArgs varargs env params body >>= defineVar env var
+eval state env (List _ (Atom _ "do" : body)) = do
+  evaledBody <- mapM (eval state env) body
+  return $ last evaledBody
 eval state env (List _ (Atom _ "let" : bindsAndExpr)) = do
   let binds = init bindsAndExpr
   let expr = last bindsAndExpr
@@ -72,12 +69,10 @@ eval state env (List _ (Atom _ "lambda" : DottedList _ params varargs : body)) =
   makeVarArgs varargs env params body
 eval state env (List _ (Atom _ "lambda" : varargs@(Atom _ _) : body)) =
   makeVarArgs varargs env [] body
-eval state env (List _ [Atom _ "load", String filename]) =
-  load filename >>= fmap last . mapM (eval state env)
 eval state env (List pos (function : args)) = do
   evaledFunc <- eval state env function
   case evaledFunc of
-    (Atom _ name) | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "load", "if", "gensym"] -> do
+    (Atom _ name) | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "if", "gensym", "do"] -> do
       eval state env (List pos (evaledFunc : args))
     (Atom _ name) -> do
       var <- getVar env name

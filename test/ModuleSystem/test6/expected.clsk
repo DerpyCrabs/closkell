@@ -1,0 +1,7 @@
+(let
+  ($$module.test (let (sum (lambda (x y) (+ x y))) '("sum" ~sum)))
+  ($$module.test2 (let (sub (lambda (x y) (- x y))) '("sub" ~sub)))
+    (let
+      (sum (get "sum" $$module.test))
+      (test2.sub (get "sub" $$module.test2))
+      (test2.sub (sum 3 4) 5)))

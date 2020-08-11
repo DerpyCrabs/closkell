@@ -24,19 +24,8 @@ constFolding' state env [] = return []
 
 evalPure :: StateRef -> EnvRef -> LispVal -> IOThrowsError (Either LispVal LispVal)
 evalPure state env val@(List _ [Atom _ "forbid-folding", arg]) = return $ Left arg
-evalPure state env val@(List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Macro body env) >>= defineVar env name >> (returnVar val)
-evalPure state env (List _ [Atom _ "define", Atom _ var, form]) = do
-  evaledForm <- evalPure state env form
-  case evaledForm of
-    Right form -> do
-      definedVar <- defineVar env var form
-      return $ Right $ (List Nothing [Atom Nothing "define", Atom Nothing var, form])
-    Left form -> return $ Left $ (List Nothing [Atom Nothing "define", Atom Nothing var, form])
-evalPure state env val@(List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
-  makeNormalFunc env params body >>= defineVar env var >> (returnVar val)
-evalPure state env val@(List _ (Atom _ "define" : DottedList _ (Atom _ var : params) varargs : body)) =
-  makeVarArgs varargs env params body >>= defineVar env var >> (returnVar val)
 evalPure state env (List _ [Atom _ "unquote", val]) = evalPure state env val
+evalPure state env (List _ (Atom _ "macro" : body)) = return $ Right (Macro body env)
 evalPure state env (List _ [Atom _ "gensym"]) = do
   counter <- liftIO $ nextGensymCounter state
   return $ Right $ Atom Nothing (show counter)
@@ -54,6 +43,47 @@ evalPure state env (List _ [Atom _ "if", pred, conseq, alt]) = do
     Right (Bool True) -> evalPure state env conseq
     Right (Bool False) -> evalPure state env alt
     Left pred -> return $ Left $ list [atom "if", pred, conseq, alt]
+evalPure state env (List _ (Atom _ "do" : body)) = do
+  evaledBody <- mapM (evalPure state env) body
+  if all isRight evaledBody
+    then Right <$> eval state env (extractVal $ last $ evaledBody)
+    else return $ Left $ func "do" $ extractVal <$> evaledBody
+evalPure state env (List _ ((Atom _ "let"):bindsAndExpr)) = do
+  let binds = init bindsAndExpr
+  let expr = last bindsAndExpr
+  let vars = matchVar <$> binds
+  newEnv <- liftIO $ bindVars env vars
+  evaledVars <- evalVars newEnv vars
+  case evaledVars of
+    Right (vars) -> do
+      mapM_ (\(name, var) -> setVar newEnv name var) vars
+      evaledExpr <- evalPure state newEnv expr
+      let 
+        inner = case expr of
+          List _ (Atom _ "quote":_) -> [func "quote" [extractVal evaledExpr]]
+          _ -> [extractVal evaledExpr]
+      case evaledExpr of
+        Right res ->
+          return $ Right (list (concat [[atom "let"], binds, inner]))
+        Left res -> do
+          return $ Left (list (concat [[atom "let"], binds, inner]))
+    Left (vars) -> do
+      return $ Left (list (concat [[atom "let"], binds, [expr]]))
+  where
+    matchVar (List _ [Atom _ name, var]) = (name, var)
+    vars binds = matchVar <$> binds
+    evalVar env (name, var) = do
+      evaledVar <- evalPure state env var
+      return (name, evaledVar)
+    evalVars :: EnvRef -> [(String, LispVal)] -> IOThrowsError (Either [(String, LispVal)] [(String, LispVal)])
+    evalVars env vars = let
+      sequenceVars vars
+        | all isRight (snd <$> vars) = Right $ (\(n, v) -> (n, extractVal v)) <$> vars
+        | otherwise = Left $ (\(n, v) -> (n, extractVal v)) <$> vars
+      in do 
+        evaledVars <- mapM (evalVar env) vars
+        return $ sequenceVars evaledVars
+  
 evalPure state env (List _ (Atom _ "lambda" : (List _ [Atom _ "quote", List _ []]) : body)) =
   makeNormalFunc env [] body >>= returnVar
 evalPure state env (List _ (Atom _ "lambda" : List _ params : body)) =
@@ -79,7 +109,7 @@ evalPure state env val@(List _ (function : args)) = do
   evaledFunc <- evalPure state env function
   case evaledFunc of
     Right (Atom _ name)
-      | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "if", "gensym"] ->
+      | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "if", "gensym", "do"] ->
         evalPure state env (List Nothing (extractVal evaledFunc : args))
     Right (Atom _ name) -> do
       var <- getVar env name

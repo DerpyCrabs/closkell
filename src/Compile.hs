@@ -2,6 +2,7 @@ module Compile (compile) where
 
 import Types
 import Compile.ConstFolding
+import Compile.ModuleSystem
 import Control.Monad (foldM)
 
 
@@ -12,4 +13,5 @@ compile' :: [[LispVal] -> IOThrowsError [LispVal]] -> [LispVal] -> IOThrowsError
 compile' transformations vals = foldM (\vals transformation -> transformation vals) vals transformations
 
 transformations :: [[LispVal] -> IOThrowsError [LispVal]]
-transformations = [constFolding]
+-- FIXME constFolding let handling
+transformations = [moduleSystem]

@@ -1,0 +1,3 @@
+(module "test2" (sub))
+
+(sub (lambda (x y) (- x y)))
