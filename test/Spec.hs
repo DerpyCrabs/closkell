@@ -117,6 +117,10 @@ evaluationTests =
     it "ignores forbid-folding special form" $ test [
       (func "forbid-folding" [func "+" [int 3, int 5]], Right $ int 8)
       ]
+    it "handles get function" $ test [
+      (func "get" [String "k", func "quote" [list [String "b", int 5, String "k", int 6]]], Right $ int 6),
+      (func "get" [String "b", func "quote" [list [String "b", int 5, String "k", int 6]]], Right $ int 5)
+      ]
 
 macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)
@@ -200,25 +204,28 @@ constFoldingTests =
       ("(do (io.dump 5) (+ 4 5))", Right $ func "do" [func "io.dump" [int 5], int 9])
       ]
     it "supports let special form" $ testLast [
-      ("(let (tt1 5) (tt2 6) (+ tt1 tt2))", Right $ int 11),
+      ("(let (tt1 5) (tt2 6) (+ tt1 tt2))", Right $ list [atom "let", list [atom "tt1", int 5], list [atom "tt2", int 6], int 11]),
       ("(let (tt1 (io.read)) (tt2 (+ 3 6)) (+ tt1 tt2))", Right $ list [atom "let", list [atom "tt1", func "io.read" []], list [atom "tt2", func "+" [int 3, int 6]], func "+" [atom "tt1", atom "tt2"]]),
       ("(let (tt1 5) (tt2 (+ 3 6)) (io.dump tt1 tt2 (+ 3 9)))", Right $ list [atom "let", list [atom "tt1", int 5], list [atom "tt2", func "+" [int 3, int 6]], func "io.dump" [int 5, int 9, int 12]]),
-      ("(let (tt1 (lambda (x) (io.dump (tt2 x)))) (tt2 (lambda (y) (if (io.dump) (tt1 y) 0))) (io.dump (tt1 1)))", Right $ list [atom "let", list [atom "tt1", lambda [atom "x"] Nothing [func "io.dump" [func "tt2" [atom "x"]]]], list [atom "tt2", lambda [atom "y"] Nothing [list [atom "if", func "io.dump" [], func "tt1" [atom "y"], int 0]]], func "io.dump" [func "tt1" [int 1]]])     
+      ("(let (tt1 (lambda (x) (io.dump (tt2 x)))) (tt2 (lambda (y) (if (io.dump) (tt1 y) 0))) (io.dump (tt1 1)))", Right $ list [atom "let", list [atom "tt1", lambda [atom "x"] Nothing [func "io.dump" [func "tt2" [atom "x"]]]], list [atom "tt2", lambda [atom "y"] Nothing [list [atom "if", func "io.dump" [], func "tt1" [atom "y"], int 0]]], func "io.dump" [func "tt1" [int 1]]]),
+      ("(let (sum 5) '(~sum))", Right $ list [atom "let", list [atom "sum", int 5], func "quote" [list [int 5]]])    
       ]
       
--- moduleSystemTests :: Spec
 moduleSystemTests = let
   test path = runFolderTest runModuleSystem ("test/ModuleSystem/" ++ path)
     in do
       it "transforms executable modules without executable header" $ test "test1"
       it "transforms executable modules without loads" $ test "test2"
+      it "loads module with default prefix" $ test "test3"
+      it "loads module with custom prefix" $ test "test4"
+      it "loads module without prefix" $ test "test5"
+      it "loads multiple modules" $ test "test6"
 
 runConstFolding :: String -> IO (Either LispError [LispVal])
 runConstFolding code = runExceptT $ do
   parsedVals <- lift $ runParse code
   constFolding parsedVals
   
--- testsFolder :: (String -> IO (Either LispError LispVal)) -> FilePath -> IO ()
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")
   expected <- readFile (testPath ++ "/expected.clsk")

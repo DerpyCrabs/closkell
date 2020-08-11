@@ -13,4 +13,5 @@ compile' :: [[LispVal] -> IOThrowsError [LispVal]] -> [LispVal] -> IOThrowsError
 compile' transformations vals = foldM (\vals transformation -> transformation vals) vals transformations
 
 transformations :: [[LispVal] -> IOThrowsError [LispVal]]
-transformations = [moduleSystem, constFolding]
+-- FIXME constFolding let handling
+transformations = [moduleSystem]

@@ -69,10 +69,15 @@ evalPure state env (List _ ((Atom _ "let"):bindsAndExpr)) = do
     Right (vars) -> do
       mapM_ (\(name, var) -> setVar newEnv name var) vars
       evaledExpr <- evalPure state newEnv expr
+      let 
+        inner = case expr of
+          List _ (Atom _ "quote":_) -> [func "quote" [extractVal evaledExpr]]
+          _ -> [extractVal evaledExpr]
       case evaledExpr of
-        Right res -> return $ Right res
+        Right res ->
+          return $ Right (list (concat [[atom "let"], binds, inner]))
         Left res -> do
-          return $ Left (list (concat [[atom "let"], binds, [res]]))
+          return $ Left (list (concat [[atom "let"], binds, inner]))
     Left (vars) -> do
       return $ Left (list (concat [[atom "let"], binds, [expr]]))
   where

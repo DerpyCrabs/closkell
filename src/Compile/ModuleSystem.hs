@@ -31,14 +31,16 @@ handleLoads loadExprs inner = do
     getModuleInfo (List _ [Atom _ "load", String loadPath, Atom _ "as", Atom _ prefix]) = do 
       info <- loadModule loadPath
       return $ info {prefix = prefix}
-    moduleBinding (ModuleInfo _ name _ value) = list [atom $ "##module." ++ name, value]
+    moduleBinding (ModuleInfo _ name _ value) = list [atom $ "$$module." ++ name, value]
     moduleExportsBindings (ModuleInfo prefix name exports _) = bindExports prefix name exports
       where
         bindExports :: String -> String -> [(String, Maybe String)] -> [LispVal]
         bindExports prefix name ((export, Nothing):exports) = bindExports prefix name ((export, Just export):exports)
         bindExports prefix name ((export, Just alias):exports) = let
-          bindName = atom (prefix ++ "." ++ alias)
-          bindValue = func "get" [String export, atom ("##module." ++ name)]
+          bindName = if prefix /= ""
+            then atom (prefix ++ "." ++ alias)
+            else atom (prefix ++ alias)
+          bindValue = func "get" [String export, atom ("$$module." ++ name)]
           in list [bindName, bindValue]:bindExports prefix name exports
         bindExports _ _ [] = []
         
@@ -49,10 +51,11 @@ loadModule path = do
   getModuleInfo loadedModule
   where
     getModuleInfo (List _ (Atom _ "module" : String name : List _ exports : loadExprs): exprs) = do
-      value <- handleLoads loadExprs (list (concat [[atom "let"], exprs, [list $ exportsList name (parseExports exports)]]))
+      value <- handleLoads loadExprs (list (concat [[atom "let"], exprs, [func "quote" [list $ exportsList name (parseExports exports)]]]))
       return ModuleInfo {prefix = name, name = name, exports = parseExports exports, value = value}
     parseExports ((Atom _ export):exports) = (export, Nothing):parseExports exports
     parseExports ((List _ [Atom _ export, Atom _ "as", Atom _ alias]):exports) = (export, Just alias):parseExports exports
     parseExports [] = []
-    exportsList name ((export, _):exports) = [String export, atom export] ++ exportsList name exports
+    exportsList name ((export, _):exports) = [String export, func "unquote" [atom export]] ++ exportsList name exports
+    exportsList _ [] = []
     
