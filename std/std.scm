@@ -37,7 +37,6 @@
 (define (map func lst)      (foldr (lambda (x y) (cons (func x) y)) () lst))
 (define (filter pred lst)   (foldr (lambda (x y) (if (pred x) (cons x y) y)) () lst))
 (define (remove pred lst)   (foldr (lambda (x y) (if (not (pred x)) (cons x y) y)) () lst))
-(define (do . stmts) (last stmts))
 
 (define (dec i) (- i 1))
 (define (inc i) (+ i 1))

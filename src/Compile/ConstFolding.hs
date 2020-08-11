@@ -54,6 +54,11 @@ evalPure state env (List _ [Atom _ "if", pred, conseq, alt]) = do
     Right (Bool True) -> evalPure state env conseq
     Right (Bool False) -> evalPure state env alt
     Left pred -> return $ Left $ list [atom "if", pred, conseq, alt]
+evalPure state env (List _ (Atom _ "do" : body)) = do
+  evaledBody <- mapM (evalPure state env) body
+  if all isRight evaledBody
+    then Right <$> eval state env (extractVal $ last $ evaledBody)
+    else return $ Left $ func "do" $ extractVal <$> evaledBody
 evalPure state env (List _ (Atom _ "lambda" : (List _ [Atom _ "quote", List _ []]) : body)) =
   makeNormalFunc env [] body >>= returnVar
 evalPure state env (List _ (Atom _ "lambda" : List _ params : body)) =
@@ -79,7 +84,7 @@ evalPure state env val@(List _ (function : args)) = do
   evaledFunc <- evalPure state env function
   case evaledFunc of
     Right (Atom _ name)
-      | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "if", "gensym"] ->
+      | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "if", "gensym", "do"] ->
         evalPure state env (List Nothing (extractVal evaledFunc : args))
     Right (Atom _ name) -> do
       var <- getVar env name

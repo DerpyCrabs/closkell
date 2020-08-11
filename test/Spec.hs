@@ -4,13 +4,16 @@ import Data.List (isPrefixOf)
 import Lib
 import Test.Hspec
 import Data.Value
+import Compile.ConstFolding
+import Compile.ModuleSystem
 
 main :: IO ()
 main = hspec $ do
   describe "Parser" parsingTests
   describe "Eval" evaluationTests
   describe "Macro system" macrosTests
-  describe "Compiler" compilingTests
+  describe "Constant folding" constFoldingTests
+  describe "Module system" moduleSystemTests
 
 parsingTests =
   do
@@ -130,9 +133,8 @@ macrosTests =
       sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
     it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
-compilingTests =
-  let test = testTable runCompile
-      testLast = testTable (fmap (fmap last) . runCompile)
+constFoldingTests =
+  let testLast = testTable ((fmap (last <$>) .) runConstFolding)
   in do
     it "doesn't alter IO primitives" $ testLast [("(io.write 5)", Right $ func "io.write" [int 5])]
     it "evaluates pure code" $ testLast [("(+ 3 5)", Right $ int 8)]
@@ -191,13 +193,33 @@ compilingTests =
     it "doesn't evaluate arg of forbid-folding special form" $ testLast [
       ("(+ (forbid-folding (+ 1 2)) 4)", Right $ func "+" [func "+" [int 1, int 2], int 4])
       ]
+    it "supports do special form" $ testLast [
+      ("(do (io.dump 5) (io.dump 6))", Right $ func "do" [func "io.dump" [int 5], func "io.dump" [int 6]]),
+      ("(do (+ 4 5) (+ 7 8))", Right $ int 15),
+      ("(do (io.dump 5) (+ 4 5))", Right $ func "do" [func "io.dump" [int 5], int 9])
+      ]
+      
+moduleSystemTests =
+  let test = testTable runModuleSystem
+  in do
+    it "transforms executable modules without loads" $ test 
+      [
+        ("(executable) (io.dump 5) (io.dump 6)", Right $ func "do" [func "io.dump" [int 5], func "io.dump" [int 6]])
+      ]
+    it "transforms executable modules without executable header" $ test 
+      [
+        ("(io.dump 5) (io.dump 6)", Right $ func "do" [func "io.dump" [int 5], func "io.dump" [int 6]])
+      ]
 
-runCompile :: String -> IO (Either LispError [LispVal])
-runCompile code = runExceptT $ do
-  env <- liftIO primitiveBindings
-  state <- liftIO nullState
+runConstFolding :: String -> IO (Either LispError [LispVal])
+runConstFolding code = runExceptT $ do
   parsedVals <- lift $ runParse code
-  compile parsedVals
+  constFolding parsedVals
+  
+runModuleSystem :: String -> IO (Either LispError LispVal)
+runModuleSystem code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  last <$> moduleSystem parsedVals
   
 runEval :: LispVal -> IO (Either LispError LispVal)
 runEval val = runExceptT $ do
