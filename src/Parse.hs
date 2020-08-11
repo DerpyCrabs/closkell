@@ -9,7 +9,7 @@ import Types
 import Data.Error
 
 symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=>?^_."
+symbol = oneOf "!$%&|*+-/:<=>?^_"
 
 spaces :: Parser ()
 spaces = L.space space1 (L.skipLineComment ";") (L.skipBlockComment "/*" "*/")
@@ -24,10 +24,9 @@ parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 parseAtom :: Parser LispVal
 parseAtom = do
   pos <- getSourcePos
-  _ <- notFollowedBy (char '.')
   first <- letterChar <|> symbol
   _ <- notFollowedBy digitChar
-  rest <- many (alphaNumChar <|> symbol)
+  rest <- many (alphaNumChar <|> symbol <|> char '.')
   let atom = first : rest
   return $ case atom of
     "true" -> Bool True
@@ -84,7 +83,7 @@ parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parse
 parseDottedList :: Parser LispVal
 parseDottedList = do
   pos <- getSourcePos
-  head <- endBy parseExpr spaces
+  head <- sepBy parseExpr spaces
   tail <- char '.' >> spaces >> parseExpr
   return $ DottedList (Just pos) head tail
 
@@ -150,7 +149,7 @@ parseExpr =
     <|> try parseEmptyList
     <|> do
       lparen
-      x <- lexeme (try parseList <|> parseDottedList)
+      x <- lexeme (try parseDottedList <|> parseList)
       rparen
       return x
 

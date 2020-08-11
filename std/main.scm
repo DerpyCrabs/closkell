@@ -1,4 +1,4 @@
-(load "std/std.scm")
+(executable (load "std/std.scm" unqualified))
 ; (define username (io.read))
 ; (define (repeat i stmt)
 ;   (if (/= i 0)
@@ -18,12 +18,15 @@
 ;     \tab \k \2022 \newline))
     
 
+(if (not (null? ()))
+  (io.write "not empty")
+  (io.write "empty"))
 
-(cond 
-  (< 5 4) (io.write "first")
-  (< 3 4) (io.write "second")
-  (= 5 4) (io.write "third")
-  :else (io.write "kek"))
+; (cond 
+;   (< 5 4) (io.write "first")
+;   (< 3 4) (io.write "second")
+;   (= 5 4) (io.write "third")
+;   :else (io.write "kek"))
 
 ; (do
 ;   (io.write "6")

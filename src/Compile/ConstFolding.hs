@@ -24,19 +24,8 @@ constFolding' state env [] = return []
 
 evalPure :: StateRef -> EnvRef -> LispVal -> IOThrowsError (Either LispVal LispVal)
 evalPure state env val@(List _ [Atom _ "forbid-folding", arg]) = return $ Left arg
-evalPure state env val@(List _ (Atom _ "defmacro" : Atom _ name : body)) = return (Macro body env) >>= defineVar env name >> (returnVar val)
-evalPure state env (List _ [Atom _ "define", Atom _ var, form]) = do
-  evaledForm <- evalPure state env form
-  case evaledForm of
-    Right form -> do
-      definedVar <- defineVar env var form
-      return $ Right $ (List Nothing [Atom Nothing "define", Atom Nothing var, form])
-    Left form -> return $ Left $ (List Nothing [Atom Nothing "define", Atom Nothing var, form])
-evalPure state env val@(List _ (Atom _ "define" : List _ (Atom _ var : params) : body)) =
-  makeNormalFunc env params body >>= defineVar env var >> (returnVar val)
-evalPure state env val@(List _ (Atom _ "define" : DottedList _ (Atom _ var : params) varargs : body)) =
-  makeVarArgs varargs env params body >>= defineVar env var >> (returnVar val)
 evalPure state env (List _ [Atom _ "unquote", val]) = evalPure state env val
+evalPure state env (List _ (Atom _ "macro" : body)) = return $ Right (Macro body env)
 evalPure state env (List _ [Atom _ "gensym"]) = do
   counter <- liftIO $ nextGensymCounter state
   return $ Right $ Atom Nothing (show counter)

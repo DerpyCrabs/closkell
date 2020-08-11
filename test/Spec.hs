@@ -126,7 +126,7 @@ macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)
       getAtom (Right [Atom _ at]) = at
    in do
-    it "can expand macro" $ test [("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 3 4)", Right $ int 7)]
+    it "can expand macro" $ test [("(let (sum (macro '(+ ~(car body) ~(car (cdr body))))) (sum 3 4))", Right $ int 7)]
     it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
     it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
     it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
@@ -146,15 +146,8 @@ constFoldingTests =
     it "doesn't evaluate impure code" $ testLast [
       ("(+ (io.read) 5)", Right $ func "+" [func "io.read" [], int 5])]
     it "evaluates pure functions" $ testLast [
-      ("(define (sum x y) (+ x y)) (sum 3 5)", Right $ int 8),
       ("(#(+ %1 %2) 3 5)", Right $ int 8),
       ("(+ (#(+ %1 %2) 3 5) 2)", Right $ int 10)
-      ]
-    it "evaluates pure code in define form" $ testLast [
-      ("(define a (+ 1 2))", Right $ list [atom "define", atom "a", int 3])
-      ]
-    it "doesn't evaluate impure code in define form" $ testLast [
-      ("(define a (io.read))", Right $ list [atom "define", atom "a", func "io.read" []])
       ]
     it "doesn't evaluate impure code inside of inline functions" $ testLast [
       ("(#(+ (io.read) %1) 4)", Right $ list [lambda [] (Just $ atom "%&") [func "+" [func "io.read" [], func "nth" [int 0, atom "%&"]]], int 4])
@@ -163,13 +156,9 @@ constFoldingTests =
       ("(apply + '(4 5))", Right $ int 9),
       ("(apply + '(~(io.read) 5))", Right $ list [atom "apply", atom "+", func "quote" [list [func "unquote" [func "io.read" []], int 5]]])
       ]
-    it "doesn't evaluate impure code inside of defined function" $ testLast [
-      ("(define (test x) (io.read)) (test 1)", Right $ func "test" [int 1]),
-      ("(define (test x) (+ (io.read) 4)) (test 1)", Right $ func "test" [int 1])
-      ]
     it "handles macros" $ testLast [
-      ("(defmacro sum '(+ ~(car body) ~(car (cdr body)))) (sum 1 2)", Right $ int 3),
-      ("(defmacro sum '(+ ~(io.read) ~(car (cdr body)))) (sum 1 2)", Right $ func "sum" [int 1, int 2])
+      ("(let (sum (macro '(+ ~(car body) ~(car (cdr body))))) (sum 1 2))", Right $ list [atom "let", list [atom "sum", func "macro" [func "quote" [func "+" [func "unquote" [func "car" [atom "body"]], func "unquote" [func "car" [func "cdr" [atom "body"]]]]]]], int 3]),
+      ("(let (sum (macro '(+ ~(io.read) ~(car (cdr body))))) (sum 1 2))", Right $ list [atom "let", list [atom "sum", func "macro" [func "quote" [func "+" [func "unquote" [func "io.read" []], func "unquote" [func "car" [func "cdr" [atom "body"]]]]]]], func "sum" [int 1, int 2]])
       ]
     it "handles quote" $ testLast [
       ("(car '(5 4))", Right $ int 5)
