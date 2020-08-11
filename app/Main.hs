@@ -38,7 +38,10 @@ runCommand :: [String] -> IO ()
 runCommand args = do
   env <- primitiveBindings >>= flip bindVars [("args", List Nothing $ map String $ drop 1 args)]
   state <- nullState
-  _ <- runIOThrows (show <$> eval state env (List Nothing [Atom Nothing "load", String (head args)])) >>= hPutStrLn stderr
+  input <- runExceptT (load (head args) >>= moduleSystem)
+  case input of
+    Right val -> runIOThrows (show <$> eval state env (head val)) >>= hPutStrLn stderr
+    Left err -> print err
   return ()
 
 runRepl :: IO ()

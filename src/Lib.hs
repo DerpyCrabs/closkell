@@ -15,6 +15,8 @@ module Lib
     bindVars,
     StateRef,
     nullState,
+    load,
+    moduleSystem
   )
 where
 
@@ -28,3 +30,4 @@ import Parse
 import Types
 import Eval.Primitive
 import Compile
+import Compile.ModuleSystem
