@@ -80,7 +80,9 @@ parsingTests =
     it "parses dotted lists" $
       testTable
         (fmap head . runParse)
-        [("(tt1 tt2 . tt3)", dottedList [atom "tt1", atom "tt2"] (atom "tt3"))]
+        [ ("(tt1 tt2 . tt3)", dottedList [atom "tt1", atom "tt2"] (atom "tt3")),
+          ("(. tt1)", dottedList [] (atom "tt1"))
+        ]
     it "parses lambda shorthand" $
       testTable
         (fmap head . runParse)

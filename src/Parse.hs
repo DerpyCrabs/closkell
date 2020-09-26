@@ -82,9 +82,8 @@ parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parse
 parseDottedList :: Parser LispVal
 parseDottedList = do
   pos <- getSourcePos
-  (List _ head) <- parseList
-  tail <- char '.' >> parseExpr
-  return $ DottedList (Just pos) head tail
+  head <- manyTill (lexeme parseExpr) (char '.')
+  DottedList (Just pos) head <$> parseExpr
 
 parseQuoted :: Parser LispVal
 parseQuoted = do
