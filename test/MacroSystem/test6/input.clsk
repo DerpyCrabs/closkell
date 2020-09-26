@@ -1,0 +1,10 @@
+(let
+  (tt1 (+ 3 5))
+  (tt2 (- 2 3))
+  (tt4 (macro '(car (cdr body))))
+  (tt3 (macro '(+ ~(car body) ~(tt4 body))))
+  (+ (tt3 3 (+ 3 (
+    let (k (macro (quote 5)))
+    (tt3 (k) 5)
+    ))) tt2))
+  

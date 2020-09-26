@@ -1,5 +1,6 @@
 module Eval
   ( eval,
+    apply,
   )
 where
 
@@ -23,7 +24,6 @@ eval state env (Atom _ id) = do
   case var of
     (Macro _ _) -> return $ atom id
     _ -> return var
-eval state env (List _ [Atom _ "forbid-folding", arg]) = eval state env arg
 eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
 eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
   func <- eval state env func
@@ -72,7 +72,7 @@ eval state env (List _ (Atom _ "lambda" : varargs@(Atom _ _) : body)) =
 eval state env (List pos (function : args)) = do
   evaledFunc <- eval state env function
   case evaledFunc of
-    (Atom _ name) | name `elem` ["forbid-folding", "quote", "unquote", "apply", "io.throw!", "if", "gensym", "do"] -> do
+    (Atom _ name) | name `elem` ["quote", "unquote", "apply", "io.throw!", "if", "gensym", "do"] -> do
       eval state env (List pos (evaledFunc : args))
     (Atom _ name) -> do
       var <- getVar env name

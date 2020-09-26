@@ -1,12 +1,12 @@
 module Parse (readExpr, readExprList, load) where
 
 import Control.Monad.Except
+import Data.Error
 import Data.Maybe (catMaybes)
 import Text.Megaparsec hiding (spaces)
 import Text.Megaparsec.Char hiding (space)
 import qualified Text.Megaparsec.Char.Lexer as L
 import Types
-import Data.Error
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?^_"
@@ -25,7 +25,6 @@ parseAtom :: Parser LispVal
 parseAtom = do
   pos <- getSourcePos
   first <- letterChar <|> symbol
-  _ <- notFollowedBy digitChar
   rest <- many (alphaNumChar <|> symbol <|> char '.')
   let atom = first : rest
   return $ case atom of
@@ -83,8 +82,8 @@ parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parse
 parseDottedList :: Parser LispVal
 parseDottedList = do
   pos <- getSourcePos
-  head <- sepBy parseExpr spaces
-  tail <- char '.' >> spaces >> parseExpr
+  (List _ head) <- parseList
+  tail <- char '.' >> parseExpr
   return $ DottedList (Just pos) head tail
 
 parseQuoted :: Parser LispVal
@@ -137,7 +136,7 @@ parseLambdaShorthandArgs =
 parseExpr :: Parser LispVal
 parseExpr =
   spaces >> try parseLambdaShorthandArgs
-    <|> try parseAtom
+    <|> parseAtom
     <|> parseLambdaShorthand
     <|> parseString
     <|> parseCharacter

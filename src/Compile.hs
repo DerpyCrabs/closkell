@@ -1,10 +1,10 @@
 module Compile (compile) where
 
-import Types
 import Compile.ConstFolding
+import Compile.MacroSystem
 import Compile.ModuleSystem
 import Control.Monad (foldM)
-
+import Types
 
 compile :: [LispVal] -> IOThrowsError [LispVal]
 compile = compile' transformations
@@ -13,5 +13,4 @@ compile' :: [[LispVal] -> IOThrowsError [LispVal]] -> [LispVal] -> IOThrowsError
 compile' transformations vals = foldM (\vals transformation -> transformation vals) vals transformations
 
 transformations :: [[LispVal] -> IOThrowsError [LispVal]]
--- FIXME constFolding let handling
-transformations = [moduleSystem]
+transformations = [moduleSystem, macroSystem]
