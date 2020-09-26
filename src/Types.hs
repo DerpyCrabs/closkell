@@ -8,6 +8,8 @@ module Types
     Parser,
     State (..),
     StateRef,
+    LispValCrumb (..),
+    LispValZipper,
   )
 where
 
@@ -57,7 +59,9 @@ data LispVal
   | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: EnvRef}
   | Macro {body :: [LispVal], closure :: EnvRef}
 
-data LispValCrumb = LispValCrumb [LispVal] [LispVal] deriving (Show)
+data LispValCrumb = LispValCrumb (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
+
+type LispValZipper = (Maybe LispVal, [LispValCrumb])
 
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2

@@ -9,6 +9,12 @@ module Data.Value
     makeNormalFunc,
     makeVarArgs,
     makeLet,
+    lvFromAST,
+    lvToAST,
+    lvRight,
+    lvDown,
+    lvUp,
+    lvModify,
   )
 where
 
@@ -44,3 +50,29 @@ makeVarArgs = makeFunc . Just . show
 
 makeLet :: [(String, LispVal)] -> LispVal -> LispVal
 makeLet binds expr = list $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
+
+lvUp :: LispValZipper -> LispValZipper
+lvUp (Just val, LispValCrumb pos ls rs : bs) = (Just $ List pos (ls ++ [val] ++ rs), bs)
+lvUp (_, crumbs) = (Nothing, crumbs)
+
+lvDown :: LispValZipper -> LispValZipper
+lvDown (Just (List pos (val : rest)), crumbs) = (Just val, LispValCrumb pos [] rest : crumbs)
+lvDown (_, crumbs) = (Nothing, crumbs)
+
+lvRight :: LispValZipper -> LispValZipper
+lvRight (Just val, LispValCrumb pos ls (newVal : rs) : bs) = (Just newVal, LispValCrumb pos (ls ++ [val]) rs : bs)
+lvRight (_, crumbs) = (Nothing, crumbs)
+
+lvModify :: (LispVal -> LispVal) -> LispValZipper -> LispValZipper
+lvModify f (Just val, crumbs) = (Just . f $ val, crumbs)
+lvModify _ other = other
+
+lvFromAST :: LispVal -> LispValZipper
+lvFromAST val = (Just val, [])
+
+lvToAST :: LispValZipper -> LispVal
+lvToAST zipper@(Just val, crumbs) =
+  let upZipper = lvUp zipper
+   in case upZipper of
+        (Just _, _) -> lvToAST upZipper
+        (Nothing, _) -> val

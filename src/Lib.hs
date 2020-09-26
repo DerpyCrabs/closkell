@@ -11,6 +11,8 @@ module Lib
     nullEnv,
     LispVal (..),
     LispError (..),
+    LispValZipper,
+    LispValCrumb (..),
     readExprList,
     bindVars,
     StateRef,
