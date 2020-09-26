@@ -28,6 +28,8 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
       - -haddock
+      - -fwrite-ide-info
+      - -hiedir=.hie 
     dependencies:
       - closkell
 
