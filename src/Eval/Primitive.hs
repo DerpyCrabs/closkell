@@ -12,8 +12,8 @@ import Parse (load)
 import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, stdout)
 import Types
 
-primitiveBindings :: IO EnvRef
-primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives)
+primitiveBindings :: Env
+primitiveBindings = map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives
   where
     makeFunc constructor (var, func) = (var, constructor func)
 
@@ -179,7 +179,8 @@ car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
 
 get :: [LispVal] -> ThrowsError LispVal
-get [String key, List _ (String k : val : rest)] | key == k = return val
+get [String key, List _ (String k : val : rest)]
+  | key == k = return val
   | otherwise = get [String key, list rest]
 get badArgList = throwError $ NumArgs 2 badArgList
 

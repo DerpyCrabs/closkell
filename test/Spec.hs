@@ -117,7 +117,11 @@ evaluationTests =
   let test = testTable runEval
    in do
         it "evaluates primitive types" $ test [(int 1, Right $ int 1), (String "test", Right $ String "test")]
-        it "evaluates primitive functions" $ test [(func "+" [int 1, int 2], Right $ int 3)]
+        it "evaluates primitive functions" $
+          test
+            [ (func "+" [int 1, int 2], Right $ int 3),
+              (func "+" [int 1, func "+" [int 2, int 3]], Right $ int 6)
+            ]
         it "can apply evaluated special forms to args" $
           test
             [ (list [func "car" [func "quote" [list [atom "quote"]]], list [int 4, int 5]], Right $ list [int 4, int 5])
@@ -191,10 +195,7 @@ runMacroSystem code = runExceptT $ do
   macroSystem parsedVals
 
 runEval :: LispVal -> IO (Either LispError LispVal)
-runEval val = runExceptT $ do
-  env <- liftIO primitiveBindings
-  state <- liftIO nullState
-  eval state env val
+runEval val = runExceptT $ eval primitiveBindings val
 
 runParse :: String -> IO [LispVal]
 runParse = return . extractValue . readExprList ""
@@ -202,9 +203,7 @@ runParse = return . extractValue . readExprList ""
 runInterpret :: String -> IO (Either LispError [LispVal])
 runInterpret code = runExceptT $ do
   parsedVals <- lift $ runParse code
-  env <- liftIO primitiveBindings
-  state <- liftIO nullState
-  mapM (eval state env) parsedVals
+  mapM (eval primitiveBindings) parsedVals
 
 testTable :: (Show b, Eq b) => (a -> IO b) -> [(a, b)] -> IO ()
 testTable runTest [] = return ()

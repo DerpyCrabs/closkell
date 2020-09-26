@@ -1,117 +1,67 @@
 module Eval
-  ( eval,
-    apply,
+  ( stepEval,
+    eval,
   )
 where
 
 import Control.Monad.Except
 import Data.Env
 import Data.Error
+import Data.Maybe (isNothing)
 import Data.State
 import Data.Value
-import Parse (load, readExprList)
 import Types
 
-eval :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
-eval state env val@(String _) = return val
-eval state env val@(Character _) = return val
-eval state env val@(Integer _) = return val
-eval state env val@(Float _) = return val
-eval state env val@(Bool _) = return val
-eval state env (Atom _ id) = do
-  var <- getVar env id
-  case var of
-    (Macro _ _) -> return $ atom id
-    _ -> return var
-eval state env (List _ [Atom _ "quote", val]) = evalUnquote state env val
-eval state env (List _ [Atom _ "apply", func, args@(List _ _)]) = do
-  func <- eval state env func
-  (List _ args) <- eval state env args
-  apply state func args
-eval state env (List _ [Atom _ "unquote", val]) = eval state env val
-eval state env (List _ [Atom _ "gensym"]) = do
-  counter <- liftIO $ nextGensymCounter state
-  return $ Atom Nothing (show counter)
-eval state env (List _ [Atom _ "gensym", (String prefix)]) = do
-  counter <- liftIO $ nextGensymCounter state
-  return $ Atom Nothing ((prefix ++) $ show counter)
-eval state env (List _ [Atom _ "if", pred, conseq, alt]) =
-  do
-    result <- eval state env pred
-    case result of
-      Bool False -> eval state env alt
-      Bool True -> eval state env conseq
-      _ -> throwError $ TypeMismatch "boolean" result
-eval state env (List _ [Atom _ "io.throw!", obj]) = eval state env obj >>= throwError . FromCode
-eval state env (List _ (Atom _ "macro" : body)) = return (Macro body env)
-eval state env (List _ (Atom _ "do" : body)) = do
-  evaledBody <- mapM (eval state env) body
-  return $ last evaledBody
-eval state env (List _ (Atom _ "let" : bindsAndExpr)) = do
-  let binds = init bindsAndExpr
-  let expr = last bindsAndExpr
-  newEnv <- liftIO $ bindVars env (vars binds)
-  evaledVars <- mapM (evalVar newEnv) (vars binds)
-  mapM_ (\(name, var) -> setVar newEnv name var) evaledVars
-  eval state newEnv expr
+eval :: Env -> LispVal -> IOThrowsError LispVal
+eval env val = eval' z
   where
-    matchVars (List _ [Atom _ name, var]) = (name, var)
-    vars binds = matchVars <$> binds
-    evalVar env (name, var) = do
-      evaledVar <- eval state env var
-      return (name, evaledVar)
-eval state env (List _ (Atom _ "lambda" : (List _ [Atom _ "quote", List _ []]) : body)) =
-  return $ makeNormalFunc env [] body
-eval state env (List _ (Atom _ "lambda" : List _ params : body)) =
-  return $ makeNormalFunc env params body
-eval state env (List _ (Atom _ "lambda" : DottedList _ params varargs : body)) =
-  return $ makeVarArgs varargs env params body
-eval state env (List _ (Atom _ "lambda" : varargs@(Atom _ _) : body)) =
-  return $ makeVarArgs varargs env [] body
-eval state env (List pos (function : args)) = do
-  evaledFunc <- eval state env function
-  case evaledFunc of
-    (Atom _ name) | name `elem` ["quote", "unquote", "apply", "io.throw!", "if", "gensym", "do"] -> do
-      eval state env (List pos (evaledFunc : args))
-    (Atom _ name) -> do
-      var <- getVar env name
-      case var of
-        (Macro _ _) -> do
-          result <- apply state var args
-          eval state env result
-        _ -> do
-          argVals <- mapM (eval state env) args
-          apply state evaledFunc argVals
-    _ -> do
-      argVals <- mapM (eval state env) args
-      apply state evaledFunc argVals
-eval state env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+    z = lvModifyEnv (const env) . lvFromAST $ val
+    eval' z = do
+      nextStep <- stepEval z
+      case nextStep of
+        (_, Nothing, _) -> return $ lvToAST z
+        (_, Just _, _) -> eval' nextStep
 
-evalUnquote :: StateRef -> EnvRef -> LispVal -> IOThrowsError LispVal
-evalUnquote state env (List pos exprs) = List pos . concat <$> mapM evalUnquoteSplicing exprs
-  where
-    evalUnquoteSplicing (List _ [Atom _ "unquote-splicing", vals]) = do
-      vals <- eval state env vals
-      case vals of
-        (List _ vals) -> return vals
-        _ -> throwError $ Default "failed unquote-splicing"
-    evalUnquoteSplicing (List _ [Atom _ "unquote", val]) = (: []) <$> eval state env val
-    evalUnquoteSplicing other = (: []) <$> evalUnquote state env other
-evalUnquote state env other = return other
+stepEval :: LispValZipper -> IOThrowsError LispValZipper
+stepEval z@(_, Just (String _), _) = return $ lvNext z
+stepEval z@(_, Just (Character _), _) = return $ lvNext z
+stepEval z@(_, Just (Integer _), _) = return $ lvNext z
+stepEval z@(_, Just (Float _), _) = return $ lvNext z
+stepEval z@(_, Just (Bool _), _) = return $ lvNext z
+stepEval z@(env, Just (Atom _ id), _) = do
+  var <- liftThrows $ getVar env id
+  return . lvModify (const var) $ z
+stepEval z@(env, Just (List _ [Atom _ "lambda", (List _ [Atom _ "quote", List _ []]), body]), _) =
+  return . lvNext . lvModify (const (makeNormalFunc env [] body)) $ z
+stepEval z@(env, Just (List _ [Atom _ "lambda", List _ params, body]), _) =
+  return . lvNext . lvModify (const (makeNormalFunc env params body)) $ z
+stepEval z@(env, Just (List _ [Atom _ "lambda", DottedList _ params varargs, body]), _) =
+  return . lvNext . lvModify (const (makeVarArgs varargs env params body)) $ z
+stepEval z@(env, Just (List pos (function : args)), _) =
+  case function of
+    PrimitiveFunc f -> do
+      res <- liftThrows $ f args
+      return . lvModify (const res) $ z
+    IOFunc f -> do
+      res <- f args
+      return . lvModify (const res) $ z
+    f@(Func params varargs body closure) -> liftThrows $ applyFunc f z args
+    _ -> stepEval . lvDown $ z
+stepEval z@(_, Just (PrimitiveFunc _), _) = return . lvNext $ z
+stepEval z@(_, Just (IOFunc _), _) = return . lvNext $ z
+stepEval z@(_, Just (Func {}), _) = return . lvNext $ z
+stepEval (_, Just badForm, _) = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
-apply :: StateRef -> LispVal -> [LispVal] -> IOThrowsError LispVal
-apply state (PrimitiveFunc func) args = liftThrows $ func args
-apply state (Func params varargs body closure) args =
-  if num params /= num args && varargs == Nothing
+applyFunc :: LispVal -> LispValZipper -> [LispVal] -> ThrowsError LispValZipper
+applyFunc (Func params varargs body closure) z args =
+  if num params /= num args && isNothing varargs
     then throwError $ NumArgs (num params) args
-    else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
+    else do
+      let newEnv = bindVarArgs varargs . bindVars closure $ zip params args
+      return . lvModify (const body) . lvModifyEnv (const newEnv) $ z
   where
-    remainingArgs = drop (length params) args
     num = toInteger . length
-    evalBody env = liftM last $ mapM (eval state env) body
+    remainingArgs = drop (length params) args
     bindVarArgs arg env = case arg of
-      Just argName -> liftIO $ bindVars env [(argName, list $ remainingArgs)]
-      Nothing -> return env
-apply state (Macro body closure) args = apply state (Func [] (Just "body") body closure) args
-apply state (IOFunc func) args = func args
-apply state k _ = throwError $ Default $ "Invalid apply " ++ show k
+      Just argName -> bindVars env [(argName, list remainingArgs)]
+      Nothing -> env

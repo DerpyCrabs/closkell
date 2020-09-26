@@ -3,14 +3,12 @@ module Types
     IOThrowsError,
     LispError (..),
     LispVal (..),
-    Env (..),
-    EnvRef,
     Parser,
     State (..),
     StateRef,
     LispValCrumb (..),
     LispValZipper,
-    ZipperEnv,
+    Env,
   )
 where
 
@@ -19,10 +17,6 @@ import Data.IORef
 import Data.Void
 import System.IO (Handle)
 import Text.Megaparsec hiding (State)
-
-newtype Env = Env {functions :: [(String, IORef LispVal)]}
-
-type EnvRef = IORef Env
 
 newtype State = State {gensymCounter :: Integer}
 
@@ -57,14 +51,14 @@ data LispVal
   | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
   | IOFunc ([LispVal] -> IOThrowsError LispVal)
   | Port Handle
-  | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: EnvRef}
-  | Macro {body :: [LispVal], closure :: EnvRef}
+  | Func {params :: [String], vararg :: Maybe String, body :: LispVal, closure :: Env}
+  | Macro {body :: LispVal, closure :: Env}
 
-data LispValCrumb = LispValCrumb ZipperEnv (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
+data LispValCrumb = LispValCrumb Env (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
 
-type ZipperEnv = [(String, LispVal)]
+type Env = [(String, LispVal)]
 
-type LispValZipper = (ZipperEnv, Maybe LispVal, [LispValCrumb])
+type LispValZipper = (Env, Maybe LispVal, [LispValCrumb])
 
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2
@@ -96,7 +90,7 @@ instance Show LispVal where
              Just arg -> " . " ++ arg
          )
       ++ "] "
-      ++ concat (show <$> body)
+      ++ show body
       ++ "}"
   show (Port _) = "<IO port>"
   show (IOFunc _) = "<IO primitive>"

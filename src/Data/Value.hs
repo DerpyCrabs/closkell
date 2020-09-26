@@ -17,6 +17,7 @@ module Data.Value
     lvModify,
     lvModifyEnv,
     lvEnd,
+    lvNext,
   )
 where
 
@@ -41,13 +42,13 @@ lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
 lambda args Nothing body = list (atom "lambda" : list args : body)
 lambda args (Just vararg) body = list (atom "lambda" : dottedList args vararg : body)
 
-makeFunc :: Maybe String -> EnvRef -> [LispVal] -> [LispVal] -> LispVal
+makeFunc :: Maybe String -> Env -> [LispVal] -> LispVal -> LispVal
 makeFunc varargs env params body = Func (map show params) varargs body env
 
-makeNormalFunc :: EnvRef -> [LispVal] -> [LispVal] -> LispVal
+makeNormalFunc :: Env -> [LispVal] -> LispVal -> LispVal
 makeNormalFunc = makeFunc Nothing
 
-makeVarArgs :: LispVal -> EnvRef -> [LispVal] -> [LispVal] -> LispVal
+makeVarArgs :: LispVal -> Env -> [LispVal] -> LispVal -> LispVal
 makeVarArgs = makeFunc . Just . show
 
 makeLet :: [(String, LispVal)] -> LispVal -> LispVal
@@ -68,7 +69,7 @@ lvRight (_, _, crumbs) = lvEnd
 lvModify :: (LispVal -> LispVal) -> LispValZipper -> LispValZipper
 lvModify f (env, val, crumbs) = (env, f <$> val, crumbs)
 
-lvModifyEnv :: (ZipperEnv -> ZipperEnv) -> LispValZipper -> LispValZipper
+lvModifyEnv :: (Env -> Env) -> LispValZipper -> LispValZipper
 lvModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
 
 lvFromAST :: LispVal -> LispValZipper
@@ -83,3 +84,8 @@ lvToAST zipper@(_, Just val, crumbs) =
 
 lvEnd :: LispValZipper
 lvEnd = ([], Nothing, [])
+
+lvNext :: LispValZipper -> LispValZipper
+lvNext z = case lvRight z of
+  z@(_, Just _, _) -> z
+  _ -> lvUp z

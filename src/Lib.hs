@@ -5,10 +5,8 @@ module Lib
     extractValue,
     trapError,
     IOThrowsError,
-    EnvRef,
     liftThrows,
     primitiveBindings,
-    nullEnv,
     LispVal (..),
     LispError (..),
     LispValZipper,
@@ -16,8 +14,8 @@ module Lib
     readExprList,
     bindVars,
     StateRef,
-    nullState,
     load,
+    nullState,
     moduleSystem,
   )
 where
