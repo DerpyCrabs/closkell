@@ -1,4 +1,3 @@
-import Compile.ConstFolding (constFolding)
 import Compile.MacroSystem (macroSystem)
 import Compile.ModuleSystem (moduleSystem)
 import Control.Monad.Except
@@ -17,7 +16,6 @@ main = hspec $ do
   describe "Parser" parsingTests
   describe "Eval" evaluationTests
   describe "Macro expansion" macrosTests
-  describe "Constant folding" constFoldingTests
   describe "Module system" moduleSystemTests
   describe "Macro system" macroSystemTests
   describe "LispVal Zipper" zipperTests
@@ -145,84 +143,6 @@ macrosTests =
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
         it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
-constFoldingTests =
-  let testLast = testTable ((fmap (last <$>) .) runConstFolding)
-   in do
-        it "doesn't alter IO primitives" $ testLast [("(io.write 5)", Right $ func "io.write" [int 5])]
-        it "evaluates pure code" $ testLast [("(+ 3 5)", Right $ int 8)]
-        it "doesn't evaluate impure code" $
-          testLast
-            [ ("(+ (io.read) 5)", Right $ func "+" [func "io.read" [], int 5])
-            ]
-        it "evaluates pure functions" $
-          testLast
-            [ ("(#(+ %1 %2) 3 5)", Right $ int 8),
-              ("(+ (#(+ %1 %2) 3 5) 2)", Right $ int 10)
-            ]
-        it "doesn't evaluate impure code inside of inline functions" $
-          testLast
-            [ ("(#(+ (io.read) %1) 4)", Right $ list [lambda [] (Just $ atom "%&") [func "+" [func "io.read" [], func "nth" [int 0, atom "%&"]]], int 4])
-            ]
-        it "handles apply" $
-          testLast
-            [ ("(apply + '(4 5))", Right $ int 9),
-              ("(apply + '(~(io.read) 5))", Right $ list [atom "apply", atom "+", func "quote" [list [func "unquote" [func "io.read" []], int 5]]])
-            ]
-        it "handles macros" $
-          testLast
-            [ ("(let (sum (macro '(+ ~(car body) ~(car (cdr body))))) (sum 1 2))", Right $ list [atom "let", list [atom "sum", func "macro" [func "quote" [func "+" [func "unquote" [func "car" [atom "body"]], func "unquote" [func "car" [func "cdr" [atom "body"]]]]]]], int 3]),
-              ("(let (sum (macro '(+ ~(io.read) ~(car (cdr body))))) (sum 1 2))", Right $ list [atom "let", list [atom "sum", func "macro" [func "quote" [func "+" [func "unquote" [func "io.read" []], func "unquote" [func "car" [func "cdr" [atom "body"]]]]]]], func "sum" [int 1, int 2]])
-            ]
-        it "handles quote" $
-          testLast
-            [ ("(car '(5 4))", Right $ int 5)
-            ]
-        it "handles unquote and unquote-splicing inside of quote" $
-          testLast
-            [ ("(car '((unquote-splicing '(1 4))))", Right $ int 1),
-              ("(car '(~(+ 1 1) 4))", Right $ int 2)
-            ]
-        it "doesn't evaluate IO inside of unquote" $
-          testLast
-            [ ("'(~(io.read) 5)", Right $ func "quote" [list [func "unquote" [func "io.read" []], int 5]])
-            ]
-        it "evaluates pure code inside of impure" $
-          testLast
-            [ ("(io.dump (+ 3 5))", Right $ func "io.dump" [int 8]),
-              ("(io.dump (+ (io.read) (+ 3 5)))", Right $ func "io.dump" [func "+" [func "io.read" [], int 8]])
-            ]
-        it "handles if" $
-          testLast
-            [ ("(if (= 1 1) 2 3)", Right $ int 2),
-              ("(if (= 2 1) 2 3)", Right $ int 3),
-              ("(if (= (io.read) \"k\") 2 3)", Right $ func "if" [func "=" [func "io.read" [], String "k"], int 2, int 3]),
-              ("(if (= 1 1) (io.read) 3)", Right $ func "io.read" []),
-              ("(if (= 1 2) (io.read) (io.write))", Right $ func "io.write" [])
-            ]
-        it "handles gensym" $
-          testLast
-            [ ("(gensym)", Right $ atom "1"),
-              ("(gensym \"k\")", Right $ atom "k1")
-            ]
-        it "doesn't evaluate arg of forbid-folding special form" $
-          testLast
-            [ ("(+ (forbid-folding (+ 1 2)) 4)", Right $ func "+" [func "+" [int 1, int 2], int 4])
-            ]
-        it "supports do special form" $
-          testLast
-            [ ("(do (io.dump 5) (io.dump 6))", Right $ func "do" [func "io.dump" [int 5], func "io.dump" [int 6]]),
-              ("(do (+ 4 5) (+ 7 8))", Right $ int 15),
-              ("(do (io.dump 5) (+ 4 5))", Right $ func "do" [func "io.dump" [int 5], int 9])
-            ]
-        it "supports let special form" $
-          testLast
-            [ ("(let (tt1 5) (tt2 6) (+ tt1 tt2))", Right $ list [atom "let", list [atom "tt1", int 5], list [atom "tt2", int 6], int 11]),
-              ("(let (tt1 (io.read)) (tt2 (+ 3 6)) (+ tt1 tt2))", Right $ list [atom "let", list [atom "tt1", func "io.read" []], list [atom "tt2", func "+" [int 3, int 6]], func "+" [atom "tt1", atom "tt2"]]),
-              ("(let (tt1 5) (tt2 (+ 3 6)) (io.dump tt1 tt2 (+ 3 9)))", Right $ list [atom "let", list [atom "tt1", int 5], list [atom "tt2", func "+" [int 3, int 6]], func "io.dump" [int 5, int 9, int 12]]),
-              ("(let (tt1 (lambda (x) (io.dump (tt2 x)))) (tt2 (lambda (y) (if (io.dump) (tt1 y) 0))) (io.dump (tt1 1)))", Right $ list [atom "let", list [atom "tt1", lambda [atom "x"] Nothing [func "io.dump" [func "tt2" [atom "x"]]]], list [atom "tt2", lambda [atom "y"] Nothing [list [atom "if", func "io.dump" [], func "tt1" [atom "y"], int 0]]], func "io.dump" [func "tt1" [int 1]]]),
-              ("(let (sum 5) '(~sum))", Right $ list [atom "let", list [atom "sum", int 5], func "quote" [list [int 5]]])
-            ]
-
 moduleSystemTests =
   let test path = runFolderTest runModuleSystem ("test/ModuleSystem/" ++ path)
    in do
@@ -250,11 +170,6 @@ zipperTests = do
   it "can go up" $ lvUp (Just $ int 2, [LispValCrumb Nothing [int 1] [int 3]]) `shouldBe` (Just . list $ [int 1, int 2, int 3], [])
   it "can go right" $ (lvRight . lvRight . lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` (Just $ int 3, [LispValCrumb Nothing [int 1, int 2] []])
   it "can modify current value" $ (lvModify (\(Integer n) -> Integer (n + 1)) . lvFromAST $ int 1) `shouldBe` lvFromAST (int 2)
-
-runConstFolding :: String -> IO (Either LispError [LispVal])
-runConstFolding code = runExceptT $ do
-  parsedVals <- lift $ runParse code
-  constFolding parsedVals
 
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")

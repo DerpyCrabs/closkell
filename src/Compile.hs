@@ -1,6 +1,5 @@
 module Compile (compile) where
 
-import Compile.ConstFolding
 import Compile.MacroSystem
 import Compile.ModuleSystem
 import Control.Monad (foldM)
