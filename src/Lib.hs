@@ -16,18 +16,17 @@ module Lib
     StateRef,
     nullState,
     load,
-    moduleSystem
+    moduleSystem,
   )
 where
 
-import Control.Monad.Except
+import Compile
+import Compile.ModuleSystem
 import Data.Env
 import Data.Error
 import Data.State
 import Data.Value
 import Eval
+import Eval.Primitive
 import Parse
 import Types
-import Eval.Primitive
-import Compile
-import Compile.ModuleSystem

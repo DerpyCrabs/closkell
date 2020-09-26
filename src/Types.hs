@@ -57,6 +57,8 @@ data LispVal
   | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: EnvRef}
   | Macro {body :: [LispVal], closure :: EnvRef}
 
+data LispValCrumb = LispValCrumb [LispVal] [LispVal] deriving (Show)
+
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2
   (List _ l1) == (List _ l2) = l1 == l2
@@ -68,3 +70,45 @@ instance Eq LispVal where
   (Port h1) == (Port h2) = h1 == h2
   (Character c1) == (Character c2) = c1 == c2
   _ == _ = False
+
+instance Show LispVal where
+  show (String contents) = "\"" ++ contents ++ "\""
+  show (Character contents) = "'" ++ [contents] ++ "'"
+  show (Atom _ name) = name
+  show (Integer contents) = show contents
+  show (Float contents) = show contents
+  show (Bool True) = "true"
+  show (Bool False) = "false"
+  show (List _ contents) = "(" ++ unwordsList contents ++ ")"
+  show (DottedList _ head tail) = "(" ++ unwordsList head ++ " . " ++ show tail ++ ")"
+  show (PrimitiveFunc _) = "<primitive>"
+  show Func {params = args, vararg = varargs, body = body, closure = env} =
+    "{lambda [" ++ unwords (map show args)
+      ++ ( case varargs of
+             Nothing -> ""
+             Just arg -> " . " ++ arg
+         )
+      ++ "] "
+      ++ concat (show <$> body)
+      ++ "}"
+  show (Port _) = "<IO port>"
+  show (IOFunc _) = "<IO primitive>"
+
+unwordsList :: [LispVal] -> String
+unwordsList = unwords . map show
+
+instance Show LispError where
+  show (UnboundVar message var) = message ++ ": " ++ var
+  show (BadSpecialForm message form) = message ++ ": " ++ show form
+  show (NotFunction message func) = message ++ ": " ++ show func
+  show (NumArgs expected found) =
+    "Expected " ++ show expected
+      ++ " args; found values "
+      ++ unwords (map show found)
+  show (TypeMismatch expected found) =
+    "Invalid type: expected " ++ expected
+      ++ ", found "
+      ++ show found
+  show (Parsing parseErr) = errorBundlePretty parseErr
+  show (FromCode obj) = "Error from code: " ++ show obj
+  show (Default err) = err

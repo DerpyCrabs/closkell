@@ -12,36 +12,7 @@ module Data.Value
   )
 where
 
-import Data.Env
 import Types
-
-showVal :: LispVal -> String
-showVal (String contents) = "\"" ++ contents ++ "\""
-showVal (Character contents) = "'" ++ [contents] ++ "'"
-showVal (Atom _ name) = name
-showVal (Integer contents) = show contents
-showVal (Float contents) = show contents
-showVal (Bool True) = "true"
-showVal (Bool False) = "false"
-showVal (List _ contents) = "(" ++ unwordsList contents ++ ")"
-showVal (DottedList _ head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
-showVal (PrimitiveFunc _) = "<primitive>"
-showVal Func {params = args, vararg = varargs, body = body, closure = env} =
-  "{lambda [" ++ unwords (map show args)
-    ++ ( case varargs of
-           Nothing -> ""
-           Just arg -> " . " ++ arg
-       )
-    ++ "] "
-    ++ concat (show <$> body)
-    ++ "}"
-showVal (Port _) = "<IO port>"
-showVal (IOFunc _) = "<IO primitive>"
-
-instance Show LispVal where show = showVal
-
-unwordsList :: [LispVal] -> String
-unwordsList = unwords . map showVal
 
 list :: [LispVal] -> LispVal
 list = List Nothing

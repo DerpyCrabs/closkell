@@ -1,7 +1,6 @@
 module Data.Env (nullEnv, getVar, setVar, defineVar, bindVars, isBound, envFunctions) where
 
 import Control.Monad.Except
-import Control.Monad.IO.Class
 import Data.IORef
 import Data.Maybe
 import Types
