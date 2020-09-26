@@ -18,6 +18,8 @@ module Data.Value
     lvModifyEnv,
     lvEnd,
     lvNext,
+    lvSet,
+    lvSetEnv,
   )
 where
 
@@ -71,6 +73,10 @@ lvModify f (env, val, crumbs) = (env, f <$> val, crumbs)
 
 lvModifyEnv :: (Env -> Env) -> LispValZipper -> LispValZipper
 lvModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
+
+lvSet = lvModify . const
+
+lvSetEnv = lvModifyEnv . const
 
 lvFromAST :: LispVal -> LispValZipper
 lvFromAST val = ([], Just val, [])

@@ -15,7 +15,7 @@ import Types
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval env val = eval' z
   where
-    z = lvModifyEnv (const env) . lvFromAST $ val
+    z = lvSetEnv env . lvFromAST $ val
     eval' z = do
       nextStep <- stepEval z
       case nextStep of
@@ -30,21 +30,21 @@ stepEval z@(_, Just (Float _), _) = return $ lvNext z
 stepEval z@(_, Just (Bool _), _) = return $ lvNext z
 stepEval z@(env, Just (Atom _ id), _) = do
   var <- liftThrows $ getVar env id
-  return . lvModify (const var) $ z
+  return . lvSet var $ z
 stepEval z@(env, Just (List _ [Atom _ "lambda", (List _ [Atom _ "quote", List _ []]), body]), _) =
-  return . lvNext . lvModify (const (makeNormalFunc env [] body)) $ z
+  return . lvNext . lvSet (makeNormalFunc env [] body) $ z
 stepEval z@(env, Just (List _ [Atom _ "lambda", List _ params, body]), _) =
-  return . lvNext . lvModify (const (makeNormalFunc env params body)) $ z
+  return . lvNext . lvSet (makeNormalFunc env params body) $ z
 stepEval z@(env, Just (List _ [Atom _ "lambda", DottedList _ params varargs, body]), _) =
-  return . lvNext . lvModify (const (makeVarArgs varargs env params body)) $ z
+  return . lvNext . lvSet (makeVarArgs varargs env params body) $ z
 stepEval z@(env, Just (List pos (function : args)), _) =
   case function of
     PrimitiveFunc f -> do
       res <- liftThrows $ f args
-      return . lvModify (const res) $ z
+      return . lvSet res $ z
     IOFunc f -> do
       res <- f args
-      return . lvModify (const res) $ z
+      return . lvSet res $ z
     f@(Func params varargs body closure) -> liftThrows $ applyFunc f z args
     _ -> stepEval . lvDown $ z
 stepEval z@(_, Just (PrimitiveFunc _), _) = return . lvNext $ z
@@ -57,8 +57,8 @@ applyFunc (Func params varargs body closure) z args =
   if num params /= num args && isNothing varargs
     then throwError $ NumArgs (num params) args
     else do
-      let newEnv = bindVarArgs varargs . bindVars closure $ zip params args
-      return . lvModify (const body) . lvModifyEnv (const newEnv) $ z
+      let env = bindVarArgs varargs . bindVars closure $ zip params args
+      return . lvSet body . lvSetEnv env $ z
   where
     num = toInteger . length
     remainingArgs = drop (length params) args
