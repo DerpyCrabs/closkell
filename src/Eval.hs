@@ -9,7 +9,6 @@ import Data.Env
 import Data.Error
 import Data.State
 import Data.Value
-import Eval.Primitive
 import Parse (load, readExprList)
 import Types
 
@@ -62,13 +61,13 @@ eval state env (List _ (Atom _ "let" : bindsAndExpr)) = do
       evaledVar <- eval state env var
       return (name, evaledVar)
 eval state env (List _ (Atom _ "lambda" : (List _ [Atom _ "quote", List _ []]) : body)) =
-  makeNormalFunc env [] body
+  return $ makeNormalFunc env [] body
 eval state env (List _ (Atom _ "lambda" : List _ params : body)) =
-  makeNormalFunc env params body
+  return $ makeNormalFunc env params body
 eval state env (List _ (Atom _ "lambda" : DottedList _ params varargs : body)) =
-  makeVarArgs varargs env params body
+  return $ makeVarArgs varargs env params body
 eval state env (List _ (Atom _ "lambda" : varargs@(Atom _ _) : body)) =
-  makeVarArgs varargs env [] body
+  return $ makeVarArgs varargs env [] body
 eval state env (List pos (function : args)) = do
   evaledFunc <- eval state env function
   case evaledFunc of

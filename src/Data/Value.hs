@@ -15,6 +15,8 @@ module Data.Value
     lvDown,
     lvUp,
     lvModify,
+    lvModifyEnv,
+    lvEnd,
   )
 where
 
@@ -39,40 +41,45 @@ lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
 lambda args Nothing body = list (atom "lambda" : list args : body)
 lambda args (Just vararg) body = list (atom "lambda" : dottedList args vararg : body)
 
-makeFunc :: Maybe String -> EnvRef -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
-makeFunc varargs env params body = return $ Func (map show params) varargs body env
+makeFunc :: Maybe String -> EnvRef -> [LispVal] -> [LispVal] -> LispVal
+makeFunc varargs env params body = Func (map show params) varargs body env
 
-makeNormalFunc :: EnvRef -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
+makeNormalFunc :: EnvRef -> [LispVal] -> [LispVal] -> LispVal
 makeNormalFunc = makeFunc Nothing
 
-makeVarArgs :: LispVal -> EnvRef -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
+makeVarArgs :: LispVal -> EnvRef -> [LispVal] -> [LispVal] -> LispVal
 makeVarArgs = makeFunc . Just . show
 
 makeLet :: [(String, LispVal)] -> LispVal -> LispVal
 makeLet binds expr = list $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
 
 lvUp :: LispValZipper -> LispValZipper
-lvUp (Just val, LispValCrumb pos ls rs : bs) = (Just $ List pos (ls ++ [val] ++ rs), bs)
-lvUp (_, crumbs) = (Nothing, crumbs)
+lvUp (_, Just val, LispValCrumb env pos ls rs : bs) = (env, Just $ List pos (ls ++ [val] ++ rs), bs)
+lvUp (_, _, crumbs) = lvEnd
 
 lvDown :: LispValZipper -> LispValZipper
-lvDown (Just (List pos (val : rest)), crumbs) = (Just val, LispValCrumb pos [] rest : crumbs)
-lvDown (_, crumbs) = (Nothing, crumbs)
+lvDown (env, Just (List pos (val : rest)), crumbs) = (env, Just val, LispValCrumb env pos [] rest : crumbs)
+lvDown (_, _, crumbs) = lvEnd
 
 lvRight :: LispValZipper -> LispValZipper
-lvRight (Just val, LispValCrumb pos ls (newVal : rs) : bs) = (Just newVal, LispValCrumb pos (ls ++ [val]) rs : bs)
-lvRight (_, crumbs) = (Nothing, crumbs)
+lvRight (env, Just val, LispValCrumb crumbEnv pos ls (newVal : rs) : bs) = (env, Just newVal, LispValCrumb crumbEnv pos (ls ++ [val]) rs : bs)
+lvRight (_, _, crumbs) = lvEnd
 
 lvModify :: (LispVal -> LispVal) -> LispValZipper -> LispValZipper
-lvModify f (Just val, crumbs) = (Just . f $ val, crumbs)
-lvModify _ other = other
+lvModify f (env, val, crumbs) = (env, f <$> val, crumbs)
+
+lvModifyEnv :: (ZipperEnv -> ZipperEnv) -> LispValZipper -> LispValZipper
+lvModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
 
 lvFromAST :: LispVal -> LispValZipper
-lvFromAST val = (Just val, [])
+lvFromAST val = ([], Just val, [])
 
 lvToAST :: LispValZipper -> LispVal
-lvToAST zipper@(Just val, crumbs) =
+lvToAST zipper@(_, Just val, crumbs) =
   let upZipper = lvUp zipper
    in case upZipper of
-        (Just _, _) -> lvToAST upZipper
-        (Nothing, _) -> val
+        (_, Just _, _) -> lvToAST upZipper
+        (_, Nothing, _) -> val
+
+lvEnd :: LispValZipper
+lvEnd = ([], Nothing, [])

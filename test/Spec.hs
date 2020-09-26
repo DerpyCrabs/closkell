@@ -164,11 +164,13 @@ macroSystemTests =
         it "handles nested let macro bindings" $ test "test6"
 
 zipperTests = do
-  it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` (Just $ int 1, [])
-  it "can be converted to LispVal" $ lvToAST (Just $ int 2, [LispValCrumb Nothing [int 1] [int 3]]) `shouldBe` list [int 1, int 2, int 3]
-  it "can go down" $ (lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` (Just $ int 1, [LispValCrumb Nothing [] [int 2, int 3]])
-  it "can go up" $ lvUp (Just $ int 2, [LispValCrumb Nothing [int 1] [int 3]]) `shouldBe` (Just . list $ [int 1, int 2, int 3], [])
-  it "can go right" $ (lvRight . lvRight . lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` (Just $ int 3, [LispValCrumb Nothing [int 1, int 2] []])
+  it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` ([], Just $ int 1, [])
+  it "can be converted to LispVal" $ lvToAST ([], Just $ int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` list [int 1, int 2, int 3]
+  it "can go down" $ (lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` ([], Just $ int 1, [LispValCrumb [] Nothing [] [int 2, int 3]])
+  it "can go up" $ lvUp ([], Just $ int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` ([], Just . list $ [int 1, int 2, int 3], [])
+  it "can go right" $
+    (lvRight . lvRight . lvDown . lvFromAST . list $ [int 1, int 2, int 3])
+      `shouldBe` ([], Just $ int 3, [LispValCrumb [] Nothing [int 1, int 2] []])
   it "can modify current value" $ (lvModify (\(Integer n) -> Integer (n + 1)) . lvFromAST $ int 1) `shouldBe` lvFromAST (int 2)
 
 runFolderTest runner testPath = do
