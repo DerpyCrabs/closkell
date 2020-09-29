@@ -124,7 +124,7 @@ evaluationTests =
             ]
         it "can apply evaluated special forms to args" $
           test
-            [ (list [func "car" [func "quote" [list [atom "quote"]]], list [int 4, int 5]], Right $ list [int 4, int 5])
+            [ (list [func "car" [func "quote" [list [atom "quote"]]], list [int 4, int 5]], Right $ func "quote" [list [int 4, int 5]])
             ]
         it "handles get function" $
           test

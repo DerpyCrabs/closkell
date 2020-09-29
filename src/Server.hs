@@ -10,12 +10,13 @@ import Eval.Primitive
 import GHC.TypeLits
 import JSONInstances
 import Network.Wai.Handler.Warp
+import Network.Wai.Middleware.Cors
 import Parse (readExpr)
 import Servant
 import Servant.API
 import Types
 
-type EvalAPI = "eval" :> ReqBody '[JSON] String :> Get '[JSON] [ThrowsError LispValZipper]
+type EvalAPI = "eval" :> ReqBody '[PlainText, JSON] String :> Post '[JSON] [ThrowsError LispValZipper]
 
 evalAPI :: Proxy EvalAPI
 evalAPI = Proxy
@@ -45,4 +46,4 @@ evalServer = eval
     notIntrinsic (_, _) = True
 
 server :: [String] -> Application
-server args = serve evalAPI evalServer
+server args = simpleCors $ serve evalAPI evalServer
