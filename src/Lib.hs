@@ -17,6 +17,7 @@ module Lib
     load,
     nullState,
     moduleSystem,
+    server,
   )
 where
 
@@ -29,4 +30,5 @@ import Data.Value
 import Eval
 import Eval.Primitive
 import Parse
+import Server
 import Types

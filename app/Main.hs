@@ -3,6 +3,7 @@ module Main where
 import Control.Monad.Except
 import Data.List (intercalate)
 import Lib
+import Network.Wai.Handler.Warp
 import System.Environment
 import System.IO
 
@@ -12,6 +13,10 @@ main = do
   case head args of
     "run" -> runCommand $ tail args
     "compile" -> compileCommand $ tail args
+    "debug-server" -> debuggerCommand $ tail args
+
+debuggerCommand :: [String] -> IO ()
+debuggerCommand args = run 8081 (server args)
 
 -- flushStr :: String -> IO ()
 -- flushStr str = putStr str >> hFlush stdout
@@ -25,12 +30,12 @@ main = do
 -- evalAndPrint :: StateRef -> EnvRef -> String -> IO ()
 -- evalAndPrint state env expr = evalString state env expr >>= putStrLn
 
-until_ :: Monad m => (t -> Bool) -> m t -> (t -> m a) -> m ()
-until_ pred prompt action = do
-  result <- prompt
-  if pred result
-    then return ()
-    else action result >> until_ pred prompt action
+-- until_ :: Monad m => (t -> Bool) -> m t -> (t -> m a) -> m ()
+-- until_ pred prompt action = do
+--   result <- prompt
+--   if pred result
+--     then return ()
+--     else action result >> until_ pred prompt action
 
 runCommand :: [String] -> IO ()
 runCommand args = do

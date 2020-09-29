@@ -15,7 +15,7 @@ import Types
 primitiveBindings :: Env
 primitiveBindings = map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives
   where
-    makeFunc constructor (var, func) = (var, constructor func)
+    makeFunc constructor (var, func) = (var, constructor var func)
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives =

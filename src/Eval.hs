@@ -1,5 +1,6 @@
 module Eval
   ( stepEval,
+    evalSteps,
     eval,
   )
 where
@@ -13,14 +14,23 @@ import Data.Value
 import Types
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
-eval env val = eval' z
+eval env val = do
+  steps <- lift $ evalSteps env val
+  case last $ steps of
+    Left err -> throwError err
+    Right zipper -> return $ lvToAST zipper
+
+evalSteps :: Env -> LispVal -> IO [ThrowsError LispValZipper]
+evalSteps env val = evalSteps' [Right zipper] zipper
   where
-    z = lvSetEnv env . lvFromAST $ val
-    eval' z = do
-      nextStep <- stepEval z
+    zipper = lvSetEnv env . lvFromAST $ val
+    evalSteps' :: [ThrowsError LispValZipper] -> LispValZipper -> IO [ThrowsError LispValZipper]
+    evalSteps' acc z = do
+      nextStep <- runExceptT $ stepEval z
       case nextStep of
-        (_, Nothing, _) -> return $ lvToAST z
-        (_, Just _, _) -> eval' nextStep
+        Right z@(_, Just _, _) -> evalSteps' (acc ++ [nextStep]) z
+        Right (_, Nothing, _) -> return acc
+        Left err -> return (acc ++ [nextStep])
 
 stepEval :: LispValZipper -> IOThrowsError LispValZipper
 stepEval z@(_, Just (String _), _) = return $ lvNext z
@@ -28,6 +38,11 @@ stepEval z@(_, Just (Character _), _) = return $ lvNext z
 stepEval z@(_, Just (Integer _), _) = return $ lvNext z
 stepEval z@(_, Just (Float _), _) = return $ lvNext z
 stepEval z@(_, Just (Bool _), _) = return $ lvNext z
+stepEval z@(_, Just (List _ [Atom _ "quote", val]), _) =
+  return . lvNext . lvSet val $ z
+stepEval z@(_, Just (Atom _ id), _)
+  | id `elem` ["quote"] =
+    return . lvUp $ z
 stepEval z@(env, Just (Atom _ id), _) = do
   var <- liftThrows $ getVar env id
   return . lvSet var $ z
@@ -37,18 +52,18 @@ stepEval z@(env, Just (List _ [Atom _ "lambda", List _ params, body]), _) =
   return . lvNext . lvSet (makeNormalFunc env params body) $ z
 stepEval z@(env, Just (List _ [Atom _ "lambda", DottedList _ params varargs, body]), _) =
   return . lvNext . lvSet (makeVarArgs varargs env params body) $ z
-stepEval z@(env, Just (List pos (function : args)), _) =
+stepEval z@(_, Just (List pos (function : args)), _) =
   case function of
-    PrimitiveFunc f -> do
+    PrimitiveFunc _ f -> do
       res <- liftThrows $ f args
       return . lvSet res $ z
-    IOFunc f -> do
+    IOFunc _ f -> do
       res <- f args
       return . lvSet res $ z
     f@(Func params varargs body closure) -> liftThrows $ applyFunc f z args
     _ -> stepEval . lvDown $ z
-stepEval z@(_, Just (PrimitiveFunc _), _) = return . lvNext $ z
-stepEval z@(_, Just (IOFunc _), _) = return . lvNext $ z
+stepEval z@(_, Just (PrimitiveFunc _ _), _) = return . lvNext $ z
+stepEval z@(_, Just (IOFunc _ _), _) = return . lvNext $ z
 stepEval z@(_, Just (Func {}), _) = return . lvNext $ z
 stepEval (_, Just badForm, _) = throwError $ BadSpecialForm "Unrecognized special form" badForm
 

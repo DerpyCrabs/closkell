@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6d6302f0811b8e8baffaffb2ce5346c6db7ed449ad75088e3a16b4225fb913c3
+-- hash: 7daf2ea808794af564e66e3d5b7672ac6e468e2260f9aba0ba517eb6ca5ed90e
 
 name:           closkell
 version:        0.1.0.0
@@ -32,18 +32,24 @@ library
       Data.Value
       Eval
       Eval.Primitive
+      JSONInstances
       Lib
       Parse
+      Server
       Types
   other-modules:
       Paths_closkell
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , hspec
     , megaparsec
     , mtl
+    , servant
+    , servant-server
+    , warp
   default-language: Haskell2010
 
 executable closkell-exe
@@ -54,11 +60,15 @@ executable closkell-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -haddock -fwrite-ide-info -hiedir=.hie
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , closkell
     , hspec
     , megaparsec
     , mtl
+    , servant
+    , servant-server
+    , warp
   default-language: Haskell2010
 
 test-suite closkell-test
@@ -70,9 +80,13 @@ test-suite closkell-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -haddock
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , closkell
     , hspec
     , megaparsec
     , mtl
+    , servant
+    , servant-server
+    , warp
   default-language: Haskell2010

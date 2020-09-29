@@ -15,6 +15,10 @@ dependencies:
   # needed for ide autocompletion
   # TODO fix ide config
   - hspec
+  - aeson
+  - servant
+  - servant-server
+  - warp
 
 library:
   source-dirs: src
@@ -29,7 +33,7 @@ executables:
       - -with-rtsopts=-N
       - -haddock
       - -fwrite-ide-info
-      - -hiedir=.hie 
+      - -hiedir=.hie
     dependencies:
       - closkell
 

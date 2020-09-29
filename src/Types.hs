@@ -48,8 +48,8 @@ data LispVal
   | Float Double
   | String String
   | Bool Bool
-  | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
-  | IOFunc ([LispVal] -> IOThrowsError LispVal)
+  | PrimitiveFunc String ([LispVal] -> ThrowsError LispVal)
+  | IOFunc String ([LispVal] -> IOThrowsError LispVal)
   | Port Handle
   | Func {params :: [String], vararg :: Maybe String, body :: LispVal, closure :: Env}
   | Macro {body :: LispVal, closure :: Env}
@@ -82,7 +82,7 @@ instance Show LispVal where
   show (Bool False) = "false"
   show (List _ contents) = "(" ++ unwordsList contents ++ ")"
   show (DottedList _ head tail) = "(" ++ unwordsList head ++ " . " ++ show tail ++ ")"
-  show (PrimitiveFunc _) = "<primitive>"
+  show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"
   show Func {params = args, vararg = varargs, body = body, closure = env} =
     "{lambda [" ++ unwords (map show args)
       ++ ( case varargs of
@@ -93,7 +93,7 @@ instance Show LispVal where
       ++ show body
       ++ "}"
   show (Port _) = "<IO port>"
-  show (IOFunc _) = "<IO primitive>"
+  show (IOFunc name _) = "<IO primitive>"
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map show
