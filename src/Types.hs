@@ -58,7 +58,7 @@ data LispValCrumb = LispValCrumb Env (Maybe SourcePos) [LispVal] [LispVal] deriv
 
 type Env = [(String, LispVal)]
 
-type LispValZipper = (Env, Maybe LispVal, [LispValCrumb])
+type LispValZipper = (Env, LispVal, [LispValCrumb])
 
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2

@@ -16,8 +16,6 @@ module Data.Value
     lvUp,
     lvModify,
     lvModifyEnv,
-    lvEnd,
-    lvNext,
     lvSet,
     lvSetEnv,
   )
@@ -57,19 +55,16 @@ makeLet :: [(String, LispVal)] -> LispVal -> LispVal
 makeLet binds expr = list $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
 
 lvUp :: LispValZipper -> LispValZipper
-lvUp (_, Just val, LispValCrumb env pos ls rs : bs) = (env, Just $ List pos (ls ++ [val] ++ rs), bs)
-lvUp (_, _, crumbs) = lvEnd
+lvUp (_, val, LispValCrumb env pos ls rs : bs) = (env, List pos (ls ++ [val] ++ rs), bs)
 
 lvDown :: LispValZipper -> LispValZipper
-lvDown (env, Just (List pos (val : rest)), crumbs) = (env, Just val, LispValCrumb env pos [] rest : crumbs)
-lvDown (_, _, crumbs) = lvEnd
+lvDown (env, List pos (val : rest), crumbs) = (env, val, LispValCrumb env pos [] rest : crumbs)
 
 lvRight :: LispValZipper -> LispValZipper
-lvRight (env, Just val, LispValCrumb crumbEnv pos ls (newVal : rs) : bs) = (env, Just newVal, LispValCrumb crumbEnv pos (ls ++ [val]) rs : bs)
-lvRight (_, _, crumbs) = lvEnd
+lvRight (env, val, LispValCrumb crumbEnv pos ls (newVal : rs) : bs) = (env, newVal, LispValCrumb crumbEnv pos (ls ++ [val]) rs : bs)
 
 lvModify :: (LispVal -> LispVal) -> LispValZipper -> LispValZipper
-lvModify f (env, val, crumbs) = (env, f <$> val, crumbs)
+lvModify f (env, val, crumbs) = (env, f val, crumbs)
 
 lvModifyEnv :: (Env -> Env) -> LispValZipper -> LispValZipper
 lvModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
@@ -79,19 +74,8 @@ lvSet = lvModify . const
 lvSetEnv = lvModifyEnv . const
 
 lvFromAST :: LispVal -> LispValZipper
-lvFromAST val = ([], Just val, [])
+lvFromAST val = ([], val, [])
 
 lvToAST :: LispValZipper -> LispVal
-lvToAST zipper@(_, Just val, crumbs) =
-  let upZipper = lvUp zipper
-   in case upZipper of
-        (_, Just _, _) -> lvToAST upZipper
-        (_, Nothing, _) -> val
-
-lvEnd :: LispValZipper
-lvEnd = ([], Nothing, [])
-
-lvNext :: LispValZipper -> LispValZipper
-lvNext z = case lvRight z of
-  z@(_, Just _, _) -> z
-  _ -> lvUp z
+lvToAST (_, val, []) = val
+lvToAST z = lvToAST $ lvUp z

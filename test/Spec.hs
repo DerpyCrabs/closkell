@@ -116,6 +116,10 @@ evaluationTests =
   let test = testTable runEval
    in do
         it "evaluates primitive types" $ test [("1", Right $ int 1), ("\"test\"", Right $ String "test")]
+        it "evaluates very primitive functions" $
+          test
+            [ ("(+ 1 2)", Right $ int 3)
+            ]
         it "evaluates primitive functions" $
           test
             [ ("(+ 1 2)", Right $ int 3),
@@ -139,7 +143,7 @@ evaluationTests =
             ]
         it "can apply evaluated special forms to args" $
           test
-            [ ("((car '(quote)) (4 5))", Right $ list [int 4, int 5])
+            [ ("(car '(quote))", Right $ atom "quote")
             ]
         it "handles get function" $
           test
@@ -179,13 +183,13 @@ macroSystemTests =
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
 
 zipperTests = do
-  it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` ([], Just $ int 1, [])
-  it "can be converted to LispVal" $ lvToAST ([], Just $ int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` list [int 1, int 2, int 3]
-  it "can go down" $ (lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` ([], Just $ int 1, [LispValCrumb [] Nothing [] [int 2, int 3]])
-  it "can go up" $ lvUp ([], Just $ int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` ([], Just . list $ [int 1, int 2, int 3], [])
+  it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` ([], int 1, [])
+  it "can be converted to LispVal" $ lvToAST ([], int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` list [int 1, int 2, int 3]
+  it "can go down" $ (lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [LispValCrumb [] Nothing [] [int 2, int 3]])
+  it "can go up" $ lvUp ([], int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` ([], list [int 1, int 2, int 3], [])
   it "can go right" $
     (lvRight . lvRight . lvDown . lvFromAST . list $ [int 1, int 2, int 3])
-      `shouldBe` ([], Just $ int 3, [LispValCrumb [] Nothing [int 1, int 2] []])
+      `shouldBe` ([], int 3, [LispValCrumb [] Nothing [int 1, int 2] []])
   it "can modify current value" $ (lvModify (\(Integer n) -> Integer (n + 1)) . lvFromAST $ int 1) `shouldBe` lvFromAST (int 2)
 
 runFolderTest runner testPath = do
