@@ -26,7 +26,7 @@ primitives =
     ("mod", integerBinop mod),
     ("quotient", integerBinop quot),
     ("remainder", integerBinop rem),
-    ("=", numBoolBinop (==) (==)),
+    ("==", numBoolBinop (==) (==)),
     ("<", numBoolBinop (<) (<)),
     (">", numBoolBinop (>) (>)),
     ("/=", numBoolBinop (/=) (/=)),
@@ -51,7 +51,8 @@ primitives =
     ("float?", isFloat),
     ("bool?", isBool),
     ("port?", isPort),
-    ("dotted-list?", isDottedList)
+    ("dotted-list?", isDottedList),
+    ("do", doFunc)
   ]
 
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
@@ -65,8 +66,13 @@ ioPrimitives =
           ("write", writeProc),
           ("dump", dumpProc),
           ("read-contents", readContents),
-          ("read-all", readAll)
+          ("read-all", readAll),
+          ("throw", throw)
         ]
+
+throw :: [LispVal] -> IOThrowsError LispVal
+throw [err] = liftThrows $ throwError $ FromCode err
+throw other = liftThrows $ throwError $ NumArgs 1 other
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode
@@ -210,6 +216,10 @@ isPort _ = return $ Bool False
 
 isDottedList [(DottedList _ _ _)] = return $ Bool True
 isDottedList _ = return $ Bool False
+
+doFunc :: [LispVal] -> ThrowsError LispVal
+doFunc [] = throwError $ NumArgs 0 []
+doFunc args = return $ last args
 
 stringFrom :: [LispVal] -> ThrowsError LispVal
 stringFrom [List _ xs] = return $ String $ foldl1 (++) $ map showString xs

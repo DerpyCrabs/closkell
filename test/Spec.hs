@@ -15,7 +15,6 @@ main :: IO ()
 main = hspec $ do
   describe "Parser" parsingTests
   describe "Eval" evaluationTests
-  describe "Macro expansion" macrosTests
   describe "Module system" moduleSystemTests
   describe "Macro system" macroSystemTests
   describe "LispVal Zipper" zipperTests
@@ -152,17 +151,6 @@ evaluationTests =
         it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
         it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
-macrosTests =
-  let test = testTable (fmap (fmap last) . runInterpret)
-      getAtom (Right [Atom _ at]) = at
-   in do
-        it "supports gensym without prefix" $ do
-          sym <- getAtom <$> runInterpret "(gensym)"
-          sym `shouldSatisfy` all isDigit
-        it "supports gensym with prefix" $ do
-          sym <- getAtom <$> runInterpret "(gensym \"prefix\")"
-          sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
-
 moduleSystemTests =
   let test path = runFolderTest runModuleSystem ("test/ModuleSystem/" ++ path)
    in do
@@ -175,6 +163,7 @@ moduleSystemTests =
 
 macroSystemTests =
   let test path = runFolderTest runMacroSystem ("test/MacroSystem/" ++ path)
+      getAtom (Right [Atom _ at]) = at
    in do
         it "doesn't alter code without macros" $ test "test1"
         it "removes macro definitions from let bindings" $ test "test2"
@@ -182,6 +171,12 @@ macroSystemTests =
         it "expands nested macro calls" $ test "test4"
         it "expands macro calls inside of macros" $ test "test5"
         it "handles nested let macro bindings" $ test "test6"
+        it "supports gensym without prefix" $ do
+          sym <- getAtom <$> runMacroSystem "(gensym)"
+          sym `shouldSatisfy` all isDigit
+        it "supports gensym with prefix" $ do
+          sym <- getAtom <$> runMacroSystem "(gensym \"prefix\")"
+          sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
 
 zipperTests = do
   it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` ([], Just $ int 1, [])

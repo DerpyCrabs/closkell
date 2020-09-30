@@ -38,14 +38,30 @@ stepEval z@(_, Just (Character _), _) = return $ lvNext z
 stepEval z@(_, Just (Integer _), _) = return $ lvNext z
 stepEval z@(_, Just (Float _), _) = return $ lvNext z
 stepEval z@(_, Just (Bool _), _) = return $ lvNext z
-stepEval z@(_, Just (List _ [Atom _ "quote", val]), _) =
-  return . lvNext . lvSet val $ z
 stepEval z@(_, Just (Atom _ id), _)
   | id `elem` ["quote"] =
     return . lvUp $ z
 stepEval z@(env, Just (Atom _ id), _) = do
   var <- liftThrows $ getVar env id
   return . lvSet var $ z
+stepEval z@(env, Just (List _ (Atom _ "let" : bindsAndExpr)), _) = do
+  let binds = init bindsAndExpr
+  let expr = last bindsAndExpr
+  let newEnv = bindVars env (vars binds)
+  return . lvSetEnv newEnv . lvSet expr $ z
+  where
+    matchVars (List _ [Atom _ name, var]) = (name, var)
+    vars binds = matchVars <$> binds
+stepEval z@(_, Just (List _ [Atom _ "if", conseq, alt, Bool True]), _) =
+  return . lvSet conseq $ z
+stepEval z@(_, Just (List _ [Atom _ "if", conseq, alt, Bool False]), _) =
+  return . lvSet alt $ z
+stepEval z@(_, Just (List _ [Atom _ "if", pred, conseq, alt]), _) =
+  return . lvRight . lvRight . lvDown . lvSet (list [atom "if", conseq, alt, pred]) $ z
+stepEval z@(_, Just (List _ [Atom _ "apply", func, List _ args]), _) = do
+  return . lvSet (list ([func] ++ args)) $ z
+stepEval z@(_, Just (List _ [Atom _ "quote", val]), _) =
+  return . lvNext . lvSet val $ z
 stepEval z@(env, Just (List _ [Atom _ "lambda", (List _ [Atom _ "quote", List _ []]), body]), _) =
   return . lvNext . lvSet (makeNormalFunc env [] body) $ z
 stepEval z@(env, Just (List _ [Atom _ "lambda", List _ params, body]), _) =
