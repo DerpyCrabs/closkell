@@ -116,36 +116,52 @@ parsingTests =
 evaluationTests =
   let test = testTable runEval
    in do
-        it "evaluates primitive types" $ test [(int 1, Right $ int 1), (String "test", Right $ String "test")]
+        it "evaluates primitive types" $ test [("1", Right $ int 1), ("\"test\"", Right $ String "test")]
         it "evaluates primitive functions" $
           test
-            [ (func "+" [int 1, int 2], Right $ int 3),
-              (func "+" [int 1, func "+" [int 2, int 3]], Right $ int 6)
+            [ ("(+ 1 2)", Right $ int 3),
+              ("(+ 1 (+ 2 3))", Right $ int 6)
+            ]
+        it "evaluates apply" $
+          test [("(apply + (5 6))", Right $ int 11)]
+        it "can throw errors from code" $
+          test [("(io.throw \"Error\")", Left $ FromCode $ String "Error")]
+        it "evaluates if" $
+          test
+            [ ("(if (== 3 3) (+ 1 2) (+ 5 6))", Right $ int 3),
+              ("(if (== 2 3) (+ 1 2) (+ 5 6))", Right $ int 11),
+              ("(if true (+ 1 2) (+ 5 6))", Right $ int 3),
+              ("(if false (+ 1 2) (+ 5 6))", Right $ int 11)
+            ]
+        it "handles let bindings" $
+          test
+            [ ("(let (k 5) (g (+ 1 2)) (- k g))", Right $ int 2),
+              ("(let (+ 1 2))", Right $ int 3)
             ]
         it "can apply evaluated special forms to args" $
           test
-            [ (list [func "car" [func "quote" [list [atom "quote"]]], list [int 4, int 5]], Right $ func "quote" [list [int 4, int 5]])
+            [ ("((car '(quote)) (4 5))", Right $ list [int 4, int 5])
             ]
         it "handles get function" $
           test
-            [ (func "get" [String "k", func "quote" [list [String "b", int 5, String "k", int 6]]], Right $ int 6),
-              (func "get" [String "b", func "quote" [list [String "b", int 5, String "k", int 6]]], Right $ int 5)
+            [ ("(get \"k\" '(\"b\" 5 \"k\" 6))", Right $ int 6),
+              ("(get \"b\" '(\"b\" 5 \"k\" 6))", Right $ int 5)
             ]
+        it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
+        it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
+        it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
+        it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
 macrosTests =
   let test = testTable (fmap (fmap last) . runInterpret)
       getAtom (Right [Atom _ at]) = at
    in do
-        it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
-        it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
-        it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
         it "supports gensym without prefix" $ do
           sym <- getAtom <$> runInterpret "(gensym)"
           sym `shouldSatisfy` all isDigit
         it "supports gensym with prefix" $ do
           sym <- getAtom <$> runInterpret "(gensym \"prefix\")"
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
-        it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
 
 moduleSystemTests =
   let test path = runFolderTest runModuleSystem ("test/ModuleSystem/" ++ path)
@@ -194,8 +210,10 @@ runMacroSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
   macroSystem parsedVals
 
-runEval :: LispVal -> IO (Either LispError LispVal)
-runEval val = runExceptT $ eval primitiveBindings val
+runEval :: String -> IO (Either LispError LispVal)
+runEval code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  eval primitiveBindings $ last parsedVals
 
 runParse :: String -> IO [LispVal]
 runParse = return . extractValue . readExprList ""
