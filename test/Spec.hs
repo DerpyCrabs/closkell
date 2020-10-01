@@ -151,9 +151,13 @@ evaluationTests =
               ("(get \"b\" '(\"b\" 5 \"k\" 6))", Right $ int 5)
             ]
         it "supports quoting" $ test [("'(4 5)", Right $ list [int 4, int 5])]
-        it "supports unquoting" $ test [("'(4 ~(+ 1 3))", Right $ list [int 4, int 4])]
+        it "supports unquoting" $
+          test
+            [ ("'(4 ~(+ 1 5))", Right $ list [int 4, int 6]),
+              ("'(4 ~(+ 5 6) ~(+ 1 3))", Right $ list [int 4, int 11, int 4])
+            ]
         it "supports unquote-splicing" $ test [("'(4 ~@(quote (5 6)))", Right $ list [int 4, int 5, int 6])]
-        it "unquotes inside of quote" $ test [("'(4 ~(+ 2 3) ~@(quote (6 7)))", Right $ list [int 4, int 5, int 6, int 7])]
+        it "quotes inside of unquote" $ test [("(quote (unquote (quote (2 3))))", Right $ list [int 2, int 3])]
 
 moduleSystemTests =
   let test path = runFolderTest runModuleSystem ("test/ModuleSystem/" ++ path)

@@ -8,7 +8,7 @@ where
 import Control.Monad.Except
 import Data.Env
 import Data.Error
-import Data.Maybe (isNothing)
+import Data.Maybe (isJust, isNothing)
 import Data.State
 import Data.Value
 import Types
@@ -64,10 +64,23 @@ stepEval z@(_, List _ [Atom _ "if", Bool False, conseq, alt], _) =
   return (lvSet alt z, [id])
 stepEval z@(_, List _ [Atom _ "if", pred, conseq, alt], _) =
   return (z, [lvRight . lvDown, lvUp])
-stepEval z@(_, List _ [Atom _ "apply", func, List _ args], _) = do
+stepEval z@(_, List _ [Atom _ "apply", func, List _ args], _) =
   return (lvSet (list ([func] ++ args)) z, [id])
 stepEval z@(_, List _ [Atom _ "quote", val], _) =
+  let path = quoteEvalPath val
+      correctPath path@(_ : _ : _) =
+        let first = lvRight . lvDown . (head path)
+            lst = lvUp . (last path)
+         in [first] ++ (init $ tail path) ++ [lst]
+      correctPath p = p
+      correctedPath = correctPath path
+   in case length correctedPath of
+        0 -> return (lvSet val z, [])
+        _ -> return (lvSet (func "evaluatingUnquote" [val]) z, correctPath path)
+stepEval z@(_, List _ [Atom _ "evaluatingUnquote", val], _) =
   return (lvSet val z, [])
+stepEval z@(_, List _ [Atom _ "unquote", val], _) =
+  return (lvSet val z, [id])
 stepEval z@(_, List pos (function : args), _) =
   case function of
     PrimitiveFunc _ f -> do
@@ -79,7 +92,7 @@ stepEval z@(_, List pos (function : args), _) =
     f@(Func params varargs body closure) -> do
       res <- liftThrows $ applyFunc f z args
       return (res, [])
-    _ -> do
+    _ ->
       return (z, [lvDown] ++ (take (length args) $ repeat lvRight) ++ [lvUp])
 stepEval (_, badForm, _) = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
@@ -96,3 +109,21 @@ applyFunc (Func params varargs body closure) z args =
     bindVarArgs arg env = case arg of
       Just argName -> bindVars env [(argName, list remainingArgs)]
       Nothing -> env
+
+quoteEvalPath :: LispVal -> [LispValZipper -> LispValZipper]
+quoteEvalPath val = case quoteEvalPath' val of
+  Just path -> (head path : composeUpDown (tail path))
+  Nothing -> []
+  where
+    quoteEvalPath' :: LispVal -> Maybe [LispValZipper -> LispValZipper]
+    quoteEvalPath' (List _ [Atom _ "unquote", _]) = Just [id, id]
+    quoteEvalPath' (List _ args) =
+      let maybeUnquotePaths = quoteEvalPath' <$> args
+          argPaths = scanl (\path _ -> lvRight . path) lvDown $ tail args
+          unquotePaths = (\(Just [d, u], t) -> [d . t, lvUp . u]) <$> (filter (\(p, _) -> isJust p) $ zip maybeUnquotePaths argPaths)
+       in case length unquotePaths of
+            0 -> Nothing
+            _ -> Just $ concat unquotePaths
+    quoteEvalPath' _ = Nothing
+    composeUpDown (x : y : xs) = [y . x] ++ composeUpDown xs
+    composeUpDown [x] = [x]
