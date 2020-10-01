@@ -1,9 +1,6 @@
 module Data.State (nullState, nextGensymCounter) where
 
-import Control.Monad.Except
-import Control.Monad.IO.Class
 import Data.IORef
-import Data.Maybe
 import Types
 
 nullState :: IO StateRef

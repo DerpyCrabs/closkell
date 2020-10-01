@@ -12,10 +12,10 @@ import Parse (load)
 import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, stdout)
 import Types
 
-primitiveBindings :: IO EnvRef
-primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives)
+primitiveBindings :: Env
+primitiveBindings = map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives
   where
-    makeFunc constructor (var, func) = (var, constructor func)
+    makeFunc constructor (var, func) = (var, constructor var func)
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives =
@@ -26,7 +26,7 @@ primitives =
     ("mod", integerBinop mod),
     ("quotient", integerBinop quot),
     ("remainder", integerBinop rem),
-    ("=", numBoolBinop (==) (==)),
+    ("==", numBoolBinop (==) (==)),
     ("<", numBoolBinop (<) (<)),
     (">", numBoolBinop (>) (>)),
     ("/=", numBoolBinop (/=) (/=)),
@@ -51,7 +51,8 @@ primitives =
     ("float?", isFloat),
     ("bool?", isBool),
     ("port?", isPort),
-    ("dotted-list?", isDottedList)
+    ("dotted-list?", isDottedList),
+    ("do", doFunc)
   ]
 
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
@@ -65,8 +66,13 @@ ioPrimitives =
           ("write", writeProc),
           ("dump", dumpProc),
           ("read-contents", readContents),
-          ("read-all", readAll)
+          ("read-all", readAll),
+          ("throw", throw)
         ]
+
+throw :: [LispVal] -> IOThrowsError LispVal
+throw [err] = liftThrows $ throwError $ FromCode err
+throw other = liftThrows $ throwError $ NumArgs 1 other
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode
@@ -179,7 +185,8 @@ car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
 
 get :: [LispVal] -> ThrowsError LispVal
-get [String key, List _ (String k : val : rest)] | key == k = return val
+get [String key, List _ (String k : val : rest)]
+  | key == k = return val
   | otherwise = get [String key, list rest]
 get badArgList = throwError $ NumArgs 2 badArgList
 
@@ -209,6 +216,10 @@ isPort _ = return $ Bool False
 
 isDottedList [(DottedList _ _ _)] = return $ Bool True
 isDottedList _ = return $ Bool False
+
+doFunc :: [LispVal] -> ThrowsError LispVal
+doFunc [] = throwError $ NumArgs 0 []
+doFunc args = return $ last args
 
 stringFrom :: [LispVal] -> ThrowsError LispVal
 stringFrom [List _ xs] = return $ String $ foldl1 (++) $ map showString xs

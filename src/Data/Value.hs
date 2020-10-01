@@ -9,39 +9,19 @@ module Data.Value
     makeNormalFunc,
     makeVarArgs,
     makeLet,
+    lvFromAST,
+    lvToAST,
+    lvRight,
+    lvDown,
+    lvUp,
+    lvModify,
+    lvModifyEnv,
+    lvSet,
+    lvSetEnv,
   )
 where
 
-import Data.Env
 import Types
-
-showVal :: LispVal -> String
-showVal (String contents) = "\"" ++ contents ++ "\""
-showVal (Character contents) = "'" ++ [contents] ++ "'"
-showVal (Atom _ name) = name
-showVal (Integer contents) = show contents
-showVal (Float contents) = show contents
-showVal (Bool True) = "true"
-showVal (Bool False) = "false"
-showVal (List _ contents) = "(" ++ unwordsList contents ++ ")"
-showVal (DottedList _ head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
-showVal (PrimitiveFunc _) = "<primitive>"
-showVal Func {params = args, vararg = varargs, body = body, closure = env} =
-  "{lambda [" ++ unwords (map show args)
-    ++ ( case varargs of
-           Nothing -> ""
-           Just arg -> " . " ++ arg
-       )
-    ++ "] "
-    ++ concat (show <$> body)
-    ++ "}"
-showVal (Port _) = "<IO port>"
-showVal (IOFunc _) = "<IO primitive>"
-
-instance Show LispVal where show = showVal
-
-unwordsList :: [LispVal] -> String
-unwordsList = unwords . map showVal
 
 list :: [LispVal] -> LispVal
 list = List Nothing
@@ -62,14 +42,40 @@ lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
 lambda args Nothing body = list (atom "lambda" : list args : body)
 lambda args (Just vararg) body = list (atom "lambda" : dottedList args vararg : body)
 
-makeFunc :: Maybe String -> EnvRef -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
-makeFunc varargs env params body = return $ Func (map show params) varargs body env
+makeFunc :: Maybe String -> Env -> [LispVal] -> LispVal -> LispVal
+makeFunc varargs env params body = Func (map show params) varargs body env
 
-makeNormalFunc :: EnvRef -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
+makeNormalFunc :: Env -> [LispVal] -> LispVal -> LispVal
 makeNormalFunc = makeFunc Nothing
 
-makeVarArgs :: LispVal -> EnvRef -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
+makeVarArgs :: LispVal -> Env -> [LispVal] -> LispVal -> LispVal
 makeVarArgs = makeFunc . Just . show
 
 makeLet :: [(String, LispVal)] -> LispVal -> LispVal
 makeLet binds expr = list $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
+
+lvUp :: LispValZipper -> LispValZipper
+lvUp (_, val, LispValCrumb env pos ls rs : bs) = (env, List pos (ls ++ [val] ++ rs), bs)
+
+lvDown :: LispValZipper -> LispValZipper
+lvDown (env, List pos (val : rest), crumbs) = (env, val, LispValCrumb env pos [] rest : crumbs)
+
+lvRight :: LispValZipper -> LispValZipper
+lvRight (env, val, LispValCrumb crumbEnv pos ls (newVal : rs) : bs) = (env, newVal, LispValCrumb crumbEnv pos (ls ++ [val]) rs : bs)
+
+lvModify :: (LispVal -> LispVal) -> LispValZipper -> LispValZipper
+lvModify f (env, val, crumbs) = (env, f val, crumbs)
+
+lvModifyEnv :: (Env -> Env) -> LispValZipper -> LispValZipper
+lvModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
+
+lvSet = lvModify . const
+
+lvSetEnv = lvModifyEnv . const
+
+lvFromAST :: LispVal -> LispValZipper
+lvFromAST val = ([], val, [])
+
+lvToAST :: LispValZipper -> LispVal
+lvToAST (_, val, []) = val
+lvToAST z = lvToAST $ lvUp z

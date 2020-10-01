@@ -5,29 +5,30 @@ module Lib
     extractValue,
     trapError,
     IOThrowsError,
-    EnvRef,
     liftThrows,
     primitiveBindings,
-    nullEnv,
     LispVal (..),
     LispError (..),
+    LispValZipper,
+    LispValCrumb (..),
     readExprList,
     bindVars,
     StateRef,
-    nullState,
     load,
-    moduleSystem
+    nullState,
+    moduleSystem,
+    server,
   )
 where
 
-import Control.Monad.Except
+import Compile
+import Compile.ModuleSystem
 import Data.Env
 import Data.Error
 import Data.State
 import Data.Value
 import Eval
-import Parse
-import Types
 import Eval.Primitive
-import Compile
-import Compile.ModuleSystem
+import Parse
+import Server
+import Types
