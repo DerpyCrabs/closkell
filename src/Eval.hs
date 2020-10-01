@@ -76,11 +76,15 @@ stepEval z@(_, List _ [Atom _ "quote", val], _) =
       correctedPath = correctPath path
    in case length correctedPath of
         0 -> return (lvSet val z, [])
-        _ -> return (lvSet (func "evaluatingUnquote" [val]) z, correctPath path)
-stepEval z@(_, List _ [Atom _ "evaluatingUnquote", val], _) =
-  return (lvSet val z, [])
+        _ -> return (lvSet (func "evaluating-unquote" [val]) z, correctPath path)
+stepEval z@(_, List _ [Atom _ "evaluating-unquote", val], _) =
+  return (lvSet (performUnquoteSplicing val) z, [])
 stepEval z@(_, List _ [Atom _ "unquote", val], _) =
   return (lvSet val z, [id])
+stepEval z@(_, List _ [Atom _ "unquote-splicing", val], _) =
+  return (lvSet (func "evaluating-unquote-splicing" [val]) z, [lvRight . lvDown, lvUp])
+stepEval z@(_, List _ [Atom _ "evaluating-unquote-splicing", (List _ splicedVals)], _) =
+  return (z, [])
 stepEval z@(_, List pos (function : args), _) =
   case function of
     PrimitiveFunc _ f -> do
@@ -117,6 +121,7 @@ quoteEvalPath val = case quoteEvalPath' val of
   where
     quoteEvalPath' :: LispVal -> Maybe [LispValZipper -> LispValZipper]
     quoteEvalPath' (List _ [Atom _ "unquote", _]) = Just [id, id]
+    quoteEvalPath' (List _ [Atom _ "unquote-splicing", _]) = Just [id, id]
     quoteEvalPath' (List _ args) =
       let maybeUnquotePaths = quoteEvalPath' <$> args
           argPaths = scanl (\path _ -> lvRight . path) lvDown $ tail args
@@ -127,3 +132,11 @@ quoteEvalPath val = case quoteEvalPath' val of
     quoteEvalPath' _ = Nothing
     composeUpDown (x : y : xs) = [y . x] ++ composeUpDown xs
     composeUpDown [x] = [x]
+
+performUnquoteSplicing :: LispVal -> LispVal
+performUnquoteSplicing (List _ vals) = list (concat $ performUnquoteSplicing' <$> vals)
+  where
+    performUnquoteSplicing' :: LispVal -> [LispVal]
+    performUnquoteSplicing' (List _ [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
+    performUnquoteSplicing' v@(List _ vals) = [performUnquoteSplicing v]
+    performUnquoteSplicing' other = [other]
