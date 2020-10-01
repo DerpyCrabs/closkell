@@ -7,20 +7,19 @@ Started with the code from [Write Yourself a Scheme in 48 hours](https://en.wiki
 Already implemented:
 
 - parser of source code with various shorthands from clojure
-- clojure macro system
+- clojure macro system (currently being reimplemented)
 - standard library functions for list manipulation
 - some clojure macros to test macro implementation
-- primitive REPL
-- tests for parser and macro system
 - separation of pure and effectful code
 - primitive compiler with the following features:
   - module system
-  - constant folding
 
 Future research directions:
 
+- web interface to most functions of compiler
+- stepwise debugger
 - type system (sum types, parametric polymorphism, dependent types)
 - type inference
+- compilation to executable file
 - compiler optimizations:
-  - automatic concurrency insertion for evaluation of pure sibling expressions
-  - dead code elimination
+  - dead code elimination based on expression type information amount
