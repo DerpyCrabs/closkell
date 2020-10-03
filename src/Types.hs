@@ -97,7 +97,8 @@ instance Show LispVal where
       ++ show body
       ++ "}"
   show (Port _) = "<IO port>"
-  show (IOFunc name _) = "<IO primitive>"
+  show (IOFunc name _) = "<IO primitive " ++ name ++ ">"
+  show (Macro body closure) = "<Macro " ++ show body ++ ">"
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map show
