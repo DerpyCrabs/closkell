@@ -4,8 +4,9 @@ import Data.Value
 import Parse
 import Types
 
-moduleSystem (List _ (Atom _ "executable" : loadExprs) : [expr]) = (: []) <$> handleLoads loadExprs expr
-moduleSystem (List _ (Atom _ "executable" : loadExprs) : exprs) = (: []) <$> handleLoads loadExprs (func "do" exprs)
+moduleSystem :: [LispVal] -> IOThrowsError LispVal
+moduleSystem (List _ (Atom _ "executable" : loadExprs) : [expr]) = handleLoads loadExprs expr
+moduleSystem (List _ (Atom _ "executable" : loadExprs) : exprs) = handleLoads loadExprs (func "do" exprs)
 moduleSystem exprs = moduleSystem $ func "executable" [] : exprs
 
 data ModuleInfo = ModuleInfo

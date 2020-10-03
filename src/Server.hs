@@ -16,7 +16,7 @@ import Servant
 import Servant.API
 import Types
 
-type EvalAPI = "eval" :> ReqBody '[PlainText, JSON] String :> Post '[JSON] [ThrowsError LispValZipper]
+type EvalAPI = "eval" :> ReqBody '[PlainText, JSON] String :> Post '[JSON] [ThrowsError LVZipper]
 
 evalAPI :: Proxy EvalAPI
 evalAPI = Proxy
@@ -32,13 +32,13 @@ evalServer = eval
           steps <- liftIO $ evalSteps env val
           return $ filterEnv <$> steps
         Left err -> return [Left err]
-    filterEnv :: ThrowsError LispValZipper -> ThrowsError LispValZipper
+    filterEnv :: ThrowsError LVZipper -> ThrowsError LVZipper
     filterEnv =
       fmap
         ( \(env, val, crumbs) ->
             ( filter notIntrinsic env,
               val,
-              map (\(LispValCrumb env _ ls rs) -> LispValCrumb (filter notIntrinsic env) Nothing ls rs) crumbs
+              map (\(LVCrumb env _ ls rs) -> LVCrumb (filter notIntrinsic env) Nothing ls rs) crumbs
             )
         )
     notIntrinsic (_, IOFunc _ _) = False

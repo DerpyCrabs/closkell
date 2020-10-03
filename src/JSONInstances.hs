@@ -24,5 +24,5 @@ instance ToJSON LispVal where
 instance ToJSON LispError where
   toJSON err = object ["error" .= show err]
 
-instance ToJSON LispValCrumb where
-  toJSON (LispValCrumb env _ ls rs) = object ["type" .= ("crumb" :: String), "env" .= env, "ls" .= ls, "rs" .= rs]
+instance ToJSON LVCrumb where
+  toJSON (LVCrumb env _ ls rs) = object ["type" .= ("crumb" :: String), "env" .= env, "ls" .= ls, "rs" .= rs]

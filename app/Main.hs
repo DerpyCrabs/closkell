@@ -42,7 +42,7 @@ runCommand args = do
   let env = primitiveBindings ++ [("args", List Nothing $ map String $ drop 1 args)]
   input <- runExceptT (load (head args) >>= moduleSystem)
   case input of
-    Right val -> runIOThrows (show <$> eval env (head val)) >>= hPutStrLn stderr
+    Right val -> runIOThrows (show <$> eval env val) >>= hPutStrLn stderr
     Left err -> print err
   return ()
 
@@ -58,11 +58,11 @@ runIOThrows action = extractValue <$> runExceptT (trapError action)
 compileCommand :: [String] -> IO ()
 compileCommand ["-o", outFile, inFile] = do
   compiled <- compileFile inFile
-  let text = show <$> compiled
-  writeFile outFile (intercalate "\n" text)
+  let text = show compiled
+  writeFile outFile (show compiled)
 compileCommand [inFile] = do
   compiled <- compileFile inFile
-  mapM_ print compiled
+  print compiled
 
 compileFile filename = do
   contents <- readFile filename

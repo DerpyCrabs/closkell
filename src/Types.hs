@@ -4,10 +4,10 @@ module Types
     LispError (..),
     LispVal (..),
     Parser,
-    State (..),
-    StateRef,
-    LispValCrumb (..),
-    LispValZipper,
+    MacroExpansionState (..),
+    LVCrumb (..),
+    LVZipper,
+    LVZipperTurn,
     Env,
   )
 where
@@ -18,9 +18,7 @@ import Data.Void
 import System.IO (Handle)
 import Text.Megaparsec hiding (State)
 
-newtype State = State {gensymCounter :: Integer}
-
-type StateRef = IORef State
+newtype MacroExpansionState = MacroExpansionState {gensymCounter :: Integer}
 
 type ThrowsError = Either LispError
 
@@ -54,11 +52,13 @@ data LispVal
   | Func {params :: [String], vararg :: Maybe String, body :: LispVal, closure :: Env}
   | Macro {body :: LispVal, closure :: Env}
 
-data LispValCrumb = LispValCrumb Env (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
+data LVCrumb = LVCrumb Env (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
 
 type Env = [(String, LispVal)]
 
-type LispValZipper = (Env, LispVal, [LispValCrumb])
+type LVZipper = (Env, LispVal, [LVCrumb])
+
+type LVZipperTurn = LVZipper -> LVZipper
 
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2
@@ -70,6 +70,10 @@ instance Eq LispVal where
   (Bool i1) == (Bool i2) = i1 == i2
   (Port h1) == (Port h2) = h1 == h2
   (Character c1) == (Character c2) = c1 == c2
+  (PrimitiveFunc n1 _) == (PrimitiveFunc n2 _) = n1 == n2
+  (IOFunc n1 _) == (IOFunc n2 _) = n1 == n2
+  (Macro b1 c1) == (Macro b2 c2) = b1 == b2 && c1 == c2
+  (Func p1 v1 b1 c1) == (Func p2 v2 b2 c2) = p1 == p2 && v1 == v2 && b1 == b2 && c1 == c2
   _ == _ = False
 
 instance Show LispVal where
@@ -93,7 +97,8 @@ instance Show LispVal where
       ++ show body
       ++ "}"
   show (Port _) = "<IO port>"
-  show (IOFunc name _) = "<IO primitive>"
+  show (IOFunc name _) = "<IO primitive " ++ name ++ ">"
+  show (Macro body closure) = "<Macro " ++ show body ++ ">"
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map show

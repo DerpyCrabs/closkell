@@ -141,6 +141,11 @@ evaluationTests =
             [ ("(let (k 5) (g (+ 1 2)) (- k g))", Right $ int 2),
               ("(let (+ 1 2))", Right $ int 3)
             ]
+        it "supports function definition" $
+          test
+            [ ("(#(+ %1 %2) 2 3)", Right $ int 5),
+              ("(let (f (lambda (a b) (+ a b))) (f 2 3))", Right $ int 5)
+            ]
         it "can apply evaluated special forms to args" $
           test
             [ ("(car '(quote))", Right $ atom "quote")
@@ -175,7 +180,7 @@ moduleSystemTests =
 
 macroSystemTests =
   let test path = runFolderTest runMacroSystem ("test/MacroSystem/" ++ path)
-      getAtom (Right [Atom _ at]) = at
+      getAtom (Right (Atom _ at)) = at
    in do
         it "doesn't alter code without macros" $ test "test1"
         it "removes macro definitions from let bindings" $ test "test2"
@@ -192,30 +197,30 @@ macroSystemTests =
 
 zipperTests = do
   it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` ([], int 1, [])
-  it "can be converted to LispVal" $ lvToAST ([], int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` list [int 1, int 2, int 3]
-  it "can go down" $ (lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [LispValCrumb [] Nothing [] [int 2, int 3]])
-  it "can go up" $ lvUp ([], int 2, [LispValCrumb [] Nothing [int 1] [int 3]]) `shouldBe` ([], list [int 1, int 2, int 3], [])
+  it "can be converted to LispVal" $ lvToAST ([], int 2, [LVCrumb [] Nothing [int 1] [int 3]]) `shouldBe` list [int 1, int 2, int 3]
+  it "can go down" $ (lvDown . lvFromAST . list $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [LVCrumb [] Nothing [] [int 2, int 3]])
+  it "can go up" $ lvUp ([], int 2, [LVCrumb [] Nothing [int 1] [int 3]]) `shouldBe` ([], list [int 1, int 2, int 3], [])
   it "can go right" $
     (lvRight . lvRight . lvDown . lvFromAST . list $ [int 1, int 2, int 3])
-      `shouldBe` ([], int 3, [LispValCrumb [] Nothing [int 1, int 2] []])
+      `shouldBe` ([], int 3, [LVCrumb [] Nothing [int 1, int 2] []])
   it "can modify current value" $ (lvModify (\(Integer n) -> Integer (n + 1)) . lvFromAST $ int 1) `shouldBe` lvFromAST (int 2)
 
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")
   expected <- readFile (testPath ++ "/expected.clsk")
   parsedExpected <- runParse expected
-  runner input `shouldReturn` Right parsedExpected
+  runner input `shouldReturn` Right (last parsedExpected)
   return ()
 
-runModuleSystem :: String -> IO (Either LispError [LispVal])
+runModuleSystem :: String -> IO (Either LispError LispVal)
 runModuleSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
   moduleSystem parsedVals
 
-runMacroSystem :: String -> IO (Either LispError [LispVal])
+runMacroSystem :: String -> IO (Either LispError LispVal)
 runMacroSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
-  macroSystem parsedVals
+  macroSystem (last parsedVals)
 
 runEval :: String -> IO (Either LispError LispVal)
 runEval code = runExceptT $ do
