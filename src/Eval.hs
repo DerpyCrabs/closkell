@@ -9,30 +9,29 @@ import Control.Monad.Except
 import Data.Env
 import Data.Error
 import Data.Maybe (isJust, isNothing)
-import Data.State
 import Data.Value
 import Types
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval env val = do
   steps <- lift $ evalSteps env val
-  case last $ steps of
+  case last steps of
     Left err -> throwError err
     Right zipper -> return $ lvToAST zipper
 
-evalSteps :: Env -> LispVal -> IO [ThrowsError LispValZipper]
+evalSteps :: Env -> LispVal -> IO [ThrowsError LVZipper]
 evalSteps env val = evalSteps' [id] [Right zipper] zipper
   where
     zipper = lvSetEnv env . lvFromAST $ val
-    evalSteps' :: [LispValZipper -> LispValZipper] -> [ThrowsError LispValZipper] -> LispValZipper -> IO [ThrowsError LispValZipper]
-    evalSteps' (step : steps) acc z@(_, val, _) = do
+    evalSteps' :: [LVZipperTurn] -> [ThrowsError LVZipper] -> LVZipper -> IO [ThrowsError LVZipper]
+    evalSteps' (step : steps) acc z = do
       res <- runExceptT $ stepEval (step z)
       case res of
         Right (z, newSteps) -> evalSteps' (newSteps ++ steps) (acc ++ [Right z]) z
         Left err -> return (acc ++ [Left err])
     evalSteps' [] acc _ = return acc
 
-stepEval :: LispValZipper -> IOThrowsError (LispValZipper, [LispValZipper -> LispValZipper])
+stepEval :: LVZipper -> IOThrowsError (LVZipper, [LVZipperTurn])
 stepEval z@(_, String _, _) = return (z, [])
 stepEval z@(_, Character _, _) = return (z, [])
 stepEval z@(_, Integer _, _) = return (z, [])
@@ -100,7 +99,7 @@ stepEval z@(_, List pos (function : args), _) =
       return (z, [lvDown] ++ (take (length args) $ repeat lvRight) ++ [lvUp])
 stepEval (_, badForm, _) = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
-applyFunc :: LispVal -> LispValZipper -> [LispVal] -> ThrowsError LispValZipper
+applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
 applyFunc (Func params varargs body closure) z args =
   if num params /= num args && isNothing varargs
     then throwError $ NumArgs (num params) args
@@ -114,12 +113,12 @@ applyFunc (Func params varargs body closure) z args =
       Just argName -> bindVars env [(argName, list remainingArgs)]
       Nothing -> env
 
-quoteEvalPath :: LispVal -> [LispValZipper -> LispValZipper]
+quoteEvalPath :: LispVal -> [LVZipperTurn]
 quoteEvalPath val = case quoteEvalPath' val of
   Just path -> (head path : composeUpDown (tail path))
   Nothing -> []
   where
-    quoteEvalPath' :: LispVal -> Maybe [LispValZipper -> LispValZipper]
+    quoteEvalPath' :: LispVal -> Maybe [LVZipperTurn]
     quoteEvalPath' (List _ [Atom _ "unquote", _]) = Just [id, id]
     quoteEvalPath' (List _ [Atom _ "unquote-splicing", _]) = Just [id, id]
     quoteEvalPath' (List _ args) =

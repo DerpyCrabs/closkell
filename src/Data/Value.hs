@@ -54,28 +54,30 @@ makeVarArgs = makeFunc . Just . show
 makeLet :: [(String, LispVal)] -> LispVal -> LispVal
 makeLet binds expr = list $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
 
-lvUp :: LispValZipper -> LispValZipper
-lvUp (_, val, LispValCrumb env pos ls rs : bs) = (env, List pos (ls ++ [val] ++ rs), bs)
+lvUp :: LVZipperTurn
+lvUp (_, val, LVCrumb env pos ls rs : bs) = (env, List pos (ls ++ [val] ++ rs), bs)
 
-lvDown :: LispValZipper -> LispValZipper
-lvDown (env, List pos (val : rest), crumbs) = (env, val, LispValCrumb env pos [] rest : crumbs)
+lvDown :: LVZipperTurn
+lvDown (env, List pos (val : rest), crumbs) = (env, val, LVCrumb env pos [] rest : crumbs)
 
-lvRight :: LispValZipper -> LispValZipper
-lvRight (env, val, LispValCrumb crumbEnv pos ls (newVal : rs) : bs) = (env, newVal, LispValCrumb crumbEnv pos (ls ++ [val]) rs : bs)
+lvRight :: LVZipperTurn
+lvRight (env, val, LVCrumb crumbEnv pos ls (newVal : rs) : bs) = (env, newVal, LVCrumb crumbEnv pos (ls ++ [val]) rs : bs)
 
-lvModify :: (LispVal -> LispVal) -> LispValZipper -> LispValZipper
+lvModify :: (LispVal -> LispVal) -> LVZipperTurn
 lvModify f (env, val, crumbs) = (env, f val, crumbs)
 
-lvModifyEnv :: (Env -> Env) -> LispValZipper -> LispValZipper
+lvModifyEnv :: (Env -> Env) -> LVZipperTurn
 lvModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
 
+lvSet :: LispVal -> LVZipperTurn
 lvSet = lvModify . const
 
+lvSetEnv :: Env -> LVZipperTurn
 lvSetEnv = lvModifyEnv . const
 
-lvFromAST :: LispVal -> LispValZipper
+lvFromAST :: LispVal -> LVZipper
 lvFromAST val = ([], val, [])
 
-lvToAST :: LispValZipper -> LispVal
+lvToAST :: LVZipper -> LispVal
 lvToAST (_, val, []) = val
 lvToAST z = lvToAST $ lvUp z

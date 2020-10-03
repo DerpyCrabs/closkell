@@ -9,13 +9,11 @@ module Lib
     primitiveBindings,
     LispVal (..),
     LispError (..),
-    LispValZipper,
-    LispValCrumb (..),
+    LVZipper,
+    LVCrumb (..),
     readExprList,
     bindVars,
-    StateRef,
     load,
-    nullState,
     moduleSystem,
     server,
   )
@@ -25,7 +23,6 @@ import Compile
 import Compile.ModuleSystem
 import Data.Env
 import Data.Error
-import Data.State
 import Data.Value
 import Eval
 import Eval.Primitive
