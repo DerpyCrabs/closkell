@@ -141,6 +141,11 @@ evaluationTests =
             [ ("(let (k 5) (g (+ 1 2)) (- k g))", Right $ int 2),
               ("(let (+ 1 2))", Right $ int 3)
             ]
+        it "supports function definition" $
+          test
+            [ ("(#(+ %1 %2) 2 3)", Right $ int 5),
+              ("(let (f (lambda (a b) (+ a b))) (f 2 3))", Right $ int 5)
+            ]
         it "can apply evaluated special forms to args" $
           test
             [ ("(car '(quote))", Right $ atom "quote")

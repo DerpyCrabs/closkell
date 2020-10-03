@@ -94,9 +94,9 @@ stepEval z@(_, List pos (function : args), _) =
       return (lvSet res z, [])
     f@(Func params varargs body closure) -> do
       res <- liftThrows $ applyFunc f z args
-      return (res, [])
+      return (res, [id])
     _ ->
-      return (z, [lvDown] ++ (take (length args) $ repeat lvRight) ++ [lvUp])
+      return (z, [lvDown] ++ (replicate (length args) lvRight) ++ [lvUp])
 stepEval (_, badForm, _) = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
@@ -110,7 +110,7 @@ applyFunc (Func params varargs body closure) z args =
     num = toInteger . length
     remainingArgs = drop (length params) args
     bindVarArgs arg env = case arg of
-      Just argName -> bindVars env [(argName, list remainingArgs)]
+      Just argName -> bindVars env [(argName, func "quote" [list remainingArgs])]
       Nothing -> env
 
 quoteEvalPath :: LispVal -> [LVZipperTurn]
