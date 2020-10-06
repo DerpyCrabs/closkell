@@ -236,5 +236,5 @@ runInterpret code = runExceptT $ do
   mapM (eval primitiveBindings) parsedVals
 
 testTable :: (Show b, Eq b) => (a -> IO b) -> [(a, b)] -> IO ()
-testTable runTest [] = return ()
+testTable _ [] = return ()
 testTable runTest ((input, expected) : tests) = (runTest input `shouldReturn` expected) >> testTable runTest tests

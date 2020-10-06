@@ -1,7 +1,6 @@
 module Main where
 
 import Control.Monad.Except
-import Data.List (intercalate)
 import Lib
 import Network.Wai.Handler.Warp
 import System.Environment
@@ -18,25 +17,6 @@ main = do
 debuggerCommand :: [String] -> IO ()
 debuggerCommand args = run 8081 (server args)
 
--- flushStr :: String -> IO ()
--- flushStr str = putStr str >> hFlush stdout
-
--- readPrompt :: String -> IO String
--- readPrompt prompt = flushStr prompt >> getLine
-
--- evalString :: StateRef -> EnvRef -> String -> IO String
--- evalString state env expr = runIOThrows $ fmap show $ liftThrows (readExpr "repl" expr) >>= eval state env
-
--- evalAndPrint :: StateRef -> EnvRef -> String -> IO ()
--- evalAndPrint state env expr = evalString state env expr >>= putStrLn
-
--- until_ :: Monad m => (t -> Bool) -> m t -> (t -> m a) -> m ()
--- until_ pred prompt action = do
---   result <- prompt
---   if pred result
---     then return ()
---     else action result >> until_ pred prompt action
-
 runCommand :: [String] -> IO ()
 runCommand args = do
   let env = primitiveBindings ++ [("args", List Nothing $ map String $ drop 1 args)]
@@ -46,19 +26,12 @@ runCommand args = do
     Left err -> print err
   return ()
 
--- runRepl :: IO ()
--- runRepl = do
---   env <- primitiveBindings
---   state <- nullState
---   until_ (== "quit") (readPrompt "> ") (evalAndPrint state env)
-
 runIOThrows :: IOThrowsError String -> IO String
 runIOThrows action = extractValue <$> runExceptT (trapError action)
 
 compileCommand :: [String] -> IO ()
 compileCommand ["-o", outFile, inFile] = do
   compiled <- compileFile inFile
-  let text = show compiled
   writeFile outFile (show compiled)
 compileCommand [inFile] = do
   compiled <- compileFile inFile

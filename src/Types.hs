@@ -13,7 +13,6 @@ module Types
 where
 
 import Control.Monad.Except
-import Data.IORef
 import Data.Void
 import System.IO (Handle)
 import Text.Megaparsec hiding (State)
@@ -87,7 +86,7 @@ instance Show LispVal where
   show (List _ contents) = "(" ++ unwordsList contents ++ ")"
   show (DottedList _ head tail) = "(" ++ unwordsList head ++ " . " ++ show tail ++ ")"
   show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"
-  show Func {params = args, vararg = varargs, body = body, closure = env} =
+  show Func {params = args, vararg = varargs, body = body} =
     "{lambda [" ++ unwords (map show args)
       ++ ( case varargs of
              Nothing -> ""
@@ -98,7 +97,7 @@ instance Show LispVal where
       ++ "}"
   show (Port _) = "<IO port>"
   show (IOFunc name _) = "<IO primitive " ++ name ++ ">"
-  show (Macro body closure) = "<Macro " ++ show body ++ ">"
+  show (Macro body _) = "<Macro " ++ show body ++ ">"
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map show

@@ -3,17 +3,13 @@
 
 module Server (server) where
 
-import Control.Monad.Except (runExceptT)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Eval (evalSteps)
 import Eval.Primitive
-import GHC.TypeLits
-import JSONInstances
-import Network.Wai.Handler.Warp
+import JSONInstances ()
 import Network.Wai.Middleware.Cors
 import Parse (readExpr)
 import Servant
-import Servant.API
 import Types
 
 type EvalAPI = "eval" :> ReqBody '[PlainText, JSON] String :> Post '[JSON] [ThrowsError LVZipper]
