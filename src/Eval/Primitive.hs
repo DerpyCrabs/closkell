@@ -5,7 +5,6 @@ where
 
 import Control.Monad.Except
 import Data.Bifunctor (Bifunctor (first))
-import Data.Env
 import Data.Error
 import Data.Value
 import Parse (load)
@@ -101,13 +100,13 @@ readAll :: [LispVal] -> IOThrowsError LispVal
 readAll [String filename] = fmap list $ load filename
 
 integerBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
-integerBinop op [] = throwError $ NumArgs 2 []
-integerBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
+integerBinop _ [] = throwError $ NumArgs 2 []
+integerBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 integerBinop op params = Integer . foldl1 op <$> mapM unpackInteger params
 
 floatBinop :: (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
-floatBinop op [] = throwError $ NumArgs 2 []
-floatBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
+floatBinop _ [] = throwError $ NumArgs 2 []
+floatBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 floatBinop op params = Float . foldl1 op <$> mapM unpackFloat params
 
 numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
@@ -164,8 +163,6 @@ intBoolBinop = boolBinop unpackInteger
 
 floatBoolBinop = boolBinop unpackFloat
 
-strBoolBinop = boolBinop unpackStr
-
 strStringBinop = stringBinop unpackStr
 
 boolBoolBinop = boolBinop unpackBool
@@ -179,8 +176,8 @@ unpackBool (Bool b) = return b
 unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 
 car :: [LispVal] -> ThrowsError LispVal
-car [List _ (x : xs)] = return x
-car [DottedList _ (x : xs) _] = return x
+car [List _ (x : _)] = return x
+car [DottedList _ (x : _) _] = return x
 car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
 
@@ -234,7 +231,7 @@ stringToList [String str] = return $ list (Character <$> str)
 stringToList other = throwError $ TypeMismatch "string" (list other)
 
 cdr :: [LispVal] -> ThrowsError LispVal
-cdr [List _ (x : xs)] = return $ list xs
+cdr [List _ (_ : xs)] = return $ list xs
 cdr [DottedList _ [_] x] = return x
 cdr [DottedList _ (_ : xs) x] = return $ dottedList xs x
 cdr [badArg] = throwError $ TypeMismatch "pair" badArg

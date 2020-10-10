@@ -1,0 +1,8 @@
+cradle:
+  stack:
+    - path: './src'
+      component: 'closkell:lib'
+    - path: './app'
+      component: 'closkell:exe:closkell-exe'
+    - path: './test/Spec.hs'
+      component: 'closkell:test:closkell-test'

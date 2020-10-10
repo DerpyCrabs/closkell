@@ -27,7 +27,10 @@ evalSteps env val = evalSteps' [id] [Right zipper] zipper
     evalSteps' (step : steps) acc z = do
       res <- runExceptT $ stepEval (step z)
       case res of
-        Right (z, newSteps) -> evalSteps' (newSteps ++ steps) (acc ++ [Right z]) z
+        Right (z, newSteps) ->
+          if length (newSteps ++ steps) /= 0
+            then evalSteps' (newSteps ++ steps) (acc ++ [Right ((head (newSteps ++ steps)) z)]) z
+            else evalSteps' (newSteps ++ steps) (acc ++ [Right z]) z
         Left err -> return (acc ++ [Left err])
     evalSteps' [] acc _ = return acc
 
@@ -57,11 +60,11 @@ stepEval z@(env, List _ (Atom _ "let" : bindsAndExpr), _) = do
   where
     matchVars (List _ [Atom _ name, var]) = (name, var)
     vars binds = matchVars <$> binds
-stepEval z@(_, List _ [Atom _ "if", Bool True, conseq, alt], _) =
+stepEval z@(_, List _ [Atom _ "if", Bool True, conseq, _], _) =
   return (lvSet conseq z, [id])
-stepEval z@(_, List _ [Atom _ "if", Bool False, conseq, alt], _) =
+stepEval z@(_, List _ [Atom _ "if", Bool False, _, alt], _) =
   return (lvSet alt z, [id])
-stepEval z@(_, List _ [Atom _ "if", pred, conseq, alt], _) =
+stepEval z@(_, List _ [Atom _ "if", _, _, _], _) =
   return (z, [lvRight . lvDown, lvUp])
 stepEval z@(_, List _ [Atom _ "apply", func, List _ args], _) =
   return (lvSet (list ([func] ++ args)) z, [id])
@@ -82,9 +85,9 @@ stepEval z@(_, List _ [Atom _ "unquote", val], _) =
   return (lvSet val z, [id])
 stepEval z@(_, List _ [Atom _ "unquote-splicing", val], _) =
   return (lvSet (func "evaluating-unquote-splicing" [val]) z, [lvRight . lvDown, lvUp])
-stepEval z@(_, List _ [Atom _ "evaluating-unquote-splicing", (List _ splicedVals)], _) =
+stepEval z@(_, List _ [Atom _ "evaluating-unquote-splicing", (List _ _)], _) =
   return (z, [])
-stepEval z@(_, List pos (function : args), _) =
+stepEval z@(_, List _ (function : args), _) =
   case function of
     PrimitiveFunc _ f -> do
       res <- liftThrows $ f args
@@ -92,7 +95,7 @@ stepEval z@(_, List pos (function : args), _) =
     IOFunc _ f -> do
       res <- f args
       return (lvSet res z, [])
-    f@(Func params varargs body closure) -> do
+    f@(Func {}) -> do
       res <- liftThrows $ applyFunc f z args
       return (res, [id])
     _ ->
@@ -124,7 +127,9 @@ quoteEvalPath val = case quoteEvalPath' val of
     quoteEvalPath' (List _ args) =
       let maybeUnquotePaths = quoteEvalPath' <$> args
           argPaths = scanl (\path _ -> lvRight . path) lvDown $ tail args
-          unquotePaths = (\(Just [d, u], t) -> [d . t, lvUp . u]) <$> (filter (\(p, _) -> isJust p) $ zip maybeUnquotePaths argPaths)
+          unquotePaths =
+            (\(Just [d, u], t) -> [d . t, lvUp . u])
+              <$> (filter (\(p, _) -> isJust p) $ zip maybeUnquotePaths argPaths)
        in case length unquotePaths of
             0 -> Nothing
             _ -> Just $ concat unquotePaths
@@ -137,5 +142,5 @@ performUnquoteSplicing (List _ vals) = list (concat $ performUnquoteSplicing' <$
   where
     performUnquoteSplicing' :: LispVal -> [LispVal]
     performUnquoteSplicing' (List _ [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
-    performUnquoteSplicing' v@(List _ vals) = [performUnquoteSplicing v]
+    performUnquoteSplicing' v@(List _ _) = [performUnquoteSplicing v]
     performUnquoteSplicing' other = [other]
