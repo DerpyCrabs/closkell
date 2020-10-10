@@ -25,7 +25,12 @@ export default function CodeInput({
       />
       <Fab
         color='secondary'
-        style={{ position: 'fixed', right: 'calc(60% + 10px)', top: '36px' }}
+        style={{
+          position: 'fixed',
+          right: 'calc(60% + 10px)',
+          top: '36px',
+          zIndex: 999999,
+        }}
         onClick={() => setCode(currentCode)}
       >
         <RunIcon />

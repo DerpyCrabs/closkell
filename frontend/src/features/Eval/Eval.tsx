@@ -24,7 +24,7 @@ export default function Eval() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'row', flexGrow: 1 }}>
       <CodeInput code={code} setCode={setCode} />
       <Steps
         steps={data}
