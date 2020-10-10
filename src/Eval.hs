@@ -51,7 +51,11 @@ stepEval z@(env, List _ [Atom _ "lambda", DottedList _ params varargs, body], _)
   return (lvSet (makeVarArgs varargs env params body) z, [])
 stepEval z@(env, Atom _ name, _) = do
   var <- liftThrows $ getVar env name
-  return (lvSet var $ z, [id])
+  return $ case var of
+    List _ _ -> (lvSet var $ z, [id])
+    Atom _ _ -> (lvSet var $ z, [id])
+    Func {} -> (lvSet var $ z, [id])
+    _ -> (lvSet var $ z, [])
 stepEval z@(env, List _ (Atom _ "let" : bindsAndExpr), _) = do
   let binds = init bindsAndExpr
   let expr = last bindsAndExpr
