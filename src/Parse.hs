@@ -21,6 +21,9 @@ rparen = lexeme $ char ')'
 parseString :: Parser LispVal
 parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 
+parseUnit :: Parser LispVal
+parseUnit = L.symbol spaces "unit" >> return Unit
+
 parseAtom :: Parser LispVal
 parseAtom = do
   pos <- getSourcePos
@@ -135,6 +138,7 @@ parseLambdaShorthandArgs =
 parseExpr :: Parser LispVal
 parseExpr =
   spaces >> try parseLambdaShorthandArgs
+    <|> parseUnit
     <|> parseAtom
     <|> parseLambdaShorthand
     <|> parseString

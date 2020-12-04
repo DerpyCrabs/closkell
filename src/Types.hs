@@ -9,10 +9,12 @@ module Types
     LVZipper,
     LVZipperTurn,
     Env,
+    LispType (..),
   )
 where
 
 import Control.Monad.Except
+import Data.List (intercalate)
 import Data.Void
 import System.IO (Handle)
 import Text.Megaparsec hiding (State)
@@ -27,7 +29,7 @@ type Parser = Parsec Void String
 
 data LispError
   = NumArgs Integer [LispVal]
-  | TypeMismatch String LispVal
+  | TypeMismatch LispType LispType
   | BadSpecialForm String LispVal
   | NotFunction String String
   | Parsing (ParseErrorBundle String Void)
@@ -48,8 +50,24 @@ data LispVal
   | PrimitiveFunc String ([LispVal] -> ThrowsError LispVal)
   | IOFunc String ([LispVal] -> IOThrowsError LispVal)
   | Port Handle
+  | Unit
   | Func {params :: [String], vararg :: Maybe String, body :: LispVal, closure :: Env}
   | Macro {body :: LispVal, closure :: Env}
+  | Type LispType
+
+data LispType
+  = TCharacter
+  | TList LispType
+  | TInteger
+  | TFloat
+  | TString
+  | TBool
+  | TFunc [LispType] (Maybe LispType) LispType
+  | TSum [LispType]
+  | TProd [LispType]
+  | TUnit
+  | TVar String
+  deriving (Eq)
 
 data LVCrumb = LVCrumb Env (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
 
@@ -72,6 +90,7 @@ instance Eq LispVal where
   (PrimitiveFunc n1 _) == (PrimitiveFunc n2 _) = n1 == n2
   (IOFunc n1 _) == (IOFunc n2 _) = n1 == n2
   (Macro b1 c1) == (Macro b2 c2) = b1 == b2 && c1 == c2
+  Unit == Unit = True
   (Func p1 v1 b1 c1) == (Func p2 v2 b2 c2) = p1 == p2 && v1 == v2 && b1 == b2 && c1 == c2
   _ == _ = False
 
@@ -98,6 +117,8 @@ instance Show LispVal where
   show (Port _) = "<IO port>"
   show (IOFunc name _) = "<IO primitive " ++ name ++ ">"
   show (Macro body _) = "<Macro " ++ show body ++ ">"
+  show (Type t) = show t
+  show Unit = "unit"
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map show
@@ -111,9 +132,27 @@ instance Show LispError where
       ++ " args; found values "
       ++ unwords (map show found)
   show (TypeMismatch expected found) =
-    "Invalid type: expected " ++ expected
-      ++ ", found "
+    "Invalid type: expected " ++ show expected
+      ++ " but found "
       ++ show found
   show (Parsing parseErr) = errorBundlePretty parseErr
   show (FromCode obj) = "Error from code: " ++ show obj
   show (Default err) = err
+
+instance Show LispType where
+  show TCharacter = "TCharacter"
+  show (TList t) = "TList[" ++ show t ++ "]"
+  show TInteger = "TInteger"
+  show TFloat = "TFloat"
+  show TString = "TString"
+  show TBool = "TBool"
+  show (TFunc args varArg ret) =
+    let listArgs = intercalate " -> " (show <$> args)
+     in "TFunc[" ++ listArgs ++ showVarArg varArg ++ " -> " ++ show ret ++ "]"
+    where
+      showVarArg (Just t) = " ~> " ++ show t
+      showVarArg Nothing = ""
+  show (TSum variants) = intercalate " | " (show <$> variants)
+  show (TProd elements) = intercalate " & " (show <$> elements)
+  show TUnit = "TUnit"
+  show (TVar var) = "'" ++ var

@@ -9,18 +9,21 @@ module Lib
     primitiveBindings,
     LispVal (..),
     LispError (..),
+    LispType (..),
     LVZipper,
     LVCrumb (..),
     readExprList,
     bindVars,
     load,
     moduleSystem,
+    typeSystem,
     server,
   )
 where
 
 import Compile
 import Compile.ModuleSystem
+import Compile.TypeSystem
 import Data.Env
 import Data.Error
 import Data.Value

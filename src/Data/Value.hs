@@ -4,6 +4,7 @@ module Data.Value
     dottedList,
     atom,
     int,
+    float,
     func,
     lambda,
     makeNormalFunc,
@@ -37,6 +38,9 @@ func f args = List Nothing (atom f : args)
 
 int :: Integer -> LispVal
 int = Integer
+
+float :: Double -> LispVal
+float = Float
 
 lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
 lambda args Nothing body = list (atom "lambda" : list args : body)
