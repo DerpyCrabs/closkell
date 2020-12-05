@@ -1,18 +1,30 @@
 import React from 'react'
 import { FocusedLispVal } from '../types'
 
-function LispValComponent({ val }: { val: FocusedLispVal }) {
+function selectColor(number: number) {
+  const hue = number * 137.508 // use golden angle approximation
+  return `hsl(${hue},50%,75%)`
+}
+
+function LispValComponent({
+  val,
+  level,
+}: {
+  val: FocusedLispVal
+  level: number
+}) {
   if (val.type === 'list') {
     return (
       <span title={val.type}>
-        (
-        {val.value.map((v: FocusedLispVal) => (
+        <span style={{ color: selectColor(level) }}>(</span>
+        {val.value.map((v: FocusedLispVal, i: number) => (
           <span>
-            {' '}
-            <FocusedLispValComponent val={v} />{' '}
+            {i !== 0 && ' '}
+            <FocusedLispValComponent val={v} level={level + 1} />
+            {i !== val.value.length - 1 && ' '}
           </span>
         ))}
-        )
+        <span style={{ color: selectColor(level) }}>)</span>
       </span>
     )
   } else if (val.type === 'dotted-list') {
@@ -28,19 +40,21 @@ function LispValComponent({ val }: { val: FocusedLispVal }) {
 
 export default function FocusedLispValComponent({
   val,
+  level,
 }: {
   val: FocusedLispVal
+  level: number
 }) {
   if (val.focused) {
     return (
       <span
         style={{
-          backgroundColor: '#3256a8aa',
+          backgroundColor: '#224698aa',
           fontSize: '22px',
           fontFamily: "'Roboto Mono', monospace",
         }}
       >
-        <LispValComponent val={val} />
+        <LispValComponent val={val} level={level} />
       </span>
     )
   } else {
@@ -51,7 +65,7 @@ export default function FocusedLispValComponent({
           fontSize: '22px',
         }}
       >
-        <LispValComponent val={val} />
+        <LispValComponent val={val} level={level} />
       </span>
     )
   }
