@@ -22,10 +22,18 @@ export default function Step({
     <div role='tabpanel' hidden={value !== index}>
       {value === index && (
         <Box p={3}>
-          {step.Right !== undefined ? (
+          {step.Right !== undefined && (
             <LispValView val={evalOutputTransform(step.Right)} />
-          ) : (
-            JSON.stringify(step.Left)
+          )}
+          {step.Left !== undefined && (
+            <div
+              style={{
+                whiteSpace: 'pre-wrap',
+                fontFamily: "'Roboto Mono', monospace",
+              }}
+            >
+              {step.Left.error}
+            </div>
           )}
         </Box>
       )}

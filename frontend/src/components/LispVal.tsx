@@ -18,7 +18,7 @@ function LispValComponent({
       <span title={val.type}>
         <span style={{ color: selectColor(level) }}>(</span>
         {val.value.map((v: FocusedLispVal, i: number) => (
-          <span>
+          <span key={`${level}-${i}`}>
             {i !== 0 && ' '}
             <FocusedLispValComponent val={v} level={level + 1} />
             {i !== val.value.length - 1 && ' '}

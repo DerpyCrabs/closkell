@@ -70,7 +70,7 @@ export default function Eval() {
                 setSelected={setSelectedStep}
               />
               {data.map((step: Result<LispError, LVZipper>, i: number) => (
-                <Step step={step} value={selectedStep} index={i} />
+                <Step step={step} value={selectedStep} index={i} key={i} />
               ))}
             </div>
           )

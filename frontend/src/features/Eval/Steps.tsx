@@ -20,7 +20,7 @@ export default function Steps({
       style={{ borderRight: '2px solid #222' }}
     >
       {steps.map((step: any, i: number) => (
-        <Tab label={`Step ${i}`} />
+        <Tab label={`Step ${i + 1}`} key={i} />
       ))}
     </Tabs>
   )
