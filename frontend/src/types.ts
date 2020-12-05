@@ -116,3 +116,9 @@ export type RightResult<T> = {
 export type Result<E, T> = LeftResult<E> & RightResult<T>
 
 export type FocusedLispVal = LispVal<{ focused: boolean }>
+
+export type EvalRequest = {
+  typeCheck: boolean
+  macroExpand: boolean
+  expression: string
+}

@@ -6,6 +6,8 @@ module JSONInstances where
 import Data.Aeson (ToJSON (..), object, (.=))
 import Types
 
+instance ToJSON LispType
+
 instance ToJSON LispVal where
   toJSON (Character c) = object ["type" .= ("character" :: String), "value" .= c]
   toJSON (String s) = object ["type" .= ("string" :: String), "value" .= s]
@@ -21,6 +23,7 @@ instance ToJSON LispVal where
   toJSON (IOFunc name _) = object ["type" .= ("io-func" :: String), "value" .= name]
   toJSON (Macro body closure) = object ["type" .= ("macro" :: String), "body" .= body, "closure" .= closure]
   toJSON Unit = object ["type" .= ("unit" :: String)]
+  toJSON (Type t) = object ["type" .= ("type" :: String), "value" .= t]
 
 instance ToJSON LispError where
   toJSON err = object ["error" .= show err]

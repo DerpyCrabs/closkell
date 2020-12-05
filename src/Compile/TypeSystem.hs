@@ -12,7 +12,9 @@ typeSystem :: LispVal -> IOThrowsError LispVal
 typeSystem val =
   let env = typeBindings
       z = lvSetEnv env . lvFromAST $ val
-   in typeSystem' [id] z
+   in do
+        _ <- typeSystem' [id] z
+        return val
 
 typeSystem' :: [LVZipperTurn] -> LVZipper -> IOThrowsError LispVal
 typeSystem' _ z@(_, List _ [Atom _ "if", pred, conseq, alt], _) = do

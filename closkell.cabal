@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7efff328694bc5c87369c9005add642f0d707af0158a1a4377b14b790c787fb8
+-- hash: 625dd443b63b918fbab429b19c4be716bad871360e9c8630c8c6ff0b3a22ed89
 
 name:           closkell
 version:        0.1.0.0
@@ -48,6 +48,7 @@ library
     , megaparsec
     , mtl
     , servant
+    , servant-options
     , servant-server
     , wai-cors
     , warp
@@ -68,6 +69,7 @@ executable closkell-exe
     , megaparsec
     , mtl
     , servant
+    , servant-options
     , servant-server
     , wai-cors
     , warp
@@ -89,6 +91,7 @@ test-suite closkell-test
     , megaparsec
     , mtl
     , servant
+    , servant-options
     , servant-server
     , wai-cors
     , warp

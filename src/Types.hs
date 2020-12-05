@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Types
   ( ThrowsError,
     IOThrowsError,
@@ -16,6 +18,7 @@ where
 import Control.Monad.Except
 import Data.List (intercalate)
 import Data.Void
+import GHC.Generics
 import System.IO (Handle)
 import Text.Megaparsec hiding (State)
 
@@ -67,7 +70,7 @@ data LispType
   | TProd [LispType]
   | TUnit
   | TVar String
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 data LVCrumb = LVCrumb Env (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
 
