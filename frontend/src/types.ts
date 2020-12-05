@@ -66,6 +66,10 @@ type IOFunc = {
   value: string
 }
 
+type Unit = {
+  type: 'unit'
+}
+
 type Macro<AdditionalInfo = {}> = {
   type: 'macro'
   body: LispVal<AdditionalInfo>
@@ -97,6 +101,7 @@ export type LispVal<AdditionalInfo = {}> = (
   | Port
   | Func<AdditionalInfo>
   | Macro<AdditionalInfo>
+  | Unit
 ) &
   AdditionalInfo
 

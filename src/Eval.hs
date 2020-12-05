@@ -35,6 +35,7 @@ evalSteps env val = evalSteps' [id] [Right zipper] zipper
     evalSteps' [] acc _ = return acc
 
 stepEval :: LVZipper -> IOThrowsError (LVZipper, [LVZipperTurn])
+stepEval z@(_, Unit, _) = return (z, [])
 stepEval z@(_, String _, _) = return (z, [])
 stepEval z@(_, Character _, _) = return (z, [])
 stepEval z@(_, Integer _, _) = return (z, [])

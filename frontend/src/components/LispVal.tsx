@@ -33,6 +33,8 @@ function LispValComponent({
     return <span title={val.type}>func</span>
   } else if (val.type === 'macro') {
     return <span>macro</span>
+  } else if (val.type === 'unit') {
+    return <span>unit</span>
   } else {
     return <span title={val.type}>{val.value}</span>
   }

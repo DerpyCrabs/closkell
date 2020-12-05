@@ -20,6 +20,7 @@ instance ToJSON LispVal where
   toJSON (PrimitiveFunc name _) = object ["type" .= ("primitive-func" :: String), "value" .= name]
   toJSON (IOFunc name _) = object ["type" .= ("io-func" :: String), "value" .= name]
   toJSON (Macro body closure) = object ["type" .= ("macro" :: String), "body" .= body, "closure" .= closure]
+  toJSON Unit = object ["type" .= ("unit" :: String)]
 
 instance ToJSON LispError where
   toJSON err = object ["error" .= show err]
