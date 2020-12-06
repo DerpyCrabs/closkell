@@ -19,6 +19,14 @@ export default function EvalRequestInput({
   const [currentCode, setCurrentCode] = React.useState(request.expression)
   const [typeCheck, setTypeCheck] = React.useState(request.typeCheck)
   const [macroExpand, setMacroExpand] = React.useState(request.macroExpand)
+
+  const tabKeyHandler = (e: React.KeyboardEvent) => {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      document.execCommand('insertText', false, ' '.repeat(2))
+    }
+  }
+
   return (
     <div style={{ display: 'flex', width: '40%', flexDirection: 'column' }}>
       <textarea
@@ -34,6 +42,7 @@ export default function EvalRequestInput({
           flex: 1,
           resize: 'none',
         }}
+        onKeyDown={tabKeyHandler}
       />
       <Fab
         color='secondary'
