@@ -19,7 +19,11 @@ export default function Step({
   index: number
 }) {
   return (
-    <div role='tabpanel' hidden={value !== index}>
+    <div
+      style={{ flex: 1, overflowY: 'scroll' }}
+      role='tabpanel'
+      hidden={value !== index}
+    >
       {value === index && (
         <Box p={3}>
           {step.Right !== undefined && (

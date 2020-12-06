@@ -17,7 +17,7 @@ const useStyles = makeStyles((theme: Theme) =>
 export default function CloskellAppBar() {
   const classes = useStyles()
   return (
-    <AppBar position='static'>
+    <AppBar position='static' style={{ height: '64px' }}>
       <Toolbar>
         <IconButton
           edge='start'

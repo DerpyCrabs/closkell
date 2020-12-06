@@ -31,7 +31,13 @@ export default function Eval() {
   const [selectedStep, setSelectedStep] = React.useState(0)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', flexGrow: 1 }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        height: 'calc(100vh - 64px)',
+      }}
+    >
       <CodeInput request={request} setRequest={setRequest} />
       <Divider orientation='vertical' flexItem />
       <div
