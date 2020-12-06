@@ -17,20 +17,20 @@ typeSystem val =
         return val
 
 typeSystem' :: [LVZipperTurn] -> LVZipper -> IOThrowsError LispVal
-typeSystem' _ z@(_, List _ [Atom _ "if", pred, conseq, alt], _) = do
-  predType <- typeSystem' [id] $ lvSet pred z
-  conseqType <- typeSystem' [id] $ lvSet conseq z
-  altType <- typeSystem' [id] $ lvSet alt z
+typeSystem' steps z@(env, List _ [Atom _ "if", pred, conseq, alt], _) = do
+  predType <- typeSystem' [id] $ lvSetEnv env (lvFromAST pred)
+  conseqType <- typeSystem' [id] $ lvSetEnv env (lvFromAST conseq)
+  altType <- typeSystem' [id] $ lvSetEnv env (lvFromAST alt)
   unless (checkType predType TBool) $ throwError $ TypeMismatch TBool (unwrapType predType)
   if unwrapType conseqType == unwrapType altType
-    then return conseqType
+    then typeSystem' steps $ lvSet conseqType z
     else throwError $ TypeMismatch (unwrapType conseqType) (unwrapType altType)
-typeSystem' (step : steps) z = do
-  (newZ, newSteps) <- stepEval (step z)
+typeSystem' [] (_, val, _) = return $ Type $ typeOf val
+typeSystem' steps z = do
+  (newZ, newSteps) <- stepEval z
   case newSteps ++ steps of
     [] -> typeSystem' [] newZ
-    nextSteps -> typeSystem' nextSteps newZ
-typeSystem' [] (_, val, _) = return $ Type $ typeOf val
+    (step : nextSteps) -> typeSystem' nextSteps (step newZ)
 
 typeBindings :: Env
 typeBindings = map (makeFunc PrimitiveFunc) (transformType <$> primitives)
@@ -47,7 +47,7 @@ createType (TFunc argTypes varArg retType) args = do
         else return argTypes
     Just varArgType -> return (argTypes ++ replicate (length args - length argTypes) varArgType)
   deducedArgTypes <- zipWithM deduceArgType argTypesWithVarArgs (typeOf <$> args)
-  mapM_ (uncurry checkTypeCompatibility) (zip (snd <$> deducedArgTypes) (typeOf <$> args)) -- fix varargs
+  mapM_ (uncurry checkTypeCompatibility) (zip (snd <$> deducedArgTypes) (typeOf <$> args))
   Type <$> applyVarsToType (catMaybes $ fst <$> deducedArgTypes) retType
   where
     checkTypeCompatibility :: LispType -> LispType -> ThrowsError ()
@@ -91,6 +91,7 @@ typeOf Unit = TUnit
 typeOf (Type t) = t
 typeOf (List _ xs@(x : _)) | allEqual $ typeOf <$> xs = TList $ typeOf x
 typeOf (List _ xs) = TList $ TProd $ typeOf <$> xs
+typeOf t = error $ "typeOf error " ++ show t
 
 isSumTypeDeducibleTo :: [LispType] -> [LispType] -> Bool
 isSumTypeDeducibleTo from = all (`elem` from)
