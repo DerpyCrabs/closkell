@@ -44,7 +44,7 @@ primitives =
     ("string.from", stringFrom, TFunc [] (Just $ TSum [TInteger, TFloat, TBool, TCharacter, TString, TList (TVar "a")]) TString),
     ("string.toList", stringToList, TFunc [TString] Nothing (TList TCharacter)),
     ("car", car, TFunc [TList (TVar "a")] Nothing (TVar "a")),
-    ("cdr", cdr, TFunc [TList (TVar "a")] Nothing (TVar "a")),
+    ("cdr", cdr, TFunc [TList (TVar "a")] Nothing (TList (TVar "a"))),
     ("cons", cons, TFunc [TVar "a", TList (TVar "a")] Nothing (TList (TVar "a"))),
     ("get", get, TFunc [TVar "a", TList $ TSum [TVar "a", TVar "b"]] Nothing (TVar "b")),
     ("nth", nth, TFunc [TInteger, TList (TVar "a")] Nothing (TVar "a")),
@@ -181,11 +181,6 @@ unpackBool (Bool b) = return b
 notOp :: [LispVal] -> ThrowsError LispVal
 notOp [v] = Bool . not <$> unpackBool v
 
-car :: [LispVal] -> ThrowsError LispVal
-car [List _ (x : _)] = return x
-car [DottedList _ (x : _) _] = return x
-car badArgList = throwError $ NumArgs 1 badArgList
-
 get :: [LispVal] -> ThrowsError LispVal
 get [String key, List _ (String k : val : rest)]
   | key == k = return val
@@ -236,15 +231,15 @@ stringToList [String str] = return $ list (Character <$> str)
 
 cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List _ (_ : xs)] = return $ list xs
-cdr [DottedList _ [_] x] = return x
-cdr [DottedList _ (_ : xs) x] = return $ dottedList xs x
 cdr badArgList = throwError $ NumArgs 1 badArgList
 
 cons :: [LispVal] -> ThrowsError LispVal
 cons [x, List _ xs] = return $ list $ x : xs
-cons [x, DottedList _ xs xlast] = return $ dottedList (x : xs) xlast
-cons [x1, x2] = return $ dottedList [x1] x2
 cons badArgList = throwError $ NumArgs 2 badArgList
+
+car :: [LispVal] -> ThrowsError LispVal
+car [List _ (x : _)] = return x
+car badArgList = throwError $ NumArgs 1 badArgList
 
 nth :: [LispVal] -> ThrowsError LispVal
 nth [Integer i, List _ xs] | length xs > fromIntegral i = return $ xs !! fromIntegral i

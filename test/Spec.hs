@@ -264,7 +264,9 @@ typeSystemTests =
               ("(let (not #(if %% false true)) (not2 #(if %% \\c true)) (not2 (not true)))", Left $ TypeMismatch TCharacter TBool),
               ("(let (not #(if %% false true)) (not2 #(if %% \"s\" true)) (if (not2 (not true)) 5 0))", Left $ TypeMismatch TString TBool),
               ("(if (eq? () ()) 5 0)", Right Unit),
-              ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TInteger TBool)
+              ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TInteger TBool),
+              ("(eq? 5 (car '(2 \\c)))", Left $ TypeMismatch (TList (TVar "a")) (TProd [TInteger, TCharacter])),
+              ("(eq? \\c (car '(2 5)))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger])
             ]
 
 runFolderTest runner testPath = do

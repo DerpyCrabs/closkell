@@ -2,7 +2,10 @@ module Compile.TypeSystem (typeSystem) where
 
 import Control.Monad (unless, zipWithM)
 import Data.Error
+import Data.Function (on)
+import Data.List (groupBy, sortBy)
 import Data.Maybe (catMaybes)
+import Data.Ord (comparing)
 import Data.Value
 import Eval
 import Eval.Primitive
@@ -47,12 +50,17 @@ createType (TFunc argTypes varArg retType) args = do
         else return argTypes
     Just varArgType -> return (argTypes ++ replicate (length args - length argTypes) varArgType)
   deducedArgTypes <- zipWithM deduceArgType argTypesWithVarArgs (typeOf <$> args)
+  _ <- checkVariablesEquality $ groupVariables $ catMaybes $ fst <$> deducedArgTypes
   mapM_ (uncurry checkTypeCompatibility) (zip (snd <$> deducedArgTypes) (typeOf <$> args))
   Type <$> applyVarsToType (catMaybes $ fst <$> deducedArgTypes) retType
   where
     checkTypeCompatibility :: LispType -> LispType -> ThrowsError ()
     checkTypeCompatibility t1 t2 | typeCompatibleWith t1 t2 = return ()
     checkTypeCompatibility t1 t2 = throwError $ TypeMismatch t1 t2
+    checkVariablesEquality :: [(String, [LispType])] -> ThrowsError ()
+    checkVariablesEquality ((_, types) : vars) | allEqual types = checkVariablesEquality vars
+    checkVariablesEquality [] = return ()
+    checkVariablesEquality ((name, types) : _) = throwError $ FailedToDeduceVar name types
 createType _ _ = error "createType: unsupported"
 
 applyVarsToType :: [(String, LispType)] -> LispType -> ThrowsError LispType
@@ -69,6 +77,7 @@ applyVarsToType _ t = return t
 
 deduceArgType :: LispType -> LispType -> ThrowsError (Maybe (String, LispType), LispType)
 deduceArgType (TVar v) t = return (Just (v, t), t)
+deduceArgType t (TVar v) = return (Just (v, t), t)
 deduceArgType (TList t1) (TList t2) = (TList <$>) <$> deduceArgType t1 t2
 deduceArgType t1 _ = return (Nothing, t1)
 
@@ -90,7 +99,7 @@ typeOf (Float _) = TFloat
 typeOf Unit = TUnit
 typeOf (Type t) = t
 typeOf (List _ xs@(x : _)) | allEqual $ typeOf <$> xs = TList $ typeOf x
-typeOf (List _ xs) = TList $ TProd $ typeOf <$> xs
+typeOf (List _ xs) = TProd $ typeOf <$> xs
 typeOf t = error $ "typeOf error " ++ show t
 
 isSumTypeDeducibleTo :: [LispType] -> [LispType] -> Bool
@@ -107,3 +116,8 @@ unwrapType t = error $ "Failed to unwrap type " ++ show t
 checkType :: LispVal -> LispType -> Bool
 checkType (Type t) t2 | t == t2 = True
 checkType _ _ = False
+
+groupVariables :: [(String, LispType)] -> [(String, [LispType])]
+groupVariables =
+  map (\l -> (fst . head $ l, map snd l)) . groupBy ((==) `on` fst)
+    . sortBy (comparing fst)

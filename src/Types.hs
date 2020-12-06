@@ -33,6 +33,7 @@ type Parser = Parsec Void String
 data LispError
   = NumArgs Integer [LispVal]
   | TypeMismatch LispType LispType
+  | FailedToDeduceVar String [LispType]
   | BadSpecialForm String LispVal
   | NotFunction String String
   | Parsing (ParseErrorBundle String Void)
@@ -141,6 +142,7 @@ instance Show LispError where
   show (Parsing parseErr) = errorBundlePretty parseErr
   show (FromCode obj) = "Error from code: " ++ show obj
   show (Default err) = err
+  show (FailedToDeduceVar name varTypes) = "Failed to deduce variable '" ++ name ++ "' from types: " ++ intercalate ", " (show <$> varTypes)
 
 instance Show LispType where
   show TCharacter = "TCharacter"
@@ -158,4 +160,4 @@ instance Show LispType where
   show (TSum variants) = intercalate " | " (show <$> variants)
   show (TProd elements) = intercalate " & " (show <$> elements)
   show TUnit = "TUnit"
-  show (TVar var) = "'" ++ var
+  show (TVar var) = var
