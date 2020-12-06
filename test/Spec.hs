@@ -246,6 +246,7 @@ typeSystemTests =
             [ ("(if true 5 4)", Right Unit),
               ("(if 5 3 4)", Left $ TypeMismatch TBool TInteger),
               ("(if (== 5 4) 3 4)", Right Unit),
+              ("(if (== 5 4) 5 true)", Left $ TypeMismatch TInteger TBool),
               ("(+ 3 (if (== 5 4) 3 4))", Right Unit),
               ("(if true 5 (+ \\c \\d))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
               ("(if true (if true 3 4) 5)", Right Unit)
@@ -256,6 +257,14 @@ typeSystemTests =
               ("(let (kek (lambda (x y) (+ x y))) (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
               ("(let (kek (lambda (x y . pek) (+ x y ~@pek))) (kek 5 3 4 5))", Right Unit),
               ("(let (kek (lambda (x y . pek) (+ x y ~@pek))) (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+            ]
+        it "supports all std code" $
+          test
+            [ ("(let (not (lambda (arg) arg)) (not2 #(if %% \"s\" true)) (not2 (not true)))", Left $ TypeMismatch TString TBool),
+              ("(let (not #(if %% false true)) (not2 #(if %% \\c true)) (not2 (not true)))", Left $ TypeMismatch TCharacter TBool),
+              ("(let (not #(if %% false true)) (not2 #(if %% \"s\" true)) (if (not2 (not true)) 5 0))", Left $ TypeMismatch TString TBool),
+              ("(if (eq? () ()) 5 0)", Right Unit),
+              ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TInteger TBool)
             ]
 
 runFolderTest runner testPath = do

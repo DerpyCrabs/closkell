@@ -44,6 +44,7 @@ stepEval z@(_, Bool _, _) = return (z, [])
 stepEval z@(_, PrimitiveFunc _ _, _) = return (z, [])
 stepEval z@(_, IOFunc _ _, _) = return (z, [])
 stepEval z@(_, Func {}, _) = return (z, [])
+stepEval z@(_, Type _, _) = return (z, [])
 stepEval z@(env, List _ [Atom _ "lambda", List _ [Atom _ "quote", List _ []], body], _) =
   return (lvSet (makeNormalFunc env [] body) z, [])
 stepEval z@(env, List _ [Atom _ "lambda", List _ params, body], _) =
@@ -114,13 +115,13 @@ applyFunc (Func params varargs body closure) z args =
   if num params /= num args && isNothing varargs
     then throwError $ NumArgs (num params) args
     else do
-      let env = bindVarArgs varargs . bindVars closure $ zip params args
+      let env = bindVarArgs varargs . bindVars (zip params args) $ closure
       return . lvSet body . lvSetEnv env $ z
   where
     num = toInteger . length
     remainingArgs = drop (length params) args
     bindVarArgs arg env = case arg of
-      Just argName -> bindVars env [(argName, func "quote" [list remainingArgs])]
+      Just argName -> bindVars [(argName, func "quote" [list remainingArgs])] env
       Nothing -> env
 
 quoteEvalPath :: LispVal -> [LVZipperTurn]
