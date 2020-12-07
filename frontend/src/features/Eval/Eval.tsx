@@ -28,6 +28,11 @@ export default function Eval() {
     }).then((res) => res.json())
   )
 
+  React.useEffect(
+    () => setSelectedStep(data !== undefined ? data.length - 1 : 0),
+    [data]
+  )
+
   const [selectedStep, setSelectedStep] = React.useState(0)
 
   return (
