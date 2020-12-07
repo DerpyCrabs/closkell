@@ -72,8 +72,10 @@ stepEval z@(_, List _ [Atom _ "if", Bool False, _, alt], _) =
   return (lvSet alt z, [id])
 stepEval z@(_, List _ [Atom _ "if", _, _, _], _) =
   return (z, [lvRight . lvDown, lvUp])
-stepEval z@(_, List _ [Atom _ "apply", func, List _ args], _) =
-  return (lvSet (list (func : args)) z, [id])
+stepEval z@(_, List _ [Atom _ "apply", f, args], _) =
+  return (lvSet (func "evaluating-apply" [f, args]) z, [lvRight . lvDown, lvRight, lvUp])
+stepEval z@(_, List _ [Atom _ "evaluating-apply", f, List _ args], _) =
+  return (lvSet (list (f : args)) z, [id])
 stepEval z@(_, List _ [Atom _ "quote", val], _) =
   let path = quoteEvalPath val
       correctPath path@(_ : _ : _) =

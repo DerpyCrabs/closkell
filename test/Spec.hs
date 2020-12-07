@@ -128,7 +128,10 @@ evaluationTests =
               ("(+ 1 (+ 2 3))", Right $ int 6)
             ]
         it "evaluates apply" $
-          test [("(apply + (5 6))", Right $ int 11)]
+          test
+            [ ("(apply + '(5 6))", Right $ int 11),
+              ("(apply + (cdr '(3 4 5)))", Right $ int 9)
+            ]
         it "can throw errors from code" $
           test [("(io.throw \"Error\")", Left $ FromCode $ String "Error")]
         it "evaluates if" $
@@ -266,7 +269,9 @@ typeSystemTests =
               ("(if (eq? () ()) 5 0)", Right Unit),
               ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TInteger TBool),
               ("(eq? 5 (car '(2 \\c)))", Left $ TypeMismatch (TList (TVar "a")) (TProd [TInteger, TCharacter])),
-              ("(eq? \\c (car '(2 5)))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger])
+              ("(eq? \\c (car '(2 5)))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger]),
+              ("(let (get-second (lambda (a b) b)) (eq? 5 (apply get-second '(\\c 5))))", Right Unit),
+              ("(let (get-second (lambda (a b) b)) (eq? 5 (apply get-second '(\\c \\с))))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter])
             ]
 
 runFolderTest runner testPath = do
