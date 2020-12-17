@@ -1,11 +1,16 @@
 (module "std" (not null? first second))
 (not #(if %% false true))
 (null? #(if (eq? %% ()) true false))
-; (define (list . objs)       objs)
-; (define (id obj)           obj)
-; (define (flip func)        (lambda (arg1 arg2) (func arg2 arg1)))
+(first car)
+(next cdr)
+(second #(first (next %%)))
+(list (lambda (. objs) objs))
+(id (lambda (arg) arg))
+(flip (lambda (func) (lambda (arg1 arg2) (func arg2 arg1))))
+
+(compose (lambda (f g) (lambda (arg) (f (g arg)))))
+
 ; (define (curry func . args)  #(apply func (append args %&)))
-; (define (compose f g)      (lambda (arg) (f (apply g arg))))
 ; (define zero?              (curry = 0))
 ; (define positive?          (curry < 0))
 ; (define negative?          (curry > 0))
@@ -41,10 +46,6 @@
 
 ; (define (dec i) (- i 1))
 ; (define (inc i) (+ i 1))
-
-(first car)
-(next cdr)
-(second #(first (next %%)))
 ; (define (ffirst lst) (first (first lst)))
 ; (define (nnext lst) (next (next lst)))
 ; (define (nfirst lst) (next (first lst)))

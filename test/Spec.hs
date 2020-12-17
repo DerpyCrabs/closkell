@@ -249,7 +249,7 @@ typeSystemTests =
             [ ("(if true 5 4)", Right Unit),
               ("(if 5 3 4)", Left $ TypeMismatch TBool TInteger),
               ("(if (== 5 4) 3 4)", Right Unit),
-              ("(if (== 5 4) 5 true)", Left $ TypeMismatch TInteger TBool),
+              ("(if (== 5 4) 5 true)", Right Unit),
               ("(+ 3 (if (== 5 4) 3 4))", Right Unit),
               ("(if true 5 (+ \\c \\d))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
               ("(if true (if true 3 4) 5)", Right Unit)
@@ -263,15 +263,16 @@ typeSystemTests =
             ]
         it "supports all std code" $
           test
-            [ ("(let (not (lambda (arg) arg)) (not2 #(if %% \"s\" true)) (not2 (not true)))", Left $ TypeMismatch TString TBool),
-              ("(let (not #(if %% false true)) (not2 #(if %% \\c true)) (not2 (not true)))", Left $ TypeMismatch TCharacter TBool),
-              ("(let (not #(if %% false true)) (not2 #(if %% \"s\" true)) (if (not2 (not true)) 5 0))", Left $ TypeMismatch TString TBool),
+            [ ("(let (not (lambda (arg) arg)) (not2 #(if %% \"s\" true)) (not2 (not true)))", Right Unit),
+              ("(let (not #(if %% false true)) (not2 #(if %% \\c true)) (not2 (not true)))", Right Unit),
+              ("(let (not #(if %% false true)) (not2 #(if %% \"s\" true)) (if (not2 (not true)) 5 0))", Left $ TypeMismatch TBool (TSum [TString, TBool])),
               ("(if (eq? () ()) 5 0)", Right Unit),
-              ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TInteger TBool),
+              ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
               ("(eq? 5 (car '(2 \\c)))", Left $ TypeMismatch (TList (TVar "a")) (TProd [TInteger, TCharacter])),
               ("(eq? \\c (car '(2 5)))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger]),
               ("(let (get-second (lambda (a b) b)) (eq? 5 (apply get-second '(\\c 5))))", Right Unit),
-              ("(let (get-second (lambda (a b) b)) (eq? 5 (apply get-second '(\\c \\с))))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter])
+              ("(let (get-second (lambda (a b) b)) (eq? 5 (apply get-second '(\\c \\с))))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter]),
+              ("(let (some-fn (lambda () (if (== 3 4) \\c 5))) (eq? true (some-fn)))", Left $ FailedToDeduceVar "a" [TBool, TSum [TCharacter, TInteger]])
             ]
 
 runFolderTest runner testPath = do

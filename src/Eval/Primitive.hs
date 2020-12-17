@@ -24,9 +24,9 @@ stripType (name, val, _) = (name, val)
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal, LispType)]
 primitives =
-  [ ("+", numericBinop (+) (+), TFunc [] (Just tNumber) tNumber),
-    ("-", numericBinop (-) (-), TFunc [] (Just tNumber) tNumber),
-    ("*", numericBinop (*) (-), TFunc [] (Just tNumber) tNumber),
+  [ ("+", numericBinop (+) (+), TFunc [] (Just tNumber) TFloat),
+    ("-", numericBinop (-) (-), TFunc [] (Just tNumber) TFloat),
+    ("*", numericBinop (*) (-), TFunc [] (Just tNumber) TFloat),
     ("/", integerBinop div, TFunc [] (Just TInteger) TInteger),
     ("mod", integerBinop mod, TFunc [] (Just TInteger) TInteger),
     ("quotient", integerBinop quot, TFunc [] (Just TInteger) TInteger),

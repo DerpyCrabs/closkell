@@ -27,7 +27,7 @@ typeSystem' steps z@(env, List _ [Atom _ "if", pred, conseq, alt], _) = do
   unless (checkType predType TBool) $ throwError $ TypeMismatch TBool (unwrapType predType)
   if unwrapType conseqType == unwrapType altType
     then typeSystem' steps $ lvSet conseqType z
-    else throwError $ TypeMismatch (unwrapType conseqType) (unwrapType altType)
+    else typeSystem' steps $ lvSet (Type $ TSum [unwrapType conseqType, unwrapType altType]) z
 typeSystem' [] (_, val, _) = return $ Type $ typeOf val
 typeSystem' steps z = do
   (newZ, newSteps) <- stepEval z
