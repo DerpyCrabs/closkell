@@ -264,7 +264,10 @@ typeSystemTests =
               ("(let (kek (lambda (x y . pek) (+ x y ~@pek))) (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
         it "supports recursive functions" $
-          test [("(let (rec (lambda (a) (if (== a 5) true (rec a)))) (eq? false (rec 6)))", Right Unit)]
+          test
+            [ ("(let (rec (lambda (a) (if (== a 5) true (rec a)))) (eq? false (rec 6)))", Right Unit),
+              ("(let (rec (lambda (a) (let (rec (lambda (b) (rec a))) (rec 5)))) (rec 1))", Right Unit)
+            ]
         it "supports all std code" $
           test
             [ ("(let (not (lambda (arg) arg)) (not2 #(if %% \"s\" true)) (not2 (not true)))", Right Unit),

@@ -1,6 +1,8 @@
 module Compile.TypeSystem (typeSystem) where
 
 import Control.Monad (unless, zipWithM)
+import Control.Monad.IO.Class
+import Data.Env
 import Data.Error
 import Data.Function (on)
 import Data.List (groupBy, sortBy)
@@ -16,24 +18,42 @@ typeSystem val =
   let env = typeBindings
       z = lvSetEnv env . lvFromAST $ val
    in do
-        _ <- typeSystem' [id] z
+        _ <- typeSystem' [] [id] z
         return val
 
-typeSystem' :: [LVZipperTurn] -> LVZipper -> IOThrowsError LispVal
-typeSystem' steps z@(env, List _ [Atom _ "if", pred, conseq, alt], _) = do
-  predType <- typeSystem' [id] $ lvSetEnv env (lvFromAST pred)
-  conseqType <- typeSystem' [id] $ lvSetEnv env (lvFromAST conseq)
-  altType <- typeSystem' [id] $ lvSetEnv env (lvFromAST alt)
+typeSystem' :: [String] -> [LVZipperTurn] -> LVZipper -> IOThrowsError LispVal
+typeSystem' stack steps z@(env, List _ [Atom _ "if", pred, conseq, alt], _) = do
+  predType <- typeSystem' stack [id] $ lvSet pred z
+  conseqType <- typeSystem' stack [id] $ lvSet conseq z
+  altType <- typeSystem' stack [id] $ lvSet alt z
   unless (checkType predType TBool) $ throwError $ TypeMismatch TBool (unwrapType predType)
   if unwrapType conseqType == unwrapType altType
-    then typeSystem' steps $ lvSet conseqType z
-    else typeSystem' steps $ lvSet (Type $ TSum [unwrapType conseqType, unwrapType altType]) z
-typeSystem' [] (_, val, _) = return $ Type $ typeOf val
-typeSystem' steps z = do
+    then typeSystem' stack steps $ lvSet conseqType z
+    else typeSystem' stack steps $ lvSet (Type $ deduceReturnType (unwrapType conseqType) (unwrapType altType)) z
+  where
+    deduceReturnType (TVar var) (TVar _) = TVar var
+    deduceReturnType (TVar _) t = t
+    deduceReturnType t (TVar _) = t
+    deduceReturnType t1 t2 = TSum [t1, t2]
+typeSystem' stack steps z@(env, List _ (Atom _ func : _), crumbs) = do
+  let newStack = if isFunc env func then func : stack else stack
+  if func `elem` stack && isFunc env func
+    then typeSystem' newStack steps $ lvSet (Type (TVar "a")) z
+    else do
+      (newZ, newSteps) <- stepEval z
+      case newSteps ++ steps of
+        [] -> typeSystem' newStack [] newZ
+        (step : nextSteps) -> typeSystem' newStack nextSteps (step newZ)
+  where
+    isFunc env func = case getVar env func of
+      Right (List _ (Atom _ "lambda" : _)) -> True
+      _ -> False
+typeSystem' _ [] (_, val, _) = return $ Type $ typeOf val
+typeSystem' stack steps z = do
   (newZ, newSteps) <- stepEval z
   case newSteps ++ steps of
-    [] -> typeSystem' [] newZ
-    (step : nextSteps) -> typeSystem' nextSteps (step newZ)
+    [] -> typeSystem' stack [] newZ
+    (step : nextSteps) -> typeSystem' stack nextSteps (step newZ)
 
 typeBindings :: Env
 typeBindings = map (makeFunc PrimitiveFunc) (transformType <$> primitives)
