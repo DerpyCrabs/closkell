@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Eval
   ( stepEval,
     evalSteps,
@@ -61,11 +63,15 @@ stepEval z@(env, Atom _ name, _) = do
 stepEval z@(env, List _ (Atom _ "let" : bindsAndExpr), _) = do
   let binds = init bindsAndExpr
   let expr = last bindsAndExpr
-  let newEnv = bindVars env (vars binds)
+  let functionEnv = bindVars (vars binds) env
+  newBinds <- mapM (evalFunctions functionEnv) (vars binds)
+  let newEnv = bindVars newBinds env
   return (lvSetEnv newEnv . lvSet expr $ z, [id])
   where
     matchVars (List _ [Atom _ name, var]) = (name, var)
     vars binds = matchVars <$> binds
+    evalFunctions env (name, var@(List _ (Atom _ "lambda" : _))) = (name,) . lvToAST . fst <$> stepEval (lvSetEnv env $ lvFromAST var)
+    evalFunctions _ bind = return bind
 stepEval z@(_, List _ [Atom _ "if", Bool True, conseq, _], _) =
   return (lvSet conseq z, [id])
 stepEval z@(_, List _ [Atom _ "if", Bool False, _, alt], _) =

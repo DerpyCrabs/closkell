@@ -144,7 +144,9 @@ evaluationTests =
         it "handles let bindings" $
           test
             [ ("(let (k 5) (g (+ 1 2)) (- k g))", Right $ int 2),
-              ("(let (+ 1 2))", Right $ int 3)
+              ("(let (+ 1 2))", Right $ int 3),
+              ("(let (k 5) (r (lambda (a) (+ k a))) (let (k 7) (r 5)))", Right $ int 10),
+              ("(let (k 5) (let (k 7) k))", Right $ int 7)
             ]
         it "supports function definition" $
           test
@@ -261,12 +263,15 @@ typeSystemTests =
               ("(let (kek (lambda (x y . pek) (+ x y ~@pek))) (kek 5 3 4 5))", Right Unit),
               ("(let (kek (lambda (x y . pek) (+ x y ~@pek))) (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
+        it "supports recursive functions" $
+          test [("(let (rec (lambda (a) (if (== a 5) true (rec a)))) (eq? false (rec 6)))", Right Unit)]
         it "supports all std code" $
           test
             [ ("(let (not (lambda (arg) arg)) (not2 #(if %% \"s\" true)) (not2 (not true)))", Right Unit),
               ("(let (not #(if %% false true)) (not2 #(if %% \\c true)) (not2 (not true)))", Right Unit),
               ("(let (not #(if %% false true)) (not2 #(if %% \"s\" true)) (if (not2 (not true)) 5 0))", Left $ TypeMismatch TBool (TSum [TString, TBool])),
               ("(if (eq? () ()) 5 0)", Right Unit),
+              ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
               ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
               ("(eq? 5 (car '(2 \\c)))", Left $ TypeMismatch (TList (TVar "a")) (TProd [TInteger, TCharacter])),
               ("(eq? \\c (car '(2 5)))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger]),
