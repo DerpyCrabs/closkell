@@ -47,11 +47,11 @@ stepEval z@(_, PrimitiveFunc _ _, _) = return (z, [])
 stepEval z@(_, IOFunc _ _, _) = return (z, [])
 stepEval z@(_, Func {}, _) = return (z, [])
 stepEval z@(_, Type _, _) = return (z, [])
-stepEval z@(env, List _ [Atom _ "lambda", List _ [Atom _ "quote", List _ []], body], _) =
+stepEval z@(env, List _ [Atom _ "fn", List _ [Atom _ "quote", List _ []], body], _) =
   return (lvSet (makeNormalFunc env [] body) z, [])
-stepEval z@(env, List _ [Atom _ "lambda", List _ params, body], _) =
+stepEval z@(env, List _ [Atom _ "fn", List _ params, body], _) =
   return (lvSet (makeNormalFunc env params body) z, [])
-stepEval z@(env, List _ [Atom _ "lambda", DottedList _ params varargs, body], _) =
+stepEval z@(env, List _ [Atom _ "fn", DottedList _ params varargs, body], _) =
   return (lvSet (makeVarArgs varargs env params body) z, [])
 stepEval z@(env, Atom _ name, _) = do
   var <- liftThrows $ getVar env name
@@ -70,7 +70,7 @@ stepEval z@(env, List _ (Atom _ "let" : bindsAndExpr), _) = do
   where
     matchVars (List _ [Atom _ name, var]) = (name, var)
     vars binds = matchVars <$> binds
-    evalFunctions env (name, var@(List _ (Atom _ "lambda" : _))) = (name,) . lvToAST . fst <$> stepEval (lvSetEnv env $ lvFromAST var)
+    evalFunctions env (name, var@(List _ (Atom _ "fn" : _))) = (name,) . lvToAST . fst <$> stepEval (lvSetEnv env $ lvFromAST var)
     evalFunctions _ bind = return bind
 stepEval z@(_, List _ [Atom _ "if", Bool True, conseq, _], _) =
   return (lvSet conseq z, [id])

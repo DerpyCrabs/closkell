@@ -46,7 +46,7 @@ typeSystem' stack steps z@(env, List _ (Atom _ func : _), crumbs) = do
         (step : nextSteps) -> typeSystem' newStack nextSteps (step newZ)
   where
     isFunc env func = case getVar env func of
-      Right (List _ (Atom _ "lambda" : _)) -> True
+      Right (List _ (Atom _ "fn" : _)) -> True
       _ -> False
 typeSystem' _ [] (_, val, _) = return $ Type $ typeOf val
 typeSystem' stack steps z = do

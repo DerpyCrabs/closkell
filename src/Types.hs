@@ -110,7 +110,7 @@ instance Show LispVal where
   show (DottedList _ head tail) = "(" ++ unwordsList head ++ " . " ++ show tail ++ ")"
   show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"
   show Func {params = args, vararg = varargs, body = body} =
-    "{lambda [" ++ unwords (map show args)
+    "{fn [" ++ unwords (map show args)
       ++ ( case varargs of
              Nothing -> ""
              Just arg -> " . " ++ arg

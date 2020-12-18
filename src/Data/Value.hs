@@ -6,7 +6,7 @@ module Data.Value
     int,
     float,
     func,
-    lambda,
+    fn,
     makeNormalFunc,
     makeVarArgs,
     makeLet,
@@ -42,9 +42,9 @@ int = Integer
 float :: Double -> LispVal
 float = Float
 
-lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
-lambda args Nothing body = list (atom "lambda" : list args : body)
-lambda args (Just vararg) body = list (atom "lambda" : dottedList args vararg : body)
+fn :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
+fn args Nothing body = list (atom "fn" : list args : body)
+fn args (Just vararg) body = list (atom "fn" : dottedList args vararg : body)
 
 makeFunc :: Maybe String -> Env -> [LispVal] -> LispVal -> LispVal
 makeFunc varargs env params body = Func (map show params) varargs body env

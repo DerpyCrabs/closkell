@@ -121,7 +121,7 @@ parseLambdaShorthand = do
   char '#' >> lparen
   inner <- lexeme parseList
   rparen
-  return $ List (Just pos) (Atom Nothing "lambda" : DottedList Nothing [] (Atom Nothing "%&") : [inner])
+  return $ List (Just pos) (Atom Nothing "fn" : DottedList Nothing [] (Atom Nothing "%&") : [inner])
 
 parseLambdaShorthandArgs =
   try parseSingle <|> parseNth

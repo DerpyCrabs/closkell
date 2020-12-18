@@ -83,15 +83,15 @@ parsingTests =
         [ ("(tt1 tt2 . tt3)", dottedList [atom "tt1", atom "tt2"] (atom "tt3")),
           ("(. tt1)", dottedList [] (atom "tt1"))
         ]
-    it "parses lambda shorthand" $
+    it "parses fn shorthand" $
       testTable
         (fmap head . runParse)
-        [("#(+ %&)", list (atom "lambda" : dottedList [] (atom "%&") : [func "+" [atom "%&"]]))]
-    it "parses lambda shorthand arguments" $
+        [("#(+ %&)", list (atom "fn" : dottedList [] (atom "%&") : [func "+" [atom "%&"]]))]
+    it "parses fn shorthand arguments" $
       testTable
         (fmap head . runParse)
-        [ ("#(+ %%)", lambda [] (Just $ atom "%&") [func "+" [func "car" [atom "%&"]]]),
-          ("#(+ %1 %5)", lambda [] (Just $ atom "%&") [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]])
+        [ ("#(+ %%)", fn [] (Just $ atom "%&") [func "+" [func "car" [atom "%&"]]]),
+          ("#(+ %1 %5)", fn [] (Just $ atom "%&") [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]])
         ]
     it "parses quoted expressions" $
       testTable
@@ -145,13 +145,13 @@ evaluationTests =
           test
             [ ("(let (k 5) (g (+ 1 2)) (- k g))", Right $ int 2),
               ("(let (+ 1 2))", Right $ int 3),
-              ("(let (k 5) (r (lambda (a) (+ k a))) (let (k 7) (r 5)))", Right $ int 10),
+              ("(let (k 5) (r (fn (a) (+ k a))) (let (k 7) (r 5)))", Right $ int 10),
               ("(let (k 5) (let (k 7) k))", Right $ int 7)
             ]
         it "supports function definition" $
           test
             [ ("(#(+ %1 %2) 2 3)", Right $ int 5),
-              ("(let (f (lambda (a b) (+ a b))) (f 2 3))", Right $ int 5)
+              ("(let (f (fn (a b) (+ a b))) (f 2 3))", Right $ int 5)
             ]
         it "can apply evaluated special forms to args" $
           test
@@ -258,19 +258,19 @@ typeSystemTests =
             ]
         it "supports user-defined functions" $
           test
-            [ ("(let (kek (lambda (x y) (+ x y))) (kek 5 3))", Right Unit),
-              ("(let (kek (lambda (x y) (+ x y))) (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
-              ("(let (kek (lambda (x y . pek) (+ x y ~@pek))) (kek 5 3 4 5))", Right Unit),
-              ("(let (kek (lambda (x y . pek) (+ x y ~@pek))) (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+            [ ("(let (kek (fn (x y) (+ x y))) (kek 5 3))", Right Unit),
+              ("(let (kek (fn (x y) (+ x y))) (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
+              ("(let (kek (fn (x y . pek) (+ x y ~@pek))) (kek 5 3 4 5))", Right Unit),
+              ("(let (kek (fn (x y . pek) (+ x y ~@pek))) (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
         it "supports recursive functions" $
           test
-            [ ("(let (rec (lambda (a) (if (== a 5) true (rec a)))) (eq? false (rec 6)))", Right Unit),
-              ("(let (rec (lambda (a) (let (rec (lambda (b) (rec a))) (rec 5)))) (rec 1))", Right Unit)
+            [ ("(let (rec (fn (a) (if (== a 5) true (rec a)))) (eq? false (rec 6)))", Right Unit),
+              ("(let (rec (fn (a) (let (rec (fn (b) (rec a))) (rec 5)))) (rec 1))", Right Unit)
             ]
         it "supports all std code" $
           test
-            [ ("(let (not (lambda (arg) arg)) (not2 #(if %% \"s\" true)) (not2 (not true)))", Right Unit),
+            [ ("(let (not (fn (arg) arg)) (not2 #(if %% \"s\" true)) (not2 (not true)))", Right Unit),
               ("(let (not #(if %% false true)) (not2 #(if %% \\c true)) (not2 (not true)))", Right Unit),
               ("(let (not #(if %% false true)) (not2 #(if %% \"s\" true)) (if (not2 (not true)) 5 0))", Left $ TypeMismatch TBool (TSum [TString, TBool])),
               ("(if (eq? () ()) 5 0)", Right Unit),
@@ -278,9 +278,9 @@ typeSystemTests =
               ("(let (not #(if %% 3 true)) (null? #(if (not (eq? %% ())) true false)) (if (not (not (null? ()))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
               ("(eq? 5 (car '(2 \\c)))", Left $ TypeMismatch (TList (TVar "a")) (TProd [TInteger, TCharacter])),
               ("(eq? \\c (car '(2 5)))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger]),
-              ("(let (get-second (lambda (a b) b)) (eq? 5 (apply get-second '(\\c 5))))", Right Unit),
-              ("(let (get-second (lambda (a b) b)) (eq? 5 (apply get-second '(\\c \\с))))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter]),
-              ("(let (some-fn (lambda () (if (== 3 4) \\c 5))) (eq? true (some-fn)))", Left $ FailedToDeduceVar "a" [TBool, TSum [TCharacter, TInteger]])
+              ("(let (get-second (fn (a b) b)) (eq? 5 (apply get-second '(\\c 5))))", Right Unit),
+              ("(let (get-second (fn (a b) b)) (eq? 5 (apply get-second '(\\c \\с))))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter]),
+              ("(let (some-fn (fn () (if (== 3 4) \\c 5))) (eq? true (some-fn)))", Left $ FailedToDeduceVar "a" [TBool, TSum [TCharacter, TInteger]])
             ]
 
 runFolderTest runner testPath = do
