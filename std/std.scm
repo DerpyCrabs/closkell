@@ -1,14 +1,13 @@
-(module "std" (not null? first second))
-(not #(if %% false true))
-(null? #(if (eq? %% ()) true false))
-(first car)
-(next cdr)
-(second #(first (next %%)))
-(list (fn (. objs) objs))
-(id (fn (arg) arg))
-(flip (fn (func) (fn (arg1 arg2) (func arg2 arg1))))
-
-(compose (fn (f g) (fn (arg) (f (g arg)))))
+(module "std" [not null? first second])
+[not #(if %% false true)]
+[null? #(if (eq? %% []) true false)]
+[first car]
+[next cdr]
+[second #(first (next %%))]
+[list (fn [. objs] objs)]
+[id (fn [arg] arg)]
+[flip (fn [func] (fn [arg1 arg2] (func arg2 arg1)))]
+[compose (fn [f g] (fn [arg] (f (g arg))))]
 
 ; (define (foldr func end lst)
 ;   (if (null? lst)

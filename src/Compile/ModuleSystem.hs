@@ -5,8 +5,8 @@ import Parse
 import Types
 
 moduleSystem :: [LispVal] -> IOThrowsError LispVal
-moduleSystem (List _ (Atom _ "executable" : loadExprs) : [expr]) = handleLoads loadExprs expr
-moduleSystem (List _ (Atom _ "executable" : loadExprs) : exprs) = handleLoads loadExprs (func "do" exprs)
+moduleSystem (Call (Atom _ "executable" : loadExprs) : [expr]) = handleLoads loadExprs expr
+moduleSystem (Call (Atom _ "executable" : loadExprs) : exprs) = handleLoads loadExprs (func "do" exprs)
 moduleSystem exprs = moduleSystem $ func "executable" [] : exprs
 
 data ModuleInfo = ModuleInfo
@@ -21,8 +21,8 @@ handleLoads [] inner = return inner
 handleLoads loadExprs inner = do
   modules <- mapM getModuleInfo loadExprs
   let moduleBindings = moduleBinding <$> modules
-  let innerBindings = list (concat [[atom "let"], concat $ moduleExportsBindings <$> modules, [inner]])
-  return $ list (concat [[atom "let"], moduleBindings, [innerBindings]])
+  let innerBindings = Call (concat [[atom "let"], concat $ moduleExportsBindings <$> modules, [inner]])
+  return $ Call (concat [[atom "let"], moduleBindings, [innerBindings]])
   where
     getModuleInfo :: LispVal -> IOThrowsError ModuleInfo
     getModuleInfo (List _ [Atom _ "load", String loadPath, Atom _ "unqualified"]) = do
@@ -51,11 +51,11 @@ loadModule path = do
   loadedModule <- load path
   getModuleInfo loadedModule
   where
-    getModuleInfo (List _ (Atom _ "module" : String name : List _ exports : loadExprs) : exprs) = do
-      value <- handleLoads loadExprs (list (concat [[atom "let"], exprs, [func "quote" [list $ exportsList name (parseExports exports)]]]))
+    getModuleInfo (Call (Atom _ "module" : String name : List _ exports : loadExprs) : exprs) = do
+      value <- handleLoads loadExprs (Call (concat [[atom "let"], exprs, [list $ exportsList name (parseExports exports)]]))
       return ModuleInfo {prefix = name, name = name, exports = parseExports exports, value = value}
     parseExports ((Atom _ export) : exports) = (export, Nothing) : parseExports exports
     parseExports ((List _ [Atom _ export, Atom _ "as", Atom _ alias]) : exports) = (export, Just alias) : parseExports exports
     parseExports [] = []
-    exportsList name ((export, _) : exports) = [String export, func "unquote" [atom export]] ++ exportsList name exports
+    exportsList name ((export, _) : exports) = [String export, atom export] ++ exportsList name exports
     exportsList _ [] = []

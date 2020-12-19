@@ -22,7 +22,7 @@ typeSystem val =
         return val
 
 typeSystem' :: [String] -> [LVZipperTurn] -> LVZipper -> IOThrowsError LispVal
-typeSystem' stack steps z@(env, List _ [Atom _ "if", pred, conseq, alt], _) = do
+typeSystem' stack steps z@(env, Call [Atom _ "if", pred, conseq, alt], _) = do
   predType <- typeSystem' stack [id] $ lvSet pred z
   conseqType <- typeSystem' stack [id] $ lvSet conseq z
   altType <- typeSystem' stack [id] $ lvSet alt z
@@ -35,7 +35,7 @@ typeSystem' stack steps z@(env, List _ [Atom _ "if", pred, conseq, alt], _) = do
     deduceReturnType (TVar _) t = t
     deduceReturnType t (TVar _) = t
     deduceReturnType t1 t2 = TSum [t1, t2]
-typeSystem' stack steps z@(env, List _ (Atom _ func : _), crumbs) = do
+typeSystem' stack steps z@(env, Call (Atom _ func : _), crumbs) = do
   let newStack = if isFunc env func then func : stack else stack
   if func `elem` stack && isFunc env func
     then typeSystem' newStack steps $ lvSet (Type (TVar "a")) z
@@ -46,7 +46,7 @@ typeSystem' stack steps z@(env, List _ (Atom _ func : _), crumbs) = do
         (step : nextSteps) -> typeSystem' newStack nextSteps (step newZ)
   where
     isFunc env func = case getVar env func of
-      Right (List _ (Atom _ "fn" : _)) -> True
+      Right (Call (Atom _ "fn" : _)) -> True
       _ -> False
 typeSystem' _ [] (_, val, _) = return $ Type $ typeOf val
 typeSystem' stack steps z = do

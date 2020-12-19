@@ -54,6 +54,7 @@ data LispVal
   | PrimitiveFunc String ([LispVal] -> ThrowsError LispVal)
   | IOFunc String ([LispVal] -> IOThrowsError LispVal)
   | Port Handle
+  | Call [LispVal]
   | Unit
   | Func {params :: [String], vararg :: Maybe String, body :: LispVal, closure :: Env}
   | Macro {body :: LispVal, closure :: Env}
@@ -73,7 +74,7 @@ data LispType
   | TVar String
   deriving (Eq, Generic)
 
-data LVCrumb = LVCrumb Env (Maybe SourcePos) [LispVal] [LispVal] deriving (Show, Eq)
+data LVCrumb = LVCrumb Env [LispVal] [LispVal] deriving (Show, Eq)
 
 type Env = [(String, LispVal)]
 
@@ -84,6 +85,7 @@ type LVZipperTurn = LVZipper -> LVZipper
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2
   (List _ l1) == (List _ l2) = l1 == l2
+  (Call l1) == (Call l2) = l1 == l2
   (DottedList _ l1 e1) == (DottedList _ l2 e2) = l1 == l2 && e1 == e2
   (Integer i1) == (Integer i2) = i1 == i2
   (String s1) == (String s2) = s1 == s2
@@ -106,8 +108,9 @@ instance Show LispVal where
   show (Float contents) = show contents
   show (Bool True) = "true"
   show (Bool False) = "false"
-  show (List _ contents) = "(" ++ unwordsList contents ++ ")"
-  show (DottedList _ head tail) = "(" ++ unwordsList head ++ " . " ++ show tail ++ ")"
+  show (List _ contents) = "[" ++ unwordsList contents ++ "]"
+  show (Call contents) = "(" ++ unwordsList contents ++ ")"
+  show (DottedList _ head tail) = "[" ++ unwordsList head ++ " . " ++ show tail ++ "]"
   show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"
   show Func {params = args, vararg = varargs, body = body} =
     "{fn [" ++ unwords (map show args)

@@ -61,7 +61,7 @@ evalServer = eval
         ( \(env, val, crumbs) ->
             ( filter notIntrinsic env,
               val,
-              map (\(LVCrumb env _ ls rs) -> LVCrumb (filter notIntrinsic env) Nothing ls rs) crumbs
+              map (\(LVCrumb env ls rs) -> LVCrumb (filter notIntrinsic env) ls rs) crumbs
             )
         )
     notIntrinsic (_, IOFunc _ _) = False
