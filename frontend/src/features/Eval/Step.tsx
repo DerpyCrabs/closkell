@@ -57,7 +57,7 @@ const evalOutputTransform = (step: LVZipper): FocusedLispVal => {
     val = {
       focused: false,
       env: crumb.env,
-      type: 'list',
+      type: 'call',
       value: [
         ...crumb.ls.map(
           traverseLispVal((cr: LispVal) => ({ ...cr, focused: false, env: [] }))
@@ -73,7 +73,7 @@ const evalOutputTransform = (step: LVZipper): FocusedLispVal => {
 }
 
 const traverseLispVal = (f: any) => (val: any) => {
-  if (val.type === 'list') {
+  if (val.type === 'call') {
     return { ...f(val), value: val.value.map(traverseLispVal(f)).map(f) }
   } else {
     return f(val)

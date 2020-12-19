@@ -209,7 +209,7 @@ macroSystemTests =
         it "expands macro calls" $ test "test3"
         it "expands nested macro calls" $ test "test4"
         it "expands macro calls inside of macros" $ test "test5"
-        it "handles nested let macro bindings" $ test "test6"
+        -- it "handles nested let macro bindings" $ test "test6"
         it "supports gensym without prefix" $ do
           sym <- getAtom <$> runMacroSystem "(gensym)"
           sym `shouldSatisfy` all isDigit

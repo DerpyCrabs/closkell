@@ -38,10 +38,12 @@ function LispValComponent({
   val: FocusedLispVal
   level: number
 }) {
-  if (val.type === 'list') {
+  if (val.type === 'list' || val.type === 'call') {
     return (
       <span title={val.type}>
-        <span style={{ color: selectColor(level) }}>(</span>
+        <span style={{ color: selectColor(level) }}>
+          {val.type === 'list' ? '[' : '('}
+        </span>
         {val.value.length !== 0 &&
         val.value[0].type === 'atom' &&
         val.value[0].value === 'let' ? (
@@ -55,13 +57,15 @@ function LispValComponent({
             </span>
           ))
         )}
-        <span style={{ color: selectColor(level) }}>)</span>
+        <span style={{ color: selectColor(level) }}>
+          {val.type === 'list' ? ']' : ')'}
+        </span>
       </span>
     )
   } else if (val.type === 'dotted-list') {
     return (
       <span title={val.type}>
-        <span style={{ color: selectColor(level) }}>(</span>
+        <span style={{ color: selectColor(level) }}>[</span>
         {val.head.map((v: FocusedLispVal, i: number) => (
           <span key={`${level}-${i}`}>
             {i !== 0 && ' '}
@@ -70,7 +74,7 @@ function LispValComponent({
         ))}
         {'. '}
         <FocusedLispValComponent val={val.tail} level={level + 1} />
-        <span style={{ color: selectColor(level) }}>)</span>
+        <span style={{ color: selectColor(level) }}>]</span>
       </span>
     )
   } else if (val.type === 'func') {
