@@ -169,16 +169,20 @@ evaluationTests =
             [ ("(+ 4 ~@[5 6])", Right $ int 15),
               ("(+ 4 ~@[5 6] ~@[7 8])", Right $ int 30)
             ]
-        it "supports unquote-splicing outside of quote" $
+        it "supports list unquoting" $
           test
-            [ ("(+ 4 ~@(quote [5 6]))", Right $ int 15),
-              ("(+ 4 ~@(quote [5 6]) ~@(quote [7 8]))", Right $ int 30)
+            [ ("[4 ~(+ 1 5)]", Right $ list [int 4, int 6]),
+              ("[4 ~(+ 5 6) ~(+ 1 3)]", Right $ list [int 4, int 11, int 4])
+            ]
+        it "supports list unquote-splicing" $
+          test
+            [ ("[4 ~@[5 6]]", Right $ list [int 4, int 5, int 6]),
+              ("[4 ~@[5 6] ~@[7 8]]", Right $ list [int 4, int 5, int 6, int 7, int 8])
             ]
         it "supports unquote outside of quote" $
           test
             [ ("(+ 4 ~(quote 5))", Right $ int 9)
             ]
-        it "quotes inside of unquote" $ test [("(quote (unquote (quote [2 3])))", Right $ list [int 2, int 3])]
         it "supports all of std" $
           test
             [ ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 0 [1]))", Right $ int 1),

@@ -48,7 +48,17 @@ stepEval z@(_, PrimitiveFunc _ _, _) = return (z, [])
 stepEval z@(_, IOFunc _ _, _) = return (z, [])
 stepEval z@(_, Func {}, _) = return (z, [])
 stepEval z@(_, Type _, _) = return (z, [])
-stepEval z@(_, v@List {}, _) = return (z, [])
+stepEval z@(_, val@(List _ args), _) =
+  let path = quoteEvalPath (Call args)
+      correctPath path@(_ : _ : _) =
+        let first = lvRight . lvDown . head path
+            lst = lvUp . last path
+         in [first] ++ init (tail path) ++ [lst]
+      correctPath p = p
+      correctedPath = correctPath path
+   in case length correctedPath of
+        0 -> return (lvSet val z, [])
+        _ -> return (lvSet (func "evaluating-unquote-list" [Call args]) z, correctPath path)
 stepEval z@(env, Call [Atom _ "fn", List _ [List _ []], body], _) =
   return (lvSet (makeNormalFunc env [] body) z, [])
 stepEval z@(env, Call [Atom _ "fn", List _ params, body], _) =
@@ -97,6 +107,8 @@ stepEval z@(_, Call [Atom _ "quote", val], _) =
         _ -> return (lvSet (func "evaluating-unquote" [val]) z, correctPath path)
 stepEval z@(_, Call [Atom _ "evaluating-unquote", val], _) =
   return (lvSet (performUnquoteSplicing val) z, [])
+stepEval z@(_, Call [Atom _ "evaluating-unquote-list", val], _) =
+  return (lvSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "unquote", val], _) =
   return (lvSet val z, [id])
 stepEval z@(_, Call [Atom _ "unquote-splicing", val], _) =
@@ -139,7 +151,7 @@ quoteEvalPath val = case quoteEvalPath' val of
   Just path -> head path : composeUpDown (tail path)
   Nothing -> []
   where
-    listPath args =
+    callPath args =
       let maybeUnquotePaths = quoteEvalPath' <$> args
           argPaths = scanl (\path _ -> lvRight . path) lvDown $ tail args
           unquotePaths =
@@ -149,10 +161,9 @@ quoteEvalPath val = case quoteEvalPath' val of
             0 -> Nothing
             _ -> Just $ concat unquotePaths
     quoteEvalPath' :: LispVal -> Maybe [LVZipperTurn]
-    quoteEvalPath' (List _ args) = listPath args
     quoteEvalPath' (Call [Atom _ "unquote", _]) = Just [id, id]
     quoteEvalPath' (Call [Atom _ "unquote-splicing", _]) = Just [id, id]
-    quoteEvalPath' (Call args) = listPath args
+    quoteEvalPath' (Call args) = callPath args
     quoteEvalPath' _ = Nothing
     composeUpDown (x : y : xs) = (y . x) : composeUpDown xs
     composeUpDown [x] = [x]
@@ -161,9 +172,7 @@ performUnquoteSplicing :: LispVal -> LispVal
 performUnquoteSplicing = performUnquoteSplicing'
   where
     performUnquoteSplicing' (Call vals) = Call (concat $ performUnquoteSplicing'' <$> vals)
-    performUnquoteSplicing' (List _ vals) = List Nothing (concat $ performUnquoteSplicing'' <$> vals)
     performUnquoteSplicing'' :: LispVal -> [LispVal]
     performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
     performUnquoteSplicing'' v@(Call _) = [performUnquoteSplicing' v]
-    performUnquoteSplicing'' v@(List _ _) = [performUnquoteSplicing' v]
     performUnquoteSplicing'' other = [other]
