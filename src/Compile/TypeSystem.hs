@@ -38,7 +38,7 @@ typeSystem' stack steps z@(env, Call [Atom _ "if", pred, conseq, alt], _) = do
 typeSystem' stack steps z@(env, Call (Atom _ func : _), crumbs) = do
   let newStack = if isFunc env func then func : stack else stack
   if func `elem` stack && isFunc env func
-    then typeSystem' newStack steps $ lvSet (Type (TVar "a")) z
+    then typeSystem' newStack steps $ lvSet (Type (TVar func)) z
     else do
       (newZ, newSteps) <- stepEval z
       case newSteps ++ steps of
@@ -70,23 +70,28 @@ createType (TFunc argTypes varArg retType) args = do
         else return argTypes
     Just varArgType -> return (argTypes ++ replicate (length args - length argTypes) varArgType)
   deducedArgTypes <- zipWithM deduceArgType argTypesWithVarArgs (typeOf <$> args)
-  _ <- checkVariablesEquality $ groupVariables $ catMaybes $ fst <$> deducedArgTypes
+  deducedArgTypes2 <- mapM tryDeduceVariables $ groupVariables $ catMaybes $ fst <$> deducedArgTypes
   mapM_ (uncurry checkTypeCompatibility) (zip (snd <$> deducedArgTypes) (typeOf <$> args))
   Type <$> applyVarsToType (catMaybes $ fst <$> deducedArgTypes) retType
   where
     checkTypeCompatibility :: LispType -> LispType -> ThrowsError ()
     checkTypeCompatibility t1 t2 | typeCompatibleWith t1 t2 = return ()
     checkTypeCompatibility t1 t2 = throwError $ TypeMismatch t1 t2
-    checkVariablesEquality :: [(String, [LispType])] -> ThrowsError ()
-    checkVariablesEquality ((_, types) : vars) | allEqual types = checkVariablesEquality vars
-    checkVariablesEquality [] = return ()
-    checkVariablesEquality ((name, types) : _) = throwError $ FailedToDeduceVar name types
+    tryDeduceVariables :: (String, [LispType]) -> ThrowsError (String, LispType)
+    tryDeduceVariables (name, types) = case deduceVariables types of
+      Nothing -> throwError $ FailedToDeduceVar name types
+      Just t -> return (name, t)
+    deduceVariables :: [LispType] -> Maybe LispType
+    deduceVariables [t] = Just t
+    deduceVariables (t : types) = do
+      deducedType <- deduceVariables types
+      either (const Nothing) Just $ snd <$> deduceArgType deducedType t
 createType _ _ = error "createType: unsupported"
 
 applyVarsToType :: [(String, LispType)] -> LispType -> ThrowsError LispType
 applyVarsToType vars (TVar var) = case lookup var vars of
   Just t -> return t
-  Nothing -> throwError $ Default "Failed to find var"
+  Nothing -> return (TVar var)
 applyVarsToType vars (TList t) = TList <$> applyVarsToType vars t
 applyVarsToType vars (TFunc argTypes varArgType retType) = do
   args <- mapM (applyVarsToType vars) argTypes
@@ -99,7 +104,8 @@ deduceArgType :: LispType -> LispType -> ThrowsError (Maybe (String, LispType), 
 deduceArgType (TVar v) t = return (Just (v, t), t)
 deduceArgType t (TVar v) = return (Just (v, t), t)
 deduceArgType (TList t1) (TList t2) = (TList <$>) <$> deduceArgType t1 t2
-deduceArgType t1 _ = return (Nothing, t1)
+deduceArgType t1 t2 | typeCompatibleWith t1 t2 = return (Nothing, t1)
+deduceArgType t1 t2 = throwError $ TypeMismatch t1 t2
 
 typeCompatibleWith :: LispType -> LispType -> Bool
 typeCompatibleWith (TSum sumTypes) (TSum sumTypes2) | isSumTypeDeducibleTo sumTypes2 sumTypes = True
@@ -107,6 +113,11 @@ typeCompatibleWith (TSum sumTypes) argType | argType `elem` sumTypes = True
 typeCompatibleWith (TSum sumTypes) (TProd prodTypes) | all (`elem` sumTypes) prodTypes = True
 typeCompatibleWith (TProd prodTypes1) (TProd prodTypes2) | all (uncurry typeCompatibleWith) (zip prodTypes1 prodTypes2) = True
 typeCompatibleWith (TList listType) (TList listType2) | typeCompatibleWith listType listType2 = True
+typeCompatibleWith (TList listType) (TProd types) | all (typeCompatibleWith listType) types = True
+typeCompatibleWith (TProd types) (TList listType) | all (typeCompatibleWith listType) types = True
+typeCompatibleWith (TVar _) (TVar _) = True
+typeCompatibleWith (TVar _) t = True
+typeCompatibleWith t (TVar _) = True
 typeCompatibleWith t1 t2 | t1 == t2 = True
 typeCompatibleWith _ _ = False
 
@@ -118,6 +129,7 @@ typeOf (Bool _) = TBool
 typeOf (Float _) = TFloat
 typeOf Unit = TUnit
 typeOf (Type t) = t
+typeOf (List _ []) = TList $ TVar "l"
 typeOf (List _ xs@(x : _)) | allEqual $ typeOf <$> xs = TList $ typeOf x
 typeOf (List _ xs) = TProd $ typeOf <$> xs
 typeOf t = error $ "typeOf error " ++ show t

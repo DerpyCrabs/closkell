@@ -96,6 +96,7 @@ instance Eq LispVal where
   (PrimitiveFunc n1 _) == (PrimitiveFunc n2 _) = n1 == n2
   (IOFunc n1 _) == (IOFunc n2 _) = n1 == n2
   (Macro b1 c1) == (Macro b2 c2) = b1 == b2 && c1 == c2
+  (Type t1) == (Type t2) = t1 == t2
   Unit == Unit = True
   (Func p1 v1 b1 c1) == (Func p2 v2 b2 c2) = p1 == p2 && v1 == v2 && b1 == b2 && c1 == c2
   _ == _ = False
