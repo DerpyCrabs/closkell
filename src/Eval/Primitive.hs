@@ -122,12 +122,16 @@ numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) 
 numericBinop opInt opFloat xs
   | all isInteger xs = integerBinop opInt xs
   | all isFloat xs = floatBinop opFloat xs
+  | otherwise = floatBinop opFloat (toFloat <$> xs)
   where
     isInteger (Integer _) = True
     isInteger _ = False
 
     isFloat (Float _) = True
     isFloat _ = False
+
+    toFloat (Integer i) = Float $ fromInteger i
+    toFloat f = f
 
 unpackInteger :: LispVal -> ThrowsError Integer
 unpackInteger (Integer n) = return n
@@ -157,12 +161,16 @@ numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [L
 numBoolBinop opInt opFloat xs
   | all isInteger xs = intBoolBinop opInt xs
   | all isFloat xs = floatBoolBinop opFloat xs
+  | otherwise = floatBoolBinop opFloat (toFloat <$> xs)
   where
     isInteger (Integer _) = True
     isInteger _ = False
 
     isFloat (Float _) = True
     isFloat _ = False
+
+    toFloat (Integer i) = Float $ fromInteger i
+    toFloat f = f
 
 intBoolBinop = boolBinop unpackInteger
 

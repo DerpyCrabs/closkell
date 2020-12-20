@@ -8,11 +8,11 @@
 [id (fn [arg] arg)]
 [flip (fn [func] (fn [arg1 arg2] (func arg2 arg1)))]
 [compose (fn [f g] (fn [arg] (f (g arg))))]
+[foldr (fn [func end lst]
+  (if (null? lst)
+      end
+      (func (car lst) (foldr func end (cdr lst)))))]
 
-; (define (foldr func end lst)
-;   (if (null? lst)
-;       end
-;       (func (car lst) (foldr func end (cdr lst)))))
 ; (define (foldl func accum lst)
 ;   (if (null? lst)
 ;       accum
