@@ -22,6 +22,8 @@ lparen = lexeme $ char '('
 
 rparen = lexeme $ char ')'
 
+dottedListSeparator = lexeme $ char '.'
+
 parseString :: Parser LispVal
 parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 
@@ -72,10 +74,10 @@ parseDecimal :: Parser Integer
 parseDecimal = L.decimal
 
 parseInteger :: Parser LispVal
-parseInteger = Integer <$> L.signed (return ()) (lexeme (try parseBinary <|> try parseOctal <|> try parseHexadecimal <|> parseDecimal))
+parseInteger = Integer <$> L.signed (return ()) (try parseBinary <|> try parseOctal <|> try parseHexadecimal <|> parseDecimal)
 
 parseFloat :: Parser LispVal
-parseFloat = Float <$> L.signed (return ()) (lexeme L.float)
+parseFloat = Float <$> L.signed (return ()) L.float
 
 parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
   where
@@ -101,7 +103,7 @@ parseCallInner = Call . catMaybes <$> sepBy parseExprOrSkip spaces
 parseDottedList :: Parser LispVal
 parseDottedList = do
   pos <- getSourcePos
-  head <- manyTill (lexeme parseExpr) (char '.')
+  head <- manyTill parseExpr dottedListSeparator
   DottedList (Just pos) head <$> parseExpr
 
 parseQuoted :: Parser LispVal
@@ -147,23 +149,24 @@ parseLambdaShorthandArgs =
 
 parseExpr :: Parser LispVal
 parseExpr =
-  spaces >> try parseLambdaShorthandArgs
-    <|> parseUnit
-    <|> parseAtom
-    <|> parseLambdaShorthand
-    <|> parseString
-    <|> parseCharacter
-    <|> try parseFloat
-    <|> parseInteger
-    <|> parseQuoted
-    <|> try parseUnquoteSplicing
-    <|> parseUnquoted
-    <|> parseCall
-    <|> do
-      lbracket
-      x <- lexeme (try parseDottedList <|> parseList)
-      rbracket
-      return x
+  lexeme $
+    try parseLambdaShorthandArgs
+      <|> parseUnit
+      <|> parseAtom
+      <|> parseLambdaShorthand
+      <|> parseString
+      <|> parseCharacter
+      <|> try parseFloat
+      <|> parseInteger
+      <|> parseQuoted
+      <|> try parseUnquoteSplicing
+      <|> parseUnquoted
+      <|> parseCall
+      <|> do
+        lbracket
+        x <- lexeme (try parseDottedList <|> parseList)
+        rbracket
+        return x
 
 readOrThrow :: Parser a -> String -> String -> ThrowsError a
 readOrThrow parser file input = case parse parser file input of

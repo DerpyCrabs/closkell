@@ -118,21 +118,6 @@ floatBinop _ [] = throwError $ NumArgs 2 []
 floatBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 floatBinop op params = Float . foldl1 op <$> mapM unpackFloat params
 
-numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
-numericBinop opInt opFloat xs
-  | all isInteger xs = integerBinop opInt xs
-  | all isFloat xs = floatBinop opFloat xs
-  | otherwise = floatBinop opFloat (toFloat <$> xs)
-  where
-    isInteger (Integer _) = True
-    isInteger _ = False
-
-    isFloat (Float _) = True
-    isFloat _ = False
-
-    toFloat (Integer i) = Float $ fromInteger i
-    toFloat f = f
-
 unpackInteger :: LispVal -> ThrowsError Integer
 unpackInteger (Integer n) = return n
 
@@ -157,11 +142,17 @@ stringBinop unpacker op args =
       right <- unpacker $ head $ tail args
       return $ String $ left `op` right
 
-numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [LispVal] -> ThrowsError LispVal
-numBoolBinop opInt opFloat xs
-  | all isInteger xs = intBoolBinop opInt xs
-  | all isFloat xs = floatBoolBinop opFloat xs
-  | otherwise = floatBoolBinop opFloat (toFloat <$> xs)
+createNumericBinop ::
+  ((Integer -> Integer -> a) -> [LispVal] -> ThrowsError LispVal) ->
+  ((Double -> Double -> b) -> [LispVal] -> ThrowsError LispVal) ->
+  (Integer -> Integer -> a) ->
+  (Double -> Double -> b) ->
+  [LispVal] ->
+  ThrowsError LispVal
+createNumericBinop intBinop floatBinop opInt opFloat xs
+  | all isInteger xs = intBinop opInt xs
+  | all isFloat xs = floatBinop opFloat xs
+  | otherwise = floatBinop opFloat (toFloat <$> xs)
   where
     isInteger (Integer _) = True
     isInteger _ = False
@@ -171,6 +162,12 @@ numBoolBinop opInt opFloat xs
 
     toFloat (Integer i) = Float $ fromInteger i
     toFloat f = f
+
+numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [LispVal] -> ThrowsError LispVal
+numBoolBinop = createNumericBinop intBoolBinop floatBoolBinop
+
+numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
+numericBinop = createNumericBinop integerBinop floatBinop
 
 intBoolBinop = boolBinop unpackInteger
 
