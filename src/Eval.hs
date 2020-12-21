@@ -134,13 +134,10 @@ stepEval (_, badForm, _) = throwError $ BadSpecialForm "Unrecognized special for
 
 applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
 applyFunc (Func params varargs body closure) z args =
-  if num params /= num args && isNothing varargs
-    then throwError $ NumArgs (num params) args
-    else do
-      let env = bindVarArgs varargs . bindVars (zip params args) $ closure
-      return . lvSet body . lvSetEnv env $ z
+  do
+    let env = bindVarArgs varargs . bindVars (zip params args) $ closure
+    return . lvSet body . lvSetEnv env $ z
   where
-    num = toInteger . length
     remainingArgs = drop (length params) args
     bindVarArgs arg env = case arg of
       Just argName -> bindVars [(argName, list remainingArgs)] env

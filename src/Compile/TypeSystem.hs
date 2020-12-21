@@ -6,7 +6,7 @@ import Data.Env
 import Data.Error
 import Data.Function (on)
 import Data.List (groupBy, sortBy)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, isNothing)
 import Data.Ord (comparing)
 import Data.Value
 import Eval
@@ -35,6 +35,16 @@ typeSystem' stack steps z@(env, Call [Atom _ "if", pred, conseq, alt], _) = do
     deduceReturnType (TVar _) t = t
     deduceReturnType t (TVar _) = t
     deduceReturnType t1 t2 = TSum [t1, t2]
+typeSystem' stack steps z@(_, Call (Func {vararg = vararg, params = params} : args), _) = do
+  if num params /= num args && isNothing vararg || num params > num args
+    then throwError $ NumArgs (num params) args
+    else do
+      (newZ, newSteps) <- stepEval z
+      case newSteps ++ steps of
+        [] -> typeSystem' stack [] newZ
+        (step : nextSteps) -> typeSystem' stack nextSteps (step newZ)
+  where
+    num = toInteger . length
 typeSystem' stack steps z@(env, Call (Atom _ func : _), crumbs) = do
   let newStack = if isFunc env func then func : stack else stack
   if func `elem` stack && isFunc env func

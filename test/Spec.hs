@@ -269,6 +269,14 @@ typeSystemTests =
               ("(let [kek (fn [x y . pek] (+ x y ~@pek))] (kek 5 3 4 5))", Right Unit),
               ("(let [kek (fn [x y . pek] (+ x y ~@pek))] (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
+        it "handles user-defined function argument number mismatch" $
+          test
+            [ ("(let [sum (fn [a b] 5)] (sum 5))", Left $ NumArgs 2 [int 5]),
+              ("(let [sum (fn [a b] 5)] (sum 5 3 5))", Left $ NumArgs 2 [int 5, int 3, int 5]),
+              ("(let [sum (fn [a b . c] 5)] (sum 5 3 5))", Right Unit),
+              ("(let [sum (fn [. c] 5)] (sum 5))", Right Unit),
+              ("(let [sum (fn [a b] 5)] (sum))", Left $ NumArgs 2 [])
+            ]
         it "supports recursive functions" $
           test
             [ ("(let [rec (fn [a] (if (== a 5) true (rec a)))] (eq? false (rec 6)))", Right Unit),
