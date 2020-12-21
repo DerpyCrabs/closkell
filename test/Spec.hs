@@ -187,7 +187,8 @@ evaluationTests =
           test
             [ ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 0 [1]))", Right $ int 1),
               ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 5 []))", Right $ int 5),
-              ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right $ int 10)
+              ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right $ int 10),
+              ("(let [foldl (fn [func accum lst] (if (eq? lst []) accum (foldl func (func accum (car lst)) (cdr lst))))] (foldl (fn [acc stmt] stmt) 0 [1 2]))", Right $ int 2)
             ]
 
 moduleSystemTests =

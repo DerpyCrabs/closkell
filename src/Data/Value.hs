@@ -65,7 +65,7 @@ lvDown :: LVZipperTurn
 lvDown (env, Call (val : rest), crumbs) = (env, val, LVCrumb env [] rest : crumbs)
 
 lvRight :: LVZipperTurn
-lvRight (env, val, LVCrumb crumbEnv ls (newVal : rs) : bs) = (env, newVal, LVCrumb crumbEnv (ls ++ [val]) rs : bs)
+lvRight (env, val, LVCrumb crumbEnv ls (newVal : rs) : bs) = (crumbEnv, newVal, LVCrumb crumbEnv (ls ++ [val]) rs : bs)
 
 lvModify :: (LispVal -> LispVal) -> LVZipperTurn
 lvModify f (env, val, crumbs) = (env, f val, crumbs)
