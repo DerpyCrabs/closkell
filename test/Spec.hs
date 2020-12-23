@@ -300,7 +300,8 @@ typeSystemTests =
               ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right Unit),
               ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr sum end (cdr lst)))))] (foldr sum 8 [1 2 4]))", Right Unit),
               ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Left $ NumArgs 3 [int 3, Type $ TList TInteger]),
-              ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr + 3 [1 2 4]))", Right Unit)
+              ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr + 3 [1 2 4]))", Right Unit),
+              ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] [append (fn [l1 l2] (foldr cons l2 l1))] [curry (fn [func . args] #(apply func (append args %&)))] [filter (fn [pred lst] (foldr (fn [x y] (if (pred x) (cons x y) y)) [] lst))] (filter (curry < 5) [1 5]))", Right Unit)
             ]
 
 runFolderTest runner testPath = do
