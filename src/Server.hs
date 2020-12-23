@@ -17,6 +17,7 @@ import Eval.Primitive
 import GHC.Generics
 import JSONInstances ()
 import Network.Wai.Middleware.Cors
+import Network.Wai.Middleware.Gzip
 import Network.Wai.Middleware.Servant.Options
 import Parse (readExpr)
 import Servant
@@ -73,6 +74,6 @@ evalServer = eval
     notIntrinsic (_, _) = True
 
 server :: [String] -> Application
-server args = cors (const $ Just policy) $ provideOptions evalAPI $ serve evalAPI evalServer
+server args = gzip def $ cors (const $ Just policy) $ provideOptions evalAPI $ serve evalAPI evalServer
   where
     policy = simpleCorsResourcePolicy {corsRequestHeaders = ["content-type"]}
