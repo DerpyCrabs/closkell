@@ -14,12 +14,21 @@ symbol = oneOf "!$%&|*+-/:<=>?^_"
 spaces :: Parser ()
 spaces = L.space space1 (L.skipLineComment ";") (L.skipBlockComment "/*" "*/")
 
+lbracket = lexeme $ char '['
+
+rbracket = lexeme $ char ']'
+
 lparen = lexeme $ char '('
 
 rparen = lexeme $ char ')'
 
+dottedListSeparator = lexeme $ char '.'
+
 parseString :: Parser LispVal
 parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
+
+parseUnit :: Parser LispVal
+parseUnit = L.symbol spaces "unit" >> return Unit
 
 parseAtom :: Parser LispVal
 parseAtom = do
@@ -65,13 +74,12 @@ parseDecimal :: Parser Integer
 parseDecimal = L.decimal
 
 parseInteger :: Parser LispVal
-parseInteger = Integer <$> L.signed (return ()) (lexeme (try parseBinary <|> try parseOctal <|> try parseHexadecimal <|> parseDecimal))
+parseInteger = Integer <$> L.signed (return ()) (try parseBinary <|> try parseOctal <|> try parseHexadecimal <|> parseDecimal)
 
 parseFloat :: Parser LispVal
-parseFloat = Float <$> L.signed (return ()) (lexeme L.float)
+parseFloat = Float <$> L.signed (return ()) L.float
 
-parseList :: Parser LispVal
-parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parseExprOrSkip spaces
+parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
   where
     parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
     skipExpr = do
@@ -79,10 +87,23 @@ parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parse
       _ <- parseExpr
       return Nothing
 
+parseList :: Parser LispVal
+parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parseExprOrSkip spaces
+
+parseCall :: Parser LispVal
+parseCall = do
+  lparen
+  v <- parseCallInner
+  rparen
+  return v
+
+parseCallInner :: Parser LispVal
+parseCallInner = Call . catMaybes <$> sepBy parseExprOrSkip spaces
+
 parseDottedList :: Parser LispVal
 parseDottedList = do
   pos <- getSourcePos
-  head <- manyTill (lexeme parseExpr) (char '.')
+  head <- manyTill parseExpr dottedListSeparator
   DottedList (Just pos) head <$> parseExpr
 
 parseQuoted :: Parser LispVal
@@ -90,66 +111,62 @@ parseQuoted = do
   pos <- getSourcePos
   char '\''
   x <- parseExpr
-  return $ List (Just pos) [Atom (Just pos) "quote", x]
+  return $ Call [Atom (Just pos) "quote", x]
 
 parseUnquoted :: Parser LispVal
 parseUnquoted = do
   pos <- getSourcePos
   char '~'
   x <- parseExpr
-  return $ List (Just pos) [Atom (Just pos) "unquote", x]
+  return $ Call [Atom (Just pos) "unquote", x]
 
 parseUnquoteSplicing :: Parser LispVal
 parseUnquoteSplicing = do
   pos <- getSourcePos
   char '~' >> char '@'
   x <- parseExpr
-  return $ List (Just pos) [Atom (Just pos) "unquote-splicing", x]
-
-parseEmptyList :: Parser LispVal
-parseEmptyList = do
-  pos <- getSourcePos
-  lparen >> rparen
-  return $ List (Just pos) [Atom (Just pos) "quote", List (Just pos) []]
+  return $ Call [Atom (Just pos) "unquote-splicing", x]
 
 parseLambdaShorthand :: Parser LispVal
 parseLambdaShorthand = do
   pos <- getSourcePos
   char '#' >> lparen
-  inner <- lexeme parseList
+  inner <- lexeme parseCallInner
   rparen
-  return $ List (Just pos) (Atom Nothing "lambda" : DottedList Nothing [] (Atom Nothing "%&") : [inner])
+  return $ Call (Atom Nothing "fn" : DottedList Nothing [] (Atom Nothing "%&") : [inner])
 
 parseLambdaShorthandArgs =
   try parseSingle <|> parseNth
   where
     parseSingle = do
       char '%' >> char '%'
-      return (List Nothing [Atom Nothing "car", Atom Nothing "%&"])
+      return (Call [Atom Nothing "car", Atom Nothing "%&"])
     parseNth :: Parser LispVal
     parseNth = do
       char '%'
       n <- digitChar
-      return (List Nothing [Atom Nothing "nth", Integer (read [n] - 1), Atom Nothing "%&"])
+      return (Call [Atom Nothing "nth", Integer (read [n] - 1), Atom Nothing "%&"])
 
 parseExpr :: Parser LispVal
 parseExpr =
-  spaces >> try parseLambdaShorthandArgs
-    <|> parseAtom
-    <|> parseLambdaShorthand
-    <|> parseString
-    <|> parseCharacter
-    <|> try parseFloat
-    <|> parseInteger
-    <|> parseQuoted
-    <|> try parseUnquoteSplicing
-    <|> parseUnquoted
-    <|> try parseEmptyList
-    <|> do
-      lparen
-      x <- lexeme (try parseDottedList <|> parseList)
-      rparen
-      return x
+  lexeme $
+    try parseLambdaShorthandArgs
+      <|> parseUnit
+      <|> parseAtom
+      <|> parseLambdaShorthand
+      <|> parseString
+      <|> parseCharacter
+      <|> try parseFloat
+      <|> parseInteger
+      <|> parseQuoted
+      <|> try parseUnquoteSplicing
+      <|> parseUnquoted
+      <|> parseCall
+      <|> do
+        lbracket
+        x <- lexeme (try parseDottedList <|> parseList)
+        rbracket
+        return x
 
 readOrThrow :: Parser a -> String -> String -> ThrowsError a
 readOrThrow parser file input = case parse parser file input of

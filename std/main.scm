@@ -7,7 +7,7 @@
 ;       (repeat (- i 1) stmt))
 ;     'nil))
 ; (define (print-three-times str)
-;   (repeat 3 (lambda () (io.write (string.concat "hello user " str)))))
+;   (repeat 3 (fn () (io.write (string.concat "hello user " str)))))
 ; (print-three-times username)
 
 ; (io.write

@@ -1,4 +1,4 @@
 (executable
-  (load "test/ModuleSystem/test5/test.clsk" unqualified))
+  [load "test/ModuleSystem/test5/test.clsk" unqualified])
 
 (sum 3 4)

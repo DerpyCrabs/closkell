@@ -1,5 +1,5 @@
 (let
-  ($$module.test (let (sum (lambda (x y) (+ x y))) '("sum" ~sum)))
+  [$$module.test (let [sum (fn [x y] (+ x y))] ["sum" ~sum])]
     (let
-      (sum (get "sum" $$module.test))
+      [sum (get "sum" $$module.test)]
       (sum 3 4)))

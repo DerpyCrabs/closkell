@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4857053b94519678a1cc9235b84d5f6a946cb0e38e2bfffee69859b7c3a3314a
+-- hash: 739ec163bcd1b8061ecfb5571dd3fa5ddce7e57a82fac777d128a9572bb62c91
 
 name:           closkell
 version:        0.1.0.0
@@ -26,6 +26,7 @@ library
       Compile
       Compile.MacroSystem
       Compile.ModuleSystem
+      Compile.TypeSystem
       Data.Env
       Data.Error
       Data.Value
@@ -47,8 +48,10 @@ library
     , megaparsec
     , mtl
     , servant
+    , servant-options
     , servant-server
     , wai-cors
+    , wai-extra
     , warp
   default-language: Haskell2010
 
@@ -67,8 +70,10 @@ executable closkell-exe
     , megaparsec
     , mtl
     , servant
+    , servant-options
     , servant-server
     , wai-cors
+    , wai-extra
     , warp
   default-language: Haskell2010
 
@@ -88,7 +93,9 @@ test-suite closkell-test
     , megaparsec
     , mtl
     , servant
+    , servant-options
     , servant-server
     , wai-cors
+    , wai-extra
     , warp
   default-language: Haskell2010

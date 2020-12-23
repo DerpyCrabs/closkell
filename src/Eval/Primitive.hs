@@ -1,5 +1,7 @@
 module Eval.Primitive
   ( primitiveBindings,
+    isPrimitive,
+    primitives,
   )
 where
 
@@ -12,47 +14,55 @@ import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, std
 import Types
 
 primitiveBindings :: Env
-primitiveBindings = map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) primitives
+primitiveBindings = map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) (stripType <$> primitives)
   where
     makeFunc constructor (var, func) = (var, constructor var func)
 
-primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
+tNumber = TSum [TInteger, TFloat]
+
+stripType (name, val, _) = (name, val)
+
+primitives :: [(String, [LispVal] -> ThrowsError LispVal, LispType)]
 primitives =
-  [ ("+", numericBinop (+) (+)),
-    ("-", numericBinop (-) (-)),
-    ("*", numericBinop (*) (-)),
-    ("/", integerBinop div),
-    ("mod", integerBinop mod),
-    ("quotient", integerBinop quot),
-    ("remainder", integerBinop rem),
-    ("==", numBoolBinop (==) (==)),
-    ("<", numBoolBinop (<) (<)),
-    (">", numBoolBinop (>) (>)),
-    ("/=", numBoolBinop (/=) (/=)),
-    (">=", numBoolBinop (>=) (>=)),
-    ("<=", numBoolBinop (<=) (<=)),
-    ("&&", boolBoolBinop (&&)),
-    ("||", boolBoolBinop (||)),
-    ("string.concat", strStringBinop (++)),
-    ("string.from", stringFrom),
-    ("string.toList", stringToList),
-    ("car", car),
-    ("cdr", cdr),
-    ("cons", cons),
-    ("get", get),
-    ("nth", nth),
-    ("eq?", eq),
-    ("list?", isList),
-    ("atom?", isAtom),
-    ("integer?", isInteger),
-    ("string?", isString),
-    ("character?", isCharacter),
-    ("float?", isFloat),
-    ("bool?", isBool),
-    ("port?", isPort),
-    ("dotted-list?", isDottedList),
-    ("do", doFunc)
+  [ ("+", numericBinop (+) (+), TFunc [] (Just tNumber) TFloat),
+    ("-", numericBinop (-) (-), TFunc [] (Just tNumber) TFloat),
+    ("*", numericBinop (*) (-), TFunc [] (Just tNumber) TFloat),
+    ("/", integerBinop div, TFunc [] (Just TInteger) TInteger),
+    ("mod", integerBinop mod, TFunc [] (Just TInteger) TInteger),
+    ("quotient", integerBinop quot, TFunc [] (Just TInteger) TInteger),
+    ("remainder", integerBinop rem, TFunc [] (Just TInteger) TInteger),
+    ("==", numBoolBinop (==) (==), TFunc [] (Just tNumber) TBool),
+    ("<", numBoolBinop (<) (<), TFunc [] (Just tNumber) TBool),
+    (">", numBoolBinop (>) (>), TFunc [] (Just tNumber) TBool),
+    ("/=", numBoolBinop (/=) (/=), TFunc [] (Just tNumber) TBool),
+    (">=", numBoolBinop (>=) (>=), TFunc [] (Just tNumber) TBool),
+    ("<=", numBoolBinop (<=) (<=), TFunc [] (Just tNumber) TBool),
+    ("&&", boolBoolBinop (&&), TFunc [] (Just TBool) TBool),
+    ("||", boolBoolBinop (||), TFunc [] (Just TBool) TBool),
+    ("!", notOp, TFunc [TBool] Nothing TBool),
+    ("string.concat", strStringBinop (++), TFunc [] (Just TString) TString),
+    ("string.from", stringFrom, TFunc [] (Just $ TSum [TInteger, TFloat, TBool, TCharacter, TString, TList (TVar "a")]) TString),
+    ("string.toList", stringToList, TFunc [TString] Nothing (TList TCharacter)),
+    ("car", car, TFunc [TList (TVar "a")] Nothing (TVar "a")),
+    ("cdr", cdr, TFunc [TList (TVar "a")] Nothing (TList (TVar "a"))),
+    ("cons", cons, TFunc [TVar "a", TList (TVar "a")] Nothing (TList (TVar "a"))),
+    ("get", get, TFunc [TVar "a", TList $ TSum [TVar "a", TVar "b"]] Nothing (TVar "b")),
+    ("nth", nth, TFunc [TInteger, TList (TVar "a")] Nothing (TVar "a")),
+    ("eq?", eq, TFunc [] (Just (TVar "a")) TBool),
+    ("list?", isList, TFunc [TVar "a"] Nothing TBool),
+    ("atom?", isAtom, TFunc [TVar "a"] Nothing TBool),
+    ("integer?", isInteger, TFunc [TVar "a"] Nothing TBool),
+    ("string?", isString, TFunc [TVar "a"] Nothing TBool),
+    ("character?", isCharacter, TFunc [TVar "a"] Nothing TBool),
+    ("float?", isFloat, TFunc [TVar "a"] Nothing TBool),
+    ("bool?", isBool, TFunc [TVar "a"] Nothing TBool),
+    ("port?", isPort, TFunc [TVar "a"] Nothing TBool),
+    ("dotted-list?", isDottedList, TFunc [TVar "a"] Nothing TBool),
+    ("do", doFunc, TFunc [] (Just $ TSum [TVar "a", TUnit]) (TVar "a"))
   ]
+
+isPrimitive :: String -> Bool
+isPrimitive str = str `elem` ((fst . stripType <$> primitives) ++ (fst <$> ioPrimitives))
 
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
 ioPrimitives =
@@ -77,17 +87,16 @@ makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode
 
 closePort :: [LispVal] -> IOThrowsError LispVal
-closePort [Port port] = liftIO $ hClose port >> (return $ Bool True)
+closePort [Port port] = liftIO $ hClose port >> return (Bool True)
 closePort _ = return $ Bool False
 
 readProc :: [LispVal] -> IOThrowsError LispVal
 readProc [] = readProc [Port stdin]
-readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . Right . String
+readProc [Port port] = liftIO (hGetLine port) >>= liftThrows . Right . String
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
 writeProc [String obj] = writeProc [String obj, Port stdout]
-writeProc [String obj, Port port] = liftIO $ hPutStrLn port obj >> (return $ Atom Nothing "nil")
-writeProc (obj : _) = throwError $ TypeMismatch "string" obj
+writeProc [String obj, Port port] = liftIO $ hPutStrLn port obj >> return (Atom Nothing "nil")
 
 dumpProc :: [LispVal] -> IOThrowsError LispVal
 dumpProc [obj] = writeProc [String (show obj), Port stdout]
@@ -97,7 +106,7 @@ readContents :: [LispVal] -> IOThrowsError LispVal
 readContents [String filename] = fmap String $ liftIO $ readFile filename
 
 readAll :: [LispVal] -> IOThrowsError LispVal
-readAll [String filename] = fmap list $ load filename
+readAll [String filename] = list <$> load filename
 
 integerBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 integerBinop _ [] = throwError $ NumArgs 2 []
@@ -109,25 +118,11 @@ floatBinop _ [] = throwError $ NumArgs 2 []
 floatBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 floatBinop op params = Float . foldl1 op <$> mapM unpackFloat params
 
-numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
-numericBinop opInt opFloat xs
-  | all isInteger xs = integerBinop opInt xs
-  | all isFloat xs = floatBinop opFloat xs
-  | otherwise = throwError $ TypeMismatch "number" $ List Nothing xs
-  where
-    isInteger (Integer _) = True
-    isInteger _ = False
-
-    isFloat (Float _) = True
-    isFloat _ = False
-
 unpackInteger :: LispVal -> ThrowsError Integer
 unpackInteger (Integer n) = return n
-unpackInteger notInteger = throwError $ TypeMismatch "integer" notInteger
 
 unpackFloat :: LispVal -> ThrowsError Double
 unpackFloat (Float n) = return n
-unpackFloat notFloat = throwError $ TypeMismatch "float" notFloat
 
 boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
 boolBinop unpacker op args =
@@ -147,17 +142,32 @@ stringBinop unpacker op args =
       right <- unpacker $ head $ tail args
       return $ String $ left `op` right
 
-numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [LispVal] -> ThrowsError LispVal
-numBoolBinop opInt opFloat xs
-  | all isInteger xs = intBoolBinop opInt xs
-  | all isFloat xs = floatBoolBinop opFloat xs
-  | otherwise = throwError $ TypeMismatch "number" $ List Nothing xs
+createNumericBinop ::
+  ((Integer -> Integer -> a) -> [LispVal] -> ThrowsError LispVal) ->
+  ((Double -> Double -> b) -> [LispVal] -> ThrowsError LispVal) ->
+  (Integer -> Integer -> a) ->
+  (Double -> Double -> b) ->
+  [LispVal] ->
+  ThrowsError LispVal
+createNumericBinop intBinop floatBinop opInt opFloat xs
+  | all isInteger xs = intBinop opInt xs
+  | all isFloat xs = floatBinop opFloat xs
+  | otherwise = floatBinop opFloat (toFloat <$> xs)
   where
     isInteger (Integer _) = True
     isInteger _ = False
 
     isFloat (Float _) = True
     isFloat _ = False
+
+    toFloat (Integer i) = Float $ fromInteger i
+    toFloat f = f
+
+numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [LispVal] -> ThrowsError LispVal
+numBoolBinop = createNumericBinop intBoolBinop floatBoolBinop
+
+numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
+numericBinop = createNumericBinop integerBinop floatBinop
 
 intBoolBinop = boolBinop unpackInteger
 
@@ -169,17 +179,12 @@ boolBoolBinop = boolBinop unpackBool
 
 unpackStr :: LispVal -> ThrowsError String
 unpackStr (String s) = return s
-unpackStr notString = throwError $ TypeMismatch "string" notString
 
 unpackBool :: LispVal -> ThrowsError Bool
 unpackBool (Bool b) = return b
-unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 
-car :: [LispVal] -> ThrowsError LispVal
-car [List _ (x : _)] = return x
-car [DottedList _ (x : _) _] = return x
-car [badArg] = throwError $ TypeMismatch "pair" badArg
-car badArgList = throwError $ NumArgs 1 badArgList
+notOp :: [LispVal] -> ThrowsError LispVal
+notOp [v] = Bool . not <$> unpackBool v
 
 get :: [LispVal] -> ThrowsError LispVal
 get [String key, List _ (String k : val : rest)]
@@ -187,31 +192,31 @@ get [String key, List _ (String k : val : rest)]
   | otherwise = get [String key, list rest]
 get badArgList = throwError $ NumArgs 2 badArgList
 
-isList [(List _ _)] = return $ Bool True
+isList [List _ _] = return $ Bool True
 isList _ = return $ Bool False
 
-isAtom [(Atom _ _)] = return $ Bool True
+isAtom [Atom _ _] = return $ Bool True
 isAtom _ = return $ Bool False
 
-isInteger [(Integer _)] = return $ Bool True
+isInteger [Integer _] = return $ Bool True
 isInteger _ = return $ Bool False
 
-isString [(String _)] = return $ Bool True
+isString [String _] = return $ Bool True
 isString _ = return $ Bool False
 
-isCharacter [(Character _)] = return $ Bool True
+isCharacter [Character _] = return $ Bool True
 isCharacter _ = return $ Bool False
 
-isFloat [(Float _)] = return $ Bool True
+isFloat [Float _] = return $ Bool True
 isFloat _ = return $ Bool False
 
-isBool [(Bool _)] = return $ Bool True
+isBool [Bool _] = return $ Bool True
 isBool _ = return $ Bool False
 
-isPort [(Port _)] = return $ Bool True
+isPort [Port _] = return $ Bool True
 isPort _ = return $ Bool False
 
-isDottedList [(DottedList _ _ _)] = return $ Bool True
+isDottedList [DottedList {}] = return $ Bool True
 isDottedList _ = return $ Bool False
 
 doFunc :: [LispVal] -> ThrowsError LispVal
@@ -228,25 +233,22 @@ stringFrom xs = stringFrom [List Nothing xs]
 
 stringToList :: [LispVal] -> ThrowsError LispVal
 stringToList [String str] = return $ list (Character <$> str)
-stringToList other = throwError $ TypeMismatch "string" (list other)
 
 cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List _ (_ : xs)] = return $ list xs
-cdr [DottedList _ [_] x] = return x
-cdr [DottedList _ (_ : xs) x] = return $ dottedList xs x
-cdr [badArg] = throwError $ TypeMismatch "pair" badArg
 cdr badArgList = throwError $ NumArgs 1 badArgList
 
 cons :: [LispVal] -> ThrowsError LispVal
-cons [x1, List _ []] = return $ list [x1]
 cons [x, List _ xs] = return $ list $ x : xs
-cons [x, DottedList _ xs xlast] = return $ dottedList (x : xs) xlast
-cons [x1, x2] = return $ dottedList [x1] x2
 cons badArgList = throwError $ NumArgs 2 badArgList
 
+car :: [LispVal] -> ThrowsError LispVal
+car [List _ (x : _)] = return x
+car badArgList = throwError $ NumArgs 1 badArgList
+
 nth :: [LispVal] -> ThrowsError LispVal
-nth [Integer i, List _ xs] | length xs > (fromIntegral i) = return $ xs !! (fromIntegral i)
+nth [Integer i, List _ xs] | length xs > fromIntegral i = return $ xs !! fromIntegral i
 nth k = throwError $ Default ("nth error: " ++ show k)
 
 eq :: [LispVal] -> ThrowsError LispVal
-eq (x : xs) = return $ Bool $ (foldr (\elem acc -> elem == x && acc) True xs)
+eq (x : xs) = return $ Bool (foldr (\elem acc -> elem == x && acc) True xs)

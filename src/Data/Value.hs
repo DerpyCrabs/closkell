@@ -4,8 +4,9 @@ module Data.Value
     dottedList,
     atom,
     int,
+    float,
     func,
-    lambda,
+    fn,
     makeNormalFunc,
     makeVarArgs,
     makeLet,
@@ -33,14 +34,17 @@ atom :: String -> LispVal
 atom = Atom Nothing
 
 func :: String -> [LispVal] -> LispVal
-func f args = List Nothing (atom f : args)
+func f args = Call (atom f : args)
 
 int :: Integer -> LispVal
 int = Integer
 
-lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
-lambda args Nothing body = list (atom "lambda" : list args : body)
-lambda args (Just vararg) body = list (atom "lambda" : dottedList args vararg : body)
+float :: Double -> LispVal
+float = Float
+
+fn :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
+fn args Nothing body = Call (atom "fn" : list args : body)
+fn args (Just vararg) body = Call (atom "fn" : dottedList args vararg : body)
 
 makeFunc :: Maybe String -> Env -> [LispVal] -> LispVal -> LispVal
 makeFunc varargs env params body = Func (map show params) varargs body env
@@ -52,16 +56,16 @@ makeVarArgs :: LispVal -> Env -> [LispVal] -> LispVal -> LispVal
 makeVarArgs = makeFunc . Just . show
 
 makeLet :: [(String, LispVal)] -> LispVal -> LispVal
-makeLet binds expr = list $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
+makeLet binds expr = Call $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
 
 lvUp :: LVZipperTurn
-lvUp (_, val, LVCrumb env pos ls rs : bs) = (env, List pos (ls ++ [val] ++ rs), bs)
+lvUp (_, val, LVCrumb env ls rs : bs) = (env, Call (ls ++ [val] ++ rs), bs)
 
 lvDown :: LVZipperTurn
-lvDown (env, List pos (val : rest), crumbs) = (env, val, LVCrumb env pos [] rest : crumbs)
+lvDown (env, Call (val : rest), crumbs) = (env, val, LVCrumb env [] rest : crumbs)
 
 lvRight :: LVZipperTurn
-lvRight (env, val, LVCrumb crumbEnv pos ls (newVal : rs) : bs) = (env, newVal, LVCrumb crumbEnv pos (ls ++ [val]) rs : bs)
+lvRight (env, val, LVCrumb crumbEnv ls (newVal : rs) : bs) = (crumbEnv, newVal, LVCrumb crumbEnv (ls ++ [val]) rs : bs)
 
 lvModify :: (LispVal -> LispVal) -> LVZipperTurn
 lvModify f (env, val, crumbs) = (env, f val, crumbs)

@@ -1,6 +1,5 @@
 (executable
-  (load "test/ModuleSystem/test6/test.clsk" unqualified)
-  (load "test/ModuleSystem/test6/test2.clsk" as test2)
-  )
+  [load "test/ModuleSystem/test6/test.clsk" unqualified]
+  [load "test/ModuleSystem/test6/test2.clsk" as test2])
 
 (test2.sub (sum 3 4) 5)

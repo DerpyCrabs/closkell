@@ -42,6 +42,11 @@ type List<AdditionalInfo = {}> = {
   value: Array<LispVal<AdditionalInfo>>
 }
 
+type Call<AdditionalInfo = {}> = {
+  type: 'call'
+  value: Array<LispVal<AdditionalInfo>>
+}
+
 type DottedList<AdditionalInfo = {}> = {
   type: 'dotted-list'
   head: Array<LispVal<AdditionalInfo>>
@@ -66,6 +71,10 @@ type IOFunc = {
   value: string
 }
 
+type Unit = {
+  type: 'unit'
+}
+
 type Macro<AdditionalInfo = {}> = {
   type: 'macro'
   body: LispVal<AdditionalInfo>
@@ -87,6 +96,7 @@ export type LispVal<AdditionalInfo = {}> = (
   | Atom
   | Character
   | List<AdditionalInfo>
+  | Call<AdditionalInfo>
   | DottedList<AdditionalInfo>
   | Integer
   | Float
@@ -97,8 +107,13 @@ export type LispVal<AdditionalInfo = {}> = (
   | Port
   | Func<AdditionalInfo>
   | Macro<AdditionalInfo>
+  | Unit
 ) &
   AdditionalInfo
+
+export type FocusedValPath = Array<number>
+
+export type FocusedLispVal = [LispVal, FocusedValPath | null]
 
 export type LeftResult<T> = {
   Left?: T
@@ -110,4 +125,8 @@ export type RightResult<T> = {
 
 export type Result<E, T> = LeftResult<E> & RightResult<T>
 
-export type FocusedLispVal = LispVal<{ focused: boolean }>
+export type EvalRequest = {
+  typeCheck: boolean
+  macroExpand: boolean
+  expression: string
+}

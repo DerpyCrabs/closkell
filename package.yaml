@@ -20,6 +20,8 @@ dependencies:
   - servant-server
   - warp
   - wai-cors
+  - servant-options
+  - wai-extra
 
 library:
   source-dirs: src

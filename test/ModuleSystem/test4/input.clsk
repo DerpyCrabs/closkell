@@ -1,4 +1,4 @@
 (executable
-  (load "test/ModuleSystem/test4/test.clsk" as test2))
+  [load "test/ModuleSystem/test4/test.clsk" as test2])
 
 (test2.sum 3 4)
