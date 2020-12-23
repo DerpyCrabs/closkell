@@ -12,6 +12,7 @@ module Types
     LVZipperTurn,
     Env,
     LispType (..),
+    FocusedValPath,
   )
 where
 
@@ -81,6 +82,8 @@ type Env = [(String, LispVal)]
 type LVZipper = (Env, LispVal, [LVCrumb])
 
 type LVZipperTurn = LVZipper -> LVZipper
+
+type FocusedValPath = [Int]
 
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2

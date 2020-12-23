@@ -111,6 +111,10 @@ export type LispVal<AdditionalInfo = {}> = (
 ) &
   AdditionalInfo
 
+export type FocusedValPath = Array<number>
+
+export type FocusedLispVal = [LispVal, FocusedValPath | null]
+
 export type LeftResult<T> = {
   Left?: T
 }
@@ -120,8 +124,6 @@ export type RightResult<T> = {
 }
 
 export type Result<E, T> = LeftResult<E> & RightResult<T>
-
-export type FocusedLispVal = LispVal<{ focused: boolean }>
 
 export type EvalRequest = {
   typeCheck: boolean

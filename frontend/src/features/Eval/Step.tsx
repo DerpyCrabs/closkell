@@ -1,12 +1,6 @@
 import React from 'react'
 import { Box } from '@material-ui/core'
-import {
-  FocusedLispVal,
-  LVZipper,
-  LispError,
-  LispVal,
-  Result,
-} from '../../types'
+import { FocusedLispVal, LispError, Result } from '../../types'
 import LispValView from '../LispValView/LispValView'
 
 export default function Step({
@@ -14,7 +8,7 @@ export default function Step({
   index,
   step,
 }: {
-  step: Result<LispError, LVZipper>
+  step: Result<LispError, FocusedLispVal>
   value: number
   index: number
 }) {
@@ -26,9 +20,7 @@ export default function Step({
     >
       {value === index && (
         <Box p={3}>
-          {step.Right !== undefined && (
-            <LispValView val={evalOutputTransform(step.Right)} />
-          )}
+          {step.Right !== undefined && <LispValView val={step.Right} />}
           {step.Left !== undefined && (
             <div
               style={{
@@ -43,39 +35,4 @@ export default function Step({
       )}
     </div>
   )
-}
-
-const evalOutputTransform = (step: LVZipper): FocusedLispVal => {
-  let val = {
-    ...traverseLispVal((cr: LispVal) => ({ ...cr, focused: false, env: [] }))(
-      step[1]
-    ),
-    env: step[0],
-    focused: true,
-  }
-  step[2].forEach((crumb) => {
-    val = {
-      focused: false,
-      env: crumb.env,
-      type: 'call',
-      value: [
-        ...crumb.ls.map(
-          traverseLispVal((cr: LispVal) => ({ ...cr, focused: false, env: [] }))
-        ),
-        val,
-        ...crumb.rs.map(
-          traverseLispVal((cr: LispVal) => ({ ...cr, focused: false, env: [] }))
-        ),
-      ],
-    }
-  })
-  return val
-}
-
-const traverseLispVal = (f: any) => (val: any) => {
-  if (val.type === 'call') {
-    return { ...f(val), value: val.value.map(traverseLispVal(f)).map(f) }
-  } else {
-    return f(val)
-  }
 }

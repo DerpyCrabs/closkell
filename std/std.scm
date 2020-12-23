@@ -30,6 +30,10 @@
 [filter (fn [pred lst] (foldr (fn [x y] (if (pred x) (cons x y) y)) [] lst))]
 [complement (fn [func] #(not (func %%)))]
 [remove (fn [pred lst] (filter (complement pred) lst))]
+[append (fn [l1 l2] (foldr cons l2 l1))]
+[curry (fn [func arg] #(func arg ~@%&))]
+
+[curry (fn [func . args]  #(apply func (append args %&)))]
 
 ; (define (dec i) (- i 1))
 ; (define (inc i) (+ i 1))
@@ -38,17 +42,11 @@
 ; (define (nfirst lst) (next (first lst)))
 ; (define (fnext lst) (first (next lst)))
 ; (define (third lst) (nth 2 lst))
-; (define (curry func . args)  #(apply func (append args %&)))
 ; (define zero?              (curry = 0))
 ; (define positive?          (curry < 0))
 ; (define negative?          (curry > 0))
 ; (define (odd? num)         (= (mod num 2) 1))
 ; (define (even? num)        (= (mod num 2) 0))
-
-; (define (append . lists)
-;   (if (= (length lists) 1)
-;     (first lists)
-;     (foldr cons (apply append (next lists)) (first lists))))
 
 ; (define (splitAt i lst)
 ;   (if (<= i 0)
