@@ -127,10 +127,28 @@ stepEval z@(_, Call (function : args), _) =
       res <- liftThrows $ applyFunc f z $ unsplice args
       return (res, [id])
     _ ->
-      return (z, [lvDown] ++ replicate (length args) lvRight ++ [lvUp])
+      return (z, evalArgsPath)
   where
     unsplice args = (\(Call args) -> args) $ performUnquoteSplicing $ Call args
+    evalArgsPath = reverse $ foldl foldFunc [lvDown] (zip [1 ..] (function : args))
+      where
+        foldFunc (t : ts) (i, arg) | i /= length args + 1 = if isNormalForm arg then lvRight . t : ts else lvRight : t : ts
+        foldFunc (t : ts) (_, arg) = if isNormalForm arg then lvUp . t : ts else lvUp : t : ts
 stepEval (_, badForm, _) = throwError $ BadSpecialForm "Unrecognized special form" badForm
+
+isNormalForm :: LispVal -> Bool
+isNormalForm Unit = True
+isNormalForm (String _) = True
+isNormalForm (Character _) = True
+isNormalForm (Integer _) = True
+isNormalForm (Float _) = True
+isNormalForm (Bool _) = True
+isNormalForm (PrimitiveFunc _ _) = True
+isNormalForm (IOFunc _ _) = True
+isNormalForm Func {} = True
+isNormalForm (Type _) = True
+isNormalForm (List _ xs) | all isNormalForm xs = True
+isNormalForm _ = False
 
 applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
 applyFunc (Func params varargs body closure) z args =
