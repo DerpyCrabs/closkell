@@ -1,49 +1,79 @@
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
+
 module Main where
 
 import Control.Monad.Except
+import Data.Maybe (isNothing)
 import Lib
 import Network.Wai.Handler.Warp
+import ParseOptions
 import System.Environment
 import System.IO
 
 main :: IO ()
 main = do
-  args <- getArgs
-  case head args of
-    "run" -> runCommand $ tail args
-    "compile" -> compileCommand $ tail args
-    "debug-server" -> debuggerCommand $ tail args
+  options <- parseOptions
+  case options of
+    Serve (ServeOptions port) -> run port server
+    Compile opts -> compileCommand opts
+    Eval opts -> evalCommand opts
 
-debuggerCommand :: [String] -> IO ()
-debuggerCommand args = run 8081 (server args)
+evalCommand :: EvalOptions -> IO ()
+evalCommand EvalOptions {eoCommon = common, eoUsingNode = usingNode, eoArgs = args} = do
+  let env = primitiveBindings ++ [("args", List Nothing $ String <$> args)]
+  source <- getSource (optInput common)
+  compiledSource <- compileSource source (optWithoutTypecheck common)
+  if usingNode
+    then do
+      let sourceWithArgs = Call [atom "let", list [atom "args", list $ String <$> args], compiledSource]
+      result <- runExceptT $ evalUsingNode sourceWithArgs
+      case result of
+        Right val -> putStrLn val
+        Left err -> hPutStrLn stderr "Eval error: " >> error (show err)
+    else do
+      result <- runExceptT $ eval env compiledSource
+      case result of
+        Right val -> print val
+        Left err -> hPutStrLn stderr "Eval error: " >> error (show err)
 
-runCommand :: [String] -> IO ()
-runCommand args = do
-  let env = primitiveBindings ++ [("args", List Nothing $ map String $ drop 1 args)]
-  input <- runExceptT (load (head args) >>= moduleSystem)
-  case input of
-    Right val -> runIOThrows (show <$> eval env val) >>= hPutStrLn stderr
-    Left err -> print err
-  return ()
+compileCommand :: CompileOptions -> IO ()
+compileCommand CompileOptions {coCommon = common, coJSOutput = jsOutput, coCLSKOutput = clskOutput} = do
+  source <- getSource (optInput common)
+  compiledSource <- compileSource source (optWithoutTypecheck common)
+  case jsOutput of
+    Just jsOutput -> do
+      let jsSource = emitJS compiledSource
+      optimized <- closureCompilerPass jsSource
+      writeFile jsOutput optimized
+    Nothing -> return ()
+  case clskOutput of
+    Just clskOutput -> do
+      writeFile clskOutput (show compiledSource)
+    Nothing -> return ()
+  when (isNothing jsOutput && isNothing clskOutput) $ error "No output selected"
 
-runIOThrows :: IOThrowsError String -> IO String
-runIOThrows action = extractValue <$> runExceptT (trapError action)
+getSource :: Input -> IO (String, String)
+getSource StdInput = ("stdin",) <$> getContents
+getSource (FileInput path) = (path,) <$> readFile path
 
-compileCommand :: [String] -> IO ()
-compileCommand ["-o", outFile, inFile] = do
-  compiled <- compileFile inFile
-  writeFile outFile (show compiled)
-compileCommand [inFile] = do
-  compiled <- compileFile inFile
-  print compiled
-
-compileFile filename = do
-  contents <- readFile filename
-  let ast = readExprList filename contents
+compileSource :: (String, String) -> Bool -> IO LispVal
+compileSource (name, src) withoutTypecheck = do
+  let ast = readExprList name src
   case ast of
-    Left err -> putStrLn "Parsing error: " >> error (show err)
+    Left err -> hPutStrLn stderr "Parsing error: " >> error (show err)
     Right ast -> do
-      compiled <- runExceptT $ compile ast
-      case compiled of
-        Left err -> putStrLn "Compiling error: " >> error (show err)
-        Right compiled -> return compiled
+      withoutModules <- runExceptT $ moduleSystem ast
+      case withoutModules of
+        Left err -> hPutStrLn stderr "ModuleSystem error: " >> error (show err)
+        Right withoutModules -> do
+          withoutMacros <- runExceptT $ macroSystem withoutModules
+          case withoutMacros of
+            Left err -> hPutStrLn stderr "MacroSystem error: " >> error (show err)
+            Right withoutMacros ->
+              if withoutTypecheck
+                then return withoutMacros
+                else
+                  runExceptT (typeSystem withoutMacros) >>= \case
+                    Left err -> hPutStrLn stderr "TypeSystem error: " >> error (show err)
+                    Right checkedAST -> return checkedAST
