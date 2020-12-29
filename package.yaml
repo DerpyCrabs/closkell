@@ -22,6 +22,8 @@ dependencies:
   - wai-cors
   - servant-options
   - wai-extra
+  - command
+  - optparse-applicative
 
 library:
   source-dirs: src

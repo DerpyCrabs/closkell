@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 739ec163bcd1b8061ecfb5571dd3fa5ddce7e57a82fac777d128a9572bb62c91
+-- hash: 97ad7aa8131e0d95f2abbf46f7dc7e7057f66e964edca997032ca29a4a6f4c17
 
 name:           closkell
 version:        0.1.0.0
@@ -24,6 +24,8 @@ source-repository head
 library
   exposed-modules:
       Compile
+      Compile.ClosureCompilerPass
+      Compile.EmitJS
       Compile.MacroSystem
       Compile.ModuleSystem
       Compile.TypeSystem
@@ -44,9 +46,11 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , command
     , hspec
     , megaparsec
     , mtl
+    , optparse-applicative
     , servant
     , servant-options
     , servant-server
@@ -58,6 +62,7 @@ library
 executable closkell-exe
   main-is: Main.hs
   other-modules:
+      ParseOptions
       Paths_closkell
   hs-source-dirs:
       app
@@ -66,9 +71,11 @@ executable closkell-exe
       aeson
     , base >=4.7 && <5
     , closkell
+    , command
     , hspec
     , megaparsec
     , mtl
+    , optparse-applicative
     , servant
     , servant-options
     , servant-server
@@ -89,9 +96,11 @@ test-suite closkell-test
       aeson
     , base >=4.7 && <5
     , closkell
+    , command
     , hspec
     , megaparsec
     , mtl
+    , optparse-applicative
     , servant
     , servant-options
     , servant-server

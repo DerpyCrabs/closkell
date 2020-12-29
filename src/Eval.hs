@@ -4,14 +4,18 @@ module Eval
   ( stepEval,
     evalSteps,
     eval,
+    evalUsingNode,
   )
 where
 
+import Compile.ClosureCompilerPass (closureCompilerPass)
+import Compile.EmitJS (emitJS)
 import Control.Monad.Except
 import Data.Env
 import Data.Error
 import Data.Maybe (isJust, isNothing)
 import Data.Value
+import System.Command
 import Types
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
@@ -191,3 +195,10 @@ performUnquoteSplicing = performUnquoteSplicing'
     performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
     performUnquoteSplicing'' v@(Call _) = [performUnquoteSplicing' v]
     performUnquoteSplicing'' other = [other]
+
+evalUsingNode :: LispVal -> IOThrowsError String
+evalUsingNode val = do
+  let jsSource = emitJS val
+  jsOptimizedSource <- liftIO $ closureCompilerPass jsSource
+  Stdout out <- liftIO $ command [Stdin jsOptimizedSource] "node" []
+  return out

@@ -18,10 +18,19 @@ module Lib
     moduleSystem,
     typeSystem,
     server,
+    emitJS,
+    closureCompilerPass,
+    macroSystem,
+    atom,
+    list,
+    evalUsingNode,
   )
 where
 
 import Compile
+import Compile.ClosureCompilerPass
+import Compile.EmitJS
+import Compile.MacroSystem
 import Compile.ModuleSystem
 import Compile.TypeSystem
 import Data.Env

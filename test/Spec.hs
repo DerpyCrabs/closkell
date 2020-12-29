@@ -1,3 +1,4 @@
+import Compile.EmitJS (emitJS, emitPrimitives)
 import Compile.MacroSystem (macroSystem)
 import Compile.ModuleSystem (moduleSystem)
 import Compile.TypeSystem (typeSystem)
@@ -6,10 +7,11 @@ import Control.Monad.Except
     MonadTrans (lift),
     runExceptT,
   )
-import Data.Char (isDigit)
+import Data.Char (isDigit, isSpace)
 import Data.List (isPrefixOf)
 import Data.Value
 import Lib
+import System.Command
 import Test.Hspec
 
 main :: IO ()
@@ -20,6 +22,7 @@ main = hspec $ do
   describe "Macro system" macroSystemTests
   describe "Type system" typeSystemTests
   describe "LispVal Zipper" zipperTests
+  describe "EmitJS" emitJSTests
 
 parsingTests =
   do
@@ -304,6 +307,21 @@ typeSystemTests =
               ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] [append (fn [l1 l2] (foldr cons l2 l1))] [curry (fn [func . args] #(apply func (append args %&)))] [filter (fn [pred lst] (foldr (fn [x y] (if (pred x) (cons x y) y)) [] lst))] (filter (curry < 5) [1 5]))", Right Unit)
             ]
 
+emitJSTests =
+  let test = testTable runEmitJS
+      testNode path = runNodeTest ("test/JsNodeTests/" ++ path)
+   in do
+        it "handles primitive functions" $
+          test
+            [ ("(+ 3 5)", Right (emitPrimitives ++ "$$sum(3,5)")),
+              ("(+ 3 (+ 1 2))", Right (emitPrimitives ++ "$$sum(3,$$sum(1,2))")),
+              ("(- 3 (+ 1 2))", Right (emitPrimitives ++ "$$sub(3,$$sum(1,2))")),
+              ("(car [1 2])", Right (emitPrimitives ++ "$$car([1,2])"))
+            ]
+        it "produces correct JS code" $ do
+          testNode "test1"
+          testNode "test2"
+
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")
   expected <- readFile (testPath ++ "/expected.clsk")
@@ -327,6 +345,22 @@ runMacroSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
   macroSystem (last parsedVals)
 
+runEmitJS :: String -> IO (Either LispError String)
+runEmitJS code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  return $ emitJS $ last parsedVals
+
+runNodeTest :: String -> IO ()
+runNodeTest testPath = do
+  input <- readFile (testPath ++ "/input.clsk")
+  expected <- readFile (testPath ++ "/expected.txt")
+  emittedSource <- runEmitJS input
+  case emittedSource of
+    Right source -> do
+      Stdout out <- command [Stdin source] "node" ["--stack-size=32000"]
+      rstrip out `shouldBe` rstrip expected
+    Left err -> error (show err)
+
 runEval :: String -> IO (Either LispError LispVal)
 runEval code = runExceptT $ do
   parsedVals <- lift $ runParse code
@@ -343,3 +377,6 @@ runInterpret code = runExceptT $ do
 testTable :: (Show b, Eq b) => (a -> IO b) -> [(a, b)] -> IO ()
 testTable _ [] = return ()
 testTable runTest ((input, expected) : tests) = (runTest input `shouldReturn` expected) >> testTable runTest tests
+
+rstrip :: String -> String
+rstrip = reverse . dropWhile (\c -> isSpace c || (c == '\n')) . reverse
