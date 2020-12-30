@@ -66,10 +66,12 @@ typeSystem' stack steps z = do
     (step : nextSteps) -> typeSystem' stack nextSteps (step newZ)
 
 typeBindings :: Env
-typeBindings = map (makeFunc PrimitiveFunc) (transformType <$> primitives)
+typeBindings = primitiveBindings ++ ioBindings
   where
     makeFunc constructor (var, func) = (var, constructor var func)
     transformType (name, _, typ) = (name, createType typ)
+    primitiveBindings = makeFunc PrimitiveFunc <$> (transformType <$> primitives)
+    ioBindings = makeFunc PrimitiveFunc <$> (transformType <$> ioPrimitives)
 
 createType :: LispType -> ([LispVal] -> ThrowsError LispVal)
 createType (TFunc argTypes varArg retType) args = do

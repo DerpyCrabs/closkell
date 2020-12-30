@@ -31,6 +31,7 @@
   [complement (fn [func] #(not (func %%)))]
   [remove (fn [pred lst] (filter (complement pred) lst))]
   [append (fn [l1 l2] (foldr cons l2 l1))]
+  [io.dump #(io.write (string.from %%))]
   (do
     (io.dump (foldr #(id %1) 1 [3 2 4]))
     (io.dump (filter #(< 5 %%) [1 3 5 7]))

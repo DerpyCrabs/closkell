@@ -2,6 +2,7 @@ module Eval.Primitive
   ( primitiveBindings,
     isPrimitive,
     primitives,
+    ioPrimitives,
   )
 where
 
@@ -14,7 +15,7 @@ import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, std
 import Types
 
 primitiveBindings :: Env
-primitiveBindings = map (makeFunc IOFunc) ioPrimitives ++ map (makeFunc PrimitiveFunc) (stripType <$> primitives)
+primitiveBindings = map (makeFunc IOFunc) (stripType <$> ioPrimitives) ++ map (makeFunc PrimitiveFunc) (stripType <$> primitives)
   where
     makeFunc constructor (var, func) = (var, constructor var func)
 
@@ -61,29 +62,23 @@ primitives =
   ]
 
 isPrimitive :: String -> Bool
-isPrimitive str = str `elem` ((fst . stripType <$> primitives) ++ (fst <$> ioPrimitives))
+isPrimitive str = str `elem` ((fst . stripType <$> primitives) ++ (fst . stripType <$> ioPrimitives))
 
-ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
+ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal, LispType)]
 ioPrimitives =
-  first ("io." ++)
-    <$> [ ("read", readProc),
-          ("write", writeProc),
-          ("read-file", readFileProc),
-          ("throw", throw)
-        ]
+  [ ("io.read", readProc, TFunc [] Nothing TString),
+    ("io.write", writeProc, TFunc [TString] Nothing TUnit),
+    ("io.panic", panic, TFunc [TVar "a"] Nothing (TVar "b"))
+  ]
 
-throw :: [LispVal] -> IOThrowsError LispVal
-throw [err] = liftThrows $ throwError $ FromCode err
-throw other = liftThrows $ throwError $ NumArgs 1 other
+panic :: [LispVal] -> IOThrowsError LispVal
+panic [err] = liftThrows $ throwError $ FromCode err
 
 readProc :: [LispVal] -> IOThrowsError LispVal
 readProc [] = liftIO getLine >>= liftThrows . Right . String
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
-writeProc [String obj] = liftIO $ putStrLn obj >> return (Atom Nothing "nil")
-
-readFileProc :: [LispVal] -> IOThrowsError LispVal
-readFileProc [String filename] = fmap String $ liftIO $ readFile filename
+writeProc [String obj] = liftIO $ putStrLn obj >> return Unit
 
 integerBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 integerBinop _ [] = throwError $ NumArgs 2 []
@@ -167,7 +162,6 @@ get :: [LispVal] -> ThrowsError LispVal
 get [String key, List _ (String k : val : rest)]
   | key == k = return val
   | otherwise = get [String key, list rest]
-get badArgList = throwError $ NumArgs 2 badArgList
 
 isList [List _ _] = return $ Bool True
 isList _ = return $ Bool False
@@ -206,19 +200,15 @@ stringToList [String str] = return $ list (Character <$> str)
 
 cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List _ (_ : xs)] = return $ list xs
-cdr badArgList = throwError $ NumArgs 1 badArgList
 
 cons :: [LispVal] -> ThrowsError LispVal
 cons [x, List _ xs] = return $ list $ x : xs
-cons badArgList = throwError $ NumArgs 2 badArgList
 
 car :: [LispVal] -> ThrowsError LispVal
 car [List _ (x : _)] = return x
-car badArgList = throwError $ NumArgs 1 badArgList
 
 nth :: [LispVal] -> ThrowsError LispVal
 nth [Integer i, List _ xs] | length xs > fromIntegral i = return $ xs !! fromIntegral i
-nth k = throwError $ Default ("nth error: " ++ show k)
 
 eq :: [LispVal] -> ThrowsError LispVal
 eq (x : xs) = return $ Bool (foldr (\elem acc -> elem == x && acc) True xs)
