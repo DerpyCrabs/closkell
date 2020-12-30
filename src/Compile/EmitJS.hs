@@ -38,6 +38,7 @@ escapeName n = escape <$> n
   where
     escape '?' = 'Q'
     escape '%' = 'P'
+    escape '.' = 'D'
     escape c = c
 
 emitPrimitives :: String
@@ -45,7 +46,6 @@ emitPrimitives =
   "\
   \ const $$sum = (...k) => k.reduce((a, b) => a + b, 0); \
   \ const $$sub = (...k) => k.slice(1).reduce((a, b) => a - b, k[0]); \
-  \ const $$io$dump = (k) => {console.log(JSON.stringify(k)); return null};\
   \ const $$prod = (...k) => k.reduce((a, b) => a * b, 1); \
   \ const $$div = (...k) => k.slice(1).reduce((a, b) => a / b, k[0]); \
   \ const $$car = l => l[0]; \
@@ -62,10 +62,26 @@ emitPrimitives =
   \ const $$gt = (a, b) => a > b; \
   \ const $$and = (...k) => k.reduce((a, b) => a && b, true); \
   \ const $$or = (...k) => k.reduce((a, b) => a || b, false); \
+  \ const $$string$from = (...k) => k.length === 1 ? JSON.stringify(k[0]) : JSON.stringify(k); \
+  \ const $$io$read = () => { \
+  \  const fs = require('fs'); \
+  \  let rtnval = ''; \
+  \  const buffer = Buffer.alloc ? Buffer.alloc(1) : new Buffer(1); \
+  \  for (;;) { \
+  \      fs.readSync(0, buffer, 0, 1); \
+  \      if (buffer[0] === 10) { \
+  \          break; \
+  \      } else if (buffer[0] !== 13) { \
+  \          rtnval += new String(buffer); \
+  \      } \
+  \  } \
+  \  return rtnval; \
+  \ }; \
+  \ const $$io$panic = (e) => {throw (JSON.stringify(e)); return null}; \
   \"
 
 isPrimitive :: String -> Bool
-isPrimitive func = func `elem` ["+", "-", "*", "/", "car", "cdr", "cons", "==", "get", "nth", "eq?", "do", "io.dump", "io.write", "<", ">", "&&", "||"]
+isPrimitive func = func `elem` ["+", "-", "*", "/", "car", "cdr", "cons", "==", "get", "nth", "eq?", "do", "io.read", "io.write", "string.from", "io.panic", "<", ">", "&&", "||"]
 
 primitiveName :: String -> String
 primitiveName "+" = "$$sum"

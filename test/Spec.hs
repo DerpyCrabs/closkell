@@ -136,7 +136,7 @@ evaluationTests =
               ("(apply + (cdr [3 4 5]))", Right $ int 9)
             ]
         it "can throw errors from code" $
-          test [("(io.throw \"Error\")", Left $ FromCode $ String "Error")]
+          test [("(io.panic \"Error\")", Left $ FromCode $ String "Error")]
         it "evaluates if" $
           test
             [ ("(if (== 3 3) (+ 1 2) (+ 5 6))", Right $ int 3),
@@ -246,6 +246,14 @@ typeSystemTests =
               ("(== 3 3)", Right Unit),
               ("(+ 1 (- 3 2) 2.5)", Right Unit)
             ]
+        it "handles primitive io function types" $
+          test
+            [ ("(io.write (string.from 5))", Right Unit),
+              ("(string.concat \"test\" (io.read))", Right Unit),
+              ("(io.panic 5)", Right Unit),
+              ("(io.write (+ 3 2))", Left $ TypeMismatch TString TFloat),
+              ("(+ 3 (io.read))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TString)
+            ]
         it "supports TList type" $
           test
             [ ("(string.concat \"5\" \"2\")", Right Unit),
@@ -317,6 +325,12 @@ emitJSTests =
               ("(+ 3 (+ 1 2))", Right (emitPrimitives ++ "$$sum(3,$$sum(1,2))")),
               ("(- 3 (+ 1 2))", Right (emitPrimitives ++ "$$sub(3,$$sum(1,2))")),
               ("(car [1 2])", Right (emitPrimitives ++ "$$car([1,2])"))
+            ]
+        it "handles primitive io functions" $
+          test
+            [ ("(io.write \"str\")", Right (emitPrimitives ++ "$$io$write(\"str\")")),
+              ("(io.read)", Right (emitPrimitives ++ "$$io$read()")),
+              ("(io.panic 5)", Right (emitPrimitives ++ "$$io$panic(5)"))
             ]
         it "produces correct JS code" $ do
           testNode "test1"
