@@ -15,7 +15,6 @@ instance ToJSON LispVal where
   toJSON (Integer i) = object ["type" .= ("integer" :: String), "value" .= i]
   toJSON (Float f) = object ["type" .= ("float" :: String), "value" .= f]
   toJSON (Bool b) = object ["type" .= ("bool" :: String), "value" .= b]
-  toJSON (Port h) = object ["type" .= ("port" :: String), "value" .= show h]
   toJSON (List _ xs) = object ["type" .= ("list" :: String), "value" .= xs]
   toJSON (Call xs) = object ["type" .= ("call" :: String), "value" .= xs]
   toJSON (DottedList _ head tail) = object ["type" .= ("dotted-list" :: String), "head" .= head, "tail" .= tail]

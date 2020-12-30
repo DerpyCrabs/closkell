@@ -32,11 +32,6 @@ type Bool = {
   value: boolean
 }
 
-type Port = {
-  type: 'port'
-  value: string
-}
-
 type List<AdditionalInfo = {}> = {
   type: 'list'
   value: Array<LispVal<AdditionalInfo>>
@@ -104,7 +99,6 @@ export type LispVal<AdditionalInfo = {}> = (
   | Bool
   | PrimitiveFunc
   | IOFunc
-  | Port
   | Func<AdditionalInfo>
   | Macro<AdditionalInfo>
   | Unit

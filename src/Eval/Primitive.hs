@@ -56,7 +56,6 @@ primitives =
     ("character?", isCharacter, TFunc [TVar "a"] Nothing TBool),
     ("float?", isFloat, TFunc [TVar "a"] Nothing TBool),
     ("bool?", isBool, TFunc [TVar "a"] Nothing TBool),
-    ("port?", isPort, TFunc [TVar "a"] Nothing TBool),
     ("dotted-list?", isDottedList, TFunc [TVar "a"] Nothing TBool),
     ("do", doFunc, TFunc [] (Just $ TSum [TVar "a", TUnit]) (TVar "a"))
   ]
@@ -67,15 +66,9 @@ isPrimitive str = str `elem` ((fst . stripType <$> primitives) ++ (fst <$> ioPri
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
 ioPrimitives =
   first ("io." ++)
-    <$> [ ("open-input-file", makePort ReadMode),
-          ("open-output-file", makePort WriteMode),
-          ("close-input-port", closePort),
-          ("close-output-port", closePort),
-          ("read", readProc),
+    <$> [ ("read", readProc),
           ("write", writeProc),
-          ("dump", dumpProc),
-          ("read-contents", readContents),
-          ("read-all", readAll),
+          ("read-file", readFileProc),
           ("throw", throw)
         ]
 
@@ -83,30 +76,14 @@ throw :: [LispVal] -> IOThrowsError LispVal
 throw [err] = liftThrows $ throwError $ FromCode err
 throw other = liftThrows $ throwError $ NumArgs 1 other
 
-makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
-makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode
-
-closePort :: [LispVal] -> IOThrowsError LispVal
-closePort [Port port] = liftIO $ hClose port >> return (Bool True)
-closePort _ = return $ Bool False
-
 readProc :: [LispVal] -> IOThrowsError LispVal
-readProc [] = readProc [Port stdin]
-readProc [Port port] = liftIO (hGetLine port) >>= liftThrows . Right . String
+readProc [] = liftIO getLine >>= liftThrows . Right . String
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
-writeProc [String obj] = writeProc [String obj, Port stdout]
-writeProc [String obj, Port port] = liftIO $ hPutStrLn port obj >> return (Atom Nothing "nil")
+writeProc [String obj] = liftIO $ putStrLn obj >> return (Atom Nothing "nil")
 
-dumpProc :: [LispVal] -> IOThrowsError LispVal
-dumpProc [obj] = writeProc [String (show obj), Port stdout]
-dumpProc [obj, Port port] = writeProc [String (show obj), Port port]
-
-readContents :: [LispVal] -> IOThrowsError LispVal
-readContents [String filename] = fmap String $ liftIO $ readFile filename
-
-readAll :: [LispVal] -> IOThrowsError LispVal
-readAll [String filename] = list <$> load filename
+readFileProc :: [LispVal] -> IOThrowsError LispVal
+readFileProc [String filename] = fmap String $ liftIO $ readFile filename
 
 integerBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 integerBinop _ [] = throwError $ NumArgs 2 []
@@ -213,9 +190,6 @@ isFloat _ = return $ Bool False
 isBool [Bool _] = return $ Bool True
 isBool _ = return $ Bool False
 
-isPort [Port _] = return $ Bool True
-isPort _ = return $ Bool False
-
 isDottedList [DottedList {}] = return $ Bool True
 isDottedList _ = return $ Bool False
 
@@ -224,12 +198,8 @@ doFunc [] = throwError $ NumArgs 0 []
 doFunc args = return $ last args
 
 stringFrom :: [LispVal] -> ThrowsError LispVal
-stringFrom [List _ xs] = return $ String $ foldl1 (++) $ map showString xs
-  where
-    showString (String s) = s
-    showString (Character s) = [s]
-    showString other = show other
-stringFrom xs = stringFrom [List Nothing xs]
+stringFrom [x] = return $ String $ show x
+stringFrom xs = stringFrom [list xs]
 
 stringToList :: [LispVal] -> ThrowsError LispVal
 stringToList [String str] = return $ list (Character <$> str)
