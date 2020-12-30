@@ -34,7 +34,7 @@ typeSystem' stack steps z@(env, Call [Atom _ "if", pred, conseq, alt], _) = do
     deduceReturnType (TVar var) (TVar _) = TVar var
     deduceReturnType (TVar _) t = t
     deduceReturnType t (TVar _) = t
-    deduceReturnType t1 t2 = TSum [t1, t2]
+    deduceReturnType t1 t2 = flattenSum $ TSum [t1, t2]
 typeSystem' stack steps z@(_, Call (Func {vararg = vararg, params = params} : args), _) = do
   if num params /= num args && isNothing vararg || num params > num args
     then throwError $ NumArgs (num params) args
@@ -165,3 +165,18 @@ groupVariables :: [(String, LispType)] -> [(String, [LispType])]
 groupVariables =
   map (\l -> (fst . head $ l, map snd l)) . groupBy ((==) `on` fst)
     . sortBy (comparing fst)
+
+flattenSum :: LispType -> LispType
+flattenSum (TSum elements) = TSum $ deduplicate $ concatMap go elements
+  where
+    go :: LispType -> [LispType]
+    go (TSum innerElements) = concatMap go innerElements
+    go v = [v]
+
+isSum :: LispType -> Bool
+isSum (TSum _) = True
+isSum _ = False
+
+deduplicate :: Eq a => [a] -> [a]
+deduplicate [] = []
+deduplicate (x : xs) = x : filter (/= x) (deduplicate xs)

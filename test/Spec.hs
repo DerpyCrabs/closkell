@@ -165,12 +165,12 @@ evaluationTests =
         it "supports unquoting" $
           test
             [ ("(+ 4 ~(+ 1 5))", Right $ int 10),
-              ("(+ 4 ~(+ 5 6) ~(+ 1 3))", Right $ int 19)
+              ("(+ 3 ~(+ 1 3))", Right $ int 7)
             ]
         it "supports unquote-splicing" $
           test
-            [ ("(+ 4 ~@[5 6])", Right $ int 15),
-              ("(+ 4 ~@[5 6] ~@[7 8])", Right $ int 30)
+            [ ("(+ ~@[5 6])", Right $ int 11),
+              ("(+ ~@[5] ~@[8])", Right $ int 13)
             ]
         it "supports list unquoting" $
           test
@@ -242,16 +242,16 @@ typeSystemTests =
             ]
         it "handles correct primitive function types" $
           test
-            [ ("(+ 1 2.5 1)", Right Unit),
+            [ ("(+ 1 2.5)", Right Unit),
               ("(== 3 3)", Right Unit),
-              ("(+ 1 (- 3 2) 2.5)", Right Unit)
+              ("(+ (- 3 2) 2.5)", Right Unit)
             ]
         it "handles primitive io function types" $
           test
             [ ("(io.write (string.from 5))", Right Unit),
               ("(string.concat \"test\" (io.read))", Right Unit),
               ("(io.panic 5)", Right Unit),
-              ("(io.write (+ 3 2))", Left $ TypeMismatch TString TFloat),
+              ("(io.write (+ 3 2))", Left $ TypeMismatch TString (TSum [TInteger, TFloat])),
               ("(+ 3 (io.read))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TString)
             ]
         it "supports TList type" $
@@ -278,8 +278,8 @@ typeSystemTests =
           test
             [ ("(let [kek (fn [x y] (+ x y))] (kek 5 3))", Right Unit),
               ("(let [kek (fn [x y] (+ x y))] (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
-              ("(let [kek (fn [x y . pek] (+ x y ~@pek))] (kek 5 3 4 5))", Right Unit),
-              ("(let [kek (fn [x y . pek] (+ x y ~@pek))] (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+              ("(let [kek (fn [x y . pek] (+ x ~@pek))] (kek 5 3 4))", Right Unit),
+              ("(let [kek (fn [x y . pek] (+ y ~@pek))] (kek 5 3 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
         it "handles user-defined function argument number mismatch" $
           test

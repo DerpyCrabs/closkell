@@ -44,25 +44,25 @@ escapeName n = escape <$> n
 emitPrimitives :: String
 emitPrimitives =
   "\
-  \ const $$sum = (...k) => k.reduce((a, b) => a + b, 0); \
-  \ const $$sub = (...k) => k.slice(1).reduce((a, b) => a - b, k[0]); \
-  \ const $$prod = (...k) => k.reduce((a, b) => a * b, 1); \
-  \ const $$div = (...k) => k.slice(1).reduce((a, b) => a / b, k[0]); \
+  \ const $$sum = (a, b) => a + b; \
+  \ const $$sub = (a, b) => a - b; \
+  \ const $$prod = (a, b) => a * b; \
+  \ const $$div = (a, b) => a / b ; \
   \ const $$car = l => l[0]; \
   \ const $$cdr = l => l.slice(1); \
   \ const $$io$write = s => {console.log(s); return null}; \
-  \ const $$num_eq = (...k) => k.reduce((a, b) => a && k[0] == b, true); \
+  \ const $$num_eq = (a, b) => a === b; \
   \ const $$cons = (x, xs) => [x, ...xs]; \
   \ const $$get = (x, xs) => xs[xs.findIndex(el => el === x) + 1]; \
   \ const $$nth = (n, xs) => xs[n]; \
   \ const $$equal = (a, b) => (a >= b) && (a <= b); \
-  \ const $$eq = (...k) => k.reduce((a, b) => a && $$equal(k[0], b), true); \
+  \ const $$eq = (a, b) => $$equal(a, b); \
   \ const $$do = (...k) => k[k.length - 1]; \
   \ const $$lt = (a, b) => a < b; \
   \ const $$gt = (a, b) => a > b; \
-  \ const $$and = (...k) => k.reduce((a, b) => a && b, true); \
-  \ const $$or = (...k) => k.reduce((a, b) => a || b, false); \
-  \ const $$string$from = (...k) => k.length === 1 ? JSON.stringify(k[0]) : JSON.stringify(k); \
+  \ const $$and = (a, b) => a && b; \
+  \ const $$or = (a, b) => a || b; \
+  \ const $$string$from = (a) => JSON.stringify(a); \
   \ const $$io$read = () => { \
   \  const fs = require('fs'); \
   \  let rtnval = ''; \
