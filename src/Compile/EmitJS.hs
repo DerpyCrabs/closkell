@@ -36,9 +36,22 @@ escapeName "new" = "$$new"
 escapeName "%&" = "$$vararg"
 escapeName n = escape <$> n
   where
-    escape '?' = 'Q'
-    escape '%' = 'P'
-    escape '.' = 'D'
+    escape '!' = 'A'
+    escape '$' = 'B'
+    escape '&' = 'C'
+    escape '|' = 'D'
+    escape '*' = 'E'
+    escape '+' = 'F'
+    escape '-' = 'G'
+    escape '/' = 'H'
+    escape ':' = 'I'
+    escape '<' = 'M'
+    escape '=' = 'N'
+    escape '>' = 'O'
+    escape '?' = 'P'
+    escape '^' = 'Q'
+    escape '%' = 'X'
+    escape '.' = 'Y'
     escape c = c
 
 emitPrimitives :: String
