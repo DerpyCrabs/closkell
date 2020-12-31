@@ -1,6 +1,7 @@
 module Compile.EmitJS (emitJS, emitPrimitives) where
 
 import Data.List (intercalate)
+import Eval.Primitive (ioPrimitives, primitives)
 import Types (LispVal (..))
 
 emitJS :: LispVal -> String
@@ -61,21 +62,33 @@ emitPrimitives =
   \ const $$sub = (a, b) => a - b; \
   \ const $$prod = (a, b) => a * b; \
   \ const $$div = (a, b) => a / b ; \
+  \ const $$rem = (a, b) => a % b ; \
+  \ const $$num_eq = (a, b) => a === b; \
+  \ const $$num_not_eq = (a, b) => a !== b; \
+  \ const $$lt = (a, b) => a < b; \
+  \ const $$gt = (a, b) => a > b; \
+  \ const $$lte = (a, b) => a <= b; \
+  \ const $$gte = (a, b) => a >= b; \
+  \ const $$and = (a, b) => a && b; \
+  \ const $$or = (a, b) => a || b; \
+  \ const $$not = (a) => !a; \
+  \ const $$string$concat = (a, b) => a.concat(b); \
+  \ const $$string$from = (a) => JSON.stringify(a); \
+  \ const $$string$toList = (a) => a.split(''); \
   \ const $$car = l => l[0]; \
   \ const $$cdr = l => l.slice(1); \
-  \ const $$io$write = s => {console.log(s); return null}; \
-  \ const $$num_eq = (a, b) => a === b; \
   \ const $$cons = (x, xs) => [x, ...xs]; \
   \ const $$get = (x, xs) => xs[xs.findIndex(el => el === x) + 1]; \
   \ const $$nth = (n, xs) => xs[n]; \
   \ const $$equal = (a, b) => (a >= b) && (a <= b); \
   \ const $$eq = (a, b) => $$equal(a, b); \
+  \ const $$list = (a) => Array.isArray(a); \
+  \ const $$integer = (a) => Number.isInteger(a); \
+  \ const $$float = (a) => !$$integer && (typeof(a) === 'number'); \
+  \ const $$string = (a) => (typeof(a) === 'string'); \
+  \ const $$character = (a) => $$string(a) && a.length === 1; \
+  \ const $$bool = (a) => (typeof(a) === 'boolean'); \
   \ const $$do = (...k) => k[k.length - 1]; \
-  \ const $$lt = (a, b) => a < b; \
-  \ const $$gt = (a, b) => a > b; \
-  \ const $$and = (a, b) => a && b; \
-  \ const $$or = (a, b) => a || b; \
-  \ const $$string$from = (a) => JSON.stringify(a); \
   \ const $$io$read = () => { \
   \  const fs = require('fs'); \
   \  let rtnval = ''; \
@@ -90,23 +103,36 @@ emitPrimitives =
   \  } \
   \  return rtnval; \
   \ }; \
+  \ const $$io$write = s => {console.log(s); return null}; \
   \ const $$io$panic = (e) => {throw (JSON.stringify(e)); return null}; \
   \"
 
 isPrimitive :: String -> Bool
-isPrimitive func = func `elem` ["+", "-", "*", "/", "car", "cdr", "cons", "==", "get", "nth", "eq?", "do", "io.read", "io.write", "string.from", "io.panic", "<", ">", "&&", "||"]
+isPrimitive func = func `elem` (getName <$> primitives) ++ (getName <$> ioPrimitives)
+  where
+    getName (name, _, _) = name
 
 primitiveName :: String -> String
 primitiveName "+" = "$$sum"
 primitiveName "-" = "$$sub"
 primitiveName "*" = "$$prod"
 primitiveName "/" = "$$div"
+primitiveName "==" = "$$num_eq"
+primitiveName "/=" = "$$num_not_eq"
 primitiveName "<" = "$$lt"
 primitiveName ">" = "$$gt"
-primitiveName "==" = "$$num_eq"
+primitiveName "<=" = "$$lte"
+primitiveName ">=" = "$$gte"
 primitiveName "&&" = "$$and"
 primitiveName "||" = "$$or"
+primitiveName "!" = "$$not"
 primitiveName "eq?" = "$$eq"
+primitiveName "list?" = "$$list"
+primitiveName "integer?" = "$$integer"
+primitiveName "float?" = "$$float"
+primitiveName "string?" = "$$string"
+primitiveName "character?" = "$$character"
+primitiveName "bool?" = "$$bool"
 primitiveName n = "$$" ++ replace '.' '$' n
 
 replace a b = map $ \c -> if c == a then b else c
