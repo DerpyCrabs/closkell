@@ -1,26 +1,25 @@
 # closkell language
 
-An implementation of lisp-like language with clojure macros and advanced type system. Created to study type theory and compilers.
-
-Started with the code from [Write Yourself a Scheme in 48 hours](https://en.wikibooks.org/wiki/Write_Yourself_a_Scheme_in_48_Hours).
+An implementation of lisp-like language with clojure macros and inferred type system. Created to study type theory and compilers.
 
 Already implemented:
 
 - parser of source code with various shorthands from clojure
+- web interface with the following features:
+  - code evaluation with steps display
 - clojure macros
-- standard library functions for list manipulation
-- some clojure macros to test macro implementation
-- separation of pure and effectful code
-- primitive compiler with the following features:
+- compiler with the following features:
   - module system
   - macro expansion
+  - type inference and checking
+  - JS code emitting
 
 Future research directions:
 
-- web interface to most functions of compiler
 - stepwise debugger
-- type system (sum types, parametric polymorphism, dependent types)
-- type inference
-- compilation to executable file
-- compiler optimizations:
-  - dead code elimination based on expression type information amount
+- compilation to haskell
+- algebraic effects
+- JS interop
+- eval optimization
+- better error reporting
+- repl

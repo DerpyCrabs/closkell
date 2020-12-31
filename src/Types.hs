@@ -54,7 +54,6 @@ data LispVal
   | Bool Bool
   | PrimitiveFunc String ([LispVal] -> ThrowsError LispVal)
   | IOFunc String ([LispVal] -> IOThrowsError LispVal)
-  | Port Handle
   | Call [LispVal]
   | Unit
   | Func {params :: [String], vararg :: Maybe String, body :: LispVal, closure :: Env}
@@ -94,7 +93,6 @@ instance Eq LispVal where
   (String s1) == (String s2) = s1 == s2
   (Float i1) == (Float i2) = i1 == i2
   (Bool i1) == (Bool i2) = i1 == i2
-  (Port h1) == (Port h2) = h1 == h2
   (Character c1) == (Character c2) = c1 == c2
   (PrimitiveFunc n1 _) == (PrimitiveFunc n2 _) = n1 == n2
   (IOFunc n1 _) == (IOFunc n2 _) = n1 == n2
@@ -125,7 +123,6 @@ instance Show LispVal where
       ++ "] "
       ++ show body
       ++ "}"
-  show (Port _) = "<IO port>"
   show (IOFunc name _) = "<IO primitive " ++ name ++ ">"
   show (Macro body _) = "<Macro " ++ show body ++ ">"
   show (Type t) = show t

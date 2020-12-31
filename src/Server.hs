@@ -73,7 +73,7 @@ evalServer = eval
     notIntrinsic (_, PrimitiveFunc _ _) = False
     notIntrinsic (_, _) = True
 
-server :: [String] -> Application
-server args = gzip def $ cors (const $ Just policy) $ provideOptions evalAPI $ serve evalAPI evalServer
+server :: Application
+server = gzip def $ cors (const $ Just policy) $ provideOptions evalAPI $ serve evalAPI evalServer
   where
     policy = simpleCorsResourcePolicy {corsRequestHeaders = ["content-type"]}

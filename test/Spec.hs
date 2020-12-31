@@ -1,3 +1,4 @@
+import Compile.EmitJS (emitJS, emitPrimitives)
 import Compile.MacroSystem (macroSystem)
 import Compile.ModuleSystem (moduleSystem)
 import Compile.TypeSystem (typeSystem)
@@ -6,10 +7,11 @@ import Control.Monad.Except
     MonadTrans (lift),
     runExceptT,
   )
-import Data.Char (isDigit)
+import Data.Char (isDigit, isSpace)
 import Data.List (isPrefixOf)
 import Data.Value
 import Lib
+import System.Command
 import Test.Hspec
 
 main :: IO ()
@@ -20,6 +22,7 @@ main = hspec $ do
   describe "Macro system" macroSystemTests
   describe "Type system" typeSystemTests
   describe "LispVal Zipper" zipperTests
+  describe "EmitJS" emitJSTests
 
 parsingTests =
   do
@@ -133,7 +136,7 @@ evaluationTests =
               ("(apply + (cdr [3 4 5]))", Right $ int 9)
             ]
         it "can throw errors from code" $
-          test [("(io.throw \"Error\")", Left $ FromCode $ String "Error")]
+          test [("(io.panic \"Error\")", Left $ FromCode $ String "Error")]
         it "evaluates if" $
           test
             [ ("(if (== 3 3) (+ 1 2) (+ 5 6))", Right $ int 3),
@@ -162,12 +165,12 @@ evaluationTests =
         it "supports unquoting" $
           test
             [ ("(+ 4 ~(+ 1 5))", Right $ int 10),
-              ("(+ 4 ~(+ 5 6) ~(+ 1 3))", Right $ int 19)
+              ("(+ 3 ~(+ 1 3))", Right $ int 7)
             ]
         it "supports unquote-splicing" $
           test
-            [ ("(+ 4 ~@[5 6])", Right $ int 15),
-              ("(+ 4 ~@[5 6] ~@[7 8])", Right $ int 30)
+            [ ("(+ ~@[5 6])", Right $ int 11),
+              ("(+ ~@[5] ~@[8])", Right $ int 13)
             ]
         it "supports list unquoting" $
           test
@@ -239,9 +242,17 @@ typeSystemTests =
             ]
         it "handles correct primitive function types" $
           test
-            [ ("(+ 1 2.5 1)", Right Unit),
+            [ ("(+ 1 2.5)", Right Unit),
               ("(== 3 3)", Right Unit),
-              ("(+ 1 (- 3 2) 2.5)", Right Unit)
+              ("(+ (- 3 2) 2.5)", Right Unit)
+            ]
+        it "handles primitive io function types" $
+          test
+            [ ("(io.write (string.from 5))", Right Unit),
+              ("(string.concat \"test\" (io.read))", Right Unit),
+              ("(io.panic 5)", Right Unit),
+              ("(io.write (+ 3 2))", Left $ TypeMismatch TString (TSum [TInteger, TFloat])),
+              ("(+ 3 (io.read))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TString)
             ]
         it "supports TList type" $
           test
@@ -267,8 +278,8 @@ typeSystemTests =
           test
             [ ("(let [kek (fn [x y] (+ x y))] (kek 5 3))", Right Unit),
               ("(let [kek (fn [x y] (+ x y))] (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
-              ("(let [kek (fn [x y . pek] (+ x y ~@pek))] (kek 5 3 4 5))", Right Unit),
-              ("(let [kek (fn [x y . pek] (+ x y ~@pek))] (kek 5 3 4 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+              ("(let [kek (fn [x y . pek] (+ x ~@pek))] (kek 5 3 4))", Right Unit),
+              ("(let [kek (fn [x y . pek] (+ y ~@pek))] (kek 5 3 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
         it "handles user-defined function argument number mismatch" $
           test
@@ -304,6 +315,27 @@ typeSystemTests =
               ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] [append (fn [l1 l2] (foldr cons l2 l1))] [curry (fn [func . args] #(apply func (append args %&)))] [filter (fn [pred lst] (foldr (fn [x y] (if (pred x) (cons x y) y)) [] lst))] (filter (curry < 5) [1 5]))", Right Unit)
             ]
 
+emitJSTests =
+  let test = testTable runEmitJS
+      testNode path = runNodeTest ("test/JsNodeTests/" ++ path)
+   in do
+        it "handles primitive functions" $
+          test
+            [ ("(+ 3 5)", Right (emitPrimitives ++ "$$sum(3,5)")),
+              ("(+ 3 (+ 1 2))", Right (emitPrimitives ++ "$$sum(3,$$sum(1,2))")),
+              ("(- 3 (+ 1 2))", Right (emitPrimitives ++ "$$sub(3,$$sum(1,2))")),
+              ("(car [1 2])", Right (emitPrimitives ++ "$$car([1,2])"))
+            ]
+        it "handles primitive io functions" $
+          test
+            [ ("(io.write \"str\")", Right (emitPrimitives ++ "$$io$write(\"str\")")),
+              ("(io.read)", Right (emitPrimitives ++ "$$io$read()")),
+              ("(io.panic 5)", Right (emitPrimitives ++ "$$io$panic(5)"))
+            ]
+        it "produces correct JS code" $ do
+          testNode "test1"
+          testNode "test2"
+
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")
   expected <- readFile (testPath ++ "/expected.clsk")
@@ -327,6 +359,22 @@ runMacroSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
   macroSystem (last parsedVals)
 
+runEmitJS :: String -> IO (Either LispError String)
+runEmitJS code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  return $ emitJS $ last parsedVals
+
+runNodeTest :: String -> IO ()
+runNodeTest testPath = do
+  input <- readFile (testPath ++ "/input.clsk")
+  expected <- readFile (testPath ++ "/expected.txt")
+  emittedSource <- runEmitJS input
+  case emittedSource of
+    Right source -> do
+      Stdout out <- command [Stdin source] "node" ["--stack-size=32000"]
+      rstrip out `shouldBe` rstrip expected
+    Left err -> error (show err)
+
 runEval :: String -> IO (Either LispError LispVal)
 runEval code = runExceptT $ do
   parsedVals <- lift $ runParse code
@@ -343,3 +391,6 @@ runInterpret code = runExceptT $ do
 testTable :: (Show b, Eq b) => (a -> IO b) -> [(a, b)] -> IO ()
 testTable _ [] = return ()
 testTable runTest ((input, expected) : tests) = (runTest input `shouldReturn` expected) >> testTable runTest tests
+
+rstrip :: String -> String
+rstrip = reverse . dropWhile (\c -> isSpace c || (c == '\n')) . reverse
