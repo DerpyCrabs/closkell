@@ -24,6 +24,7 @@ dependencies:
   - wai-extra
   - command
   - optparse-applicative
+  - file-embed
 
 library:
   source-dirs: src
