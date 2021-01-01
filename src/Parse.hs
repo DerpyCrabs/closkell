@@ -150,14 +150,14 @@ parseLambdaShorthandArgs =
 parseExpr :: Parser LispVal
 parseExpr =
   lexeme $
-    try parseLambdaShorthandArgs
+    parseString
+      <|> parseCharacter
+      <|> try parseFloat
+      <|> try parseInteger
+      <|> try parseLambdaShorthandArgs
       <|> parseUnit
       <|> parseAtom
       <|> parseLambdaShorthand
-      <|> parseString
-      <|> parseCharacter
-      <|> try parseFloat
-      <|> parseInteger
       <|> parseQuoted
       <|> try parseUnquoteSplicing
       <|> parseUnquoted

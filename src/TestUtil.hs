@@ -1,0 +1,69 @@
+module TestUtil (runModuleSystem, runTypeSystem, runMacroSystem, runEmitJS, runNodeTest, runEval, runParse) where
+
+import Compile.EmitJS (emitJS, emitPrimitives)
+import Compile.MacroSystem (macroSystem)
+import Compile.ModuleSystem (moduleSystem)
+import Compile.TypeSystem (typeSystem)
+import Control.Monad.Except
+  ( MonadIO (liftIO),
+    MonadTrans (lift),
+    runExceptT,
+  )
+import Data.Char (isDigit, isSpace)
+import Data.Error (extractValue)
+import Data.List (isPrefixOf)
+import Data.Value (LispVal (..))
+import Eval (eval)
+import Eval.Primitive
+import Parse
+import System.Command
+import Test.Hspec
+import Types
+
+runModuleSystem :: String -> IO (Either LispError LispVal)
+runModuleSystem code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  moduleSystem parsedVals
+
+runTypeSystem :: String -> IO (Either LispError LispVal)
+runTypeSystem code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  _ <- typeSystem (last parsedVals)
+  return Unit
+
+runMacroSystem :: String -> IO (Either LispError LispVal)
+runMacroSystem code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  macroSystem (last parsedVals)
+
+runEmitJS :: String -> IO (Either LispError String)
+runEmitJS code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  return $ emitJS $ last parsedVals
+
+runNodeTest :: String -> IO ()
+runNodeTest testPath = do
+  input <- readFile (testPath ++ "/input.clsk")
+  expected <- readFile (testPath ++ "/expected.txt")
+  emittedSource <- runEmitJS input
+  case emittedSource of
+    Right source -> do
+      Stdout out <- command [Stdin source] "node" ["--stack-size=32000"]
+      rstrip out `shouldBe` rstrip expected
+    Left err -> error (show err)
+
+runEval :: String -> IO (Either LispError LispVal)
+runEval code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  eval primitiveBindings $ last parsedVals
+
+runParse :: String -> IO [LispVal]
+runParse = return . extractValue . readExprList ""
+
+runInterpret :: String -> IO (Either LispError [LispVal])
+runInterpret code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  mapM (eval primitiveBindings) parsedVals
+
+rstrip :: String -> String
+rstrip = reverse . dropWhile (\c -> isSpace c || (c == '\n')) . reverse
