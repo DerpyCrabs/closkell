@@ -19,7 +19,7 @@ main =
   defaultMain
     [ bgroup
         "Eval"
-        [ bench "fib(12)" $ nfIO (benchEval "bench/fib12.clsk" (int 144)),
+        [ bench "fib(12)" $ nfIO (benchEval "bench/fib12.clsk" (int 432)),
           bench "remove(20)" $ nfIO (benchEval "bench/remove20.clsk" (list [int 1, int 3, int 5, int (-5), int (-3), int (-1), int 5, int 1, int 3]))
         ],
       bgroup
