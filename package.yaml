@@ -42,6 +42,18 @@ executables:
       - -hiedir=.hie
     dependencies:
       - closkell
+  bench-exe:
+    main: Main.hs
+    source-dirs: bench
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -fwrite-ide-info
+      - -hiedir=.hie
+    dependencies:
+      - closkell
+      - criterion
 
 tests:
   closkell-test:

@@ -3,4 +3,4 @@
     (if (|| (== n 1) (== n 2))
       1
       (+ (fib (- n 1)) (fib (- n 2)))))]
-  (io.write (string.from (fib 40))))
+  (fib 12))
