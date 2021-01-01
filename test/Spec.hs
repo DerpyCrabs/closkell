@@ -10,9 +10,9 @@ import Control.Monad.Except
 import Data.Char (isDigit, isSpace)
 import Data.List (isPrefixOf)
 import Data.Value
-import Lib
-import System.Command
 import Test.Hspec
+import TestUtil
+import Types
 
 main :: IO ()
 main = hspec $ do
@@ -40,7 +40,8 @@ parsingTests =
           ("  0x3F  ", int 63),
           ("  0x3f", int 63),
           ("0b101  ", int 5),
-          ("0o77", int 63)
+          ("0o77", int 63),
+          ("-5", int (-5))
         ]
     it "parses booleans" $
       testTable
@@ -213,7 +214,7 @@ macroSystemTests =
         it "expands macro calls" $ test "test3"
         it "expands nested macro calls" $ test "test4"
         it "expands macro calls inside of macros" $ test "test5"
-        -- it "handles nested let macro bindings" $ test "test6"
+        it "handles nested let macro bindings" $ test "test6"
         it "supports gensym without prefix" $ do
           sym <- getAtom <$> runMacroSystem "(gensym)"
           sym `shouldSatisfy` all isDigit
@@ -243,6 +244,7 @@ typeSystemTests =
         it "handles correct primitive function types" $
           test
             [ ("(+ 1 2.5)", Right Unit),
+              ("(+ -5 3)", Right Unit),
               ("(== 3 3)", Right Unit),
               ("(+ (- 3 2) 2.5)", Right Unit)
             ]
@@ -336,6 +338,7 @@ emitJSTests =
           testNode "test1"
           testNode "test2"
 
+runFolderTest :: (String -> IO (Either LispError LispVal)) -> [Char] -> IO ()
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")
   expected <- readFile (testPath ++ "/expected.clsk")
@@ -343,54 +346,6 @@ runFolderTest runner testPath = do
   runner input `shouldReturn` Right (last parsedExpected)
   return ()
 
-runModuleSystem :: String -> IO (Either LispError LispVal)
-runModuleSystem code = runExceptT $ do
-  parsedVals <- lift $ runParse code
-  moduleSystem parsedVals
-
-runTypeSystem :: String -> IO (Either LispError LispVal)
-runTypeSystem code = runExceptT $ do
-  parsedVals <- lift $ runParse code
-  _ <- typeSystem (last parsedVals)
-  return Unit
-
-runMacroSystem :: String -> IO (Either LispError LispVal)
-runMacroSystem code = runExceptT $ do
-  parsedVals <- lift $ runParse code
-  macroSystem (last parsedVals)
-
-runEmitJS :: String -> IO (Either LispError String)
-runEmitJS code = runExceptT $ do
-  parsedVals <- lift $ runParse code
-  return $ emitJS $ last parsedVals
-
-runNodeTest :: String -> IO ()
-runNodeTest testPath = do
-  input <- readFile (testPath ++ "/input.clsk")
-  expected <- readFile (testPath ++ "/expected.txt")
-  emittedSource <- runEmitJS input
-  case emittedSource of
-    Right source -> do
-      Stdout out <- command [Stdin source] "node" ["--stack-size=32000"]
-      rstrip out `shouldBe` rstrip expected
-    Left err -> error (show err)
-
-runEval :: String -> IO (Either LispError LispVal)
-runEval code = runExceptT $ do
-  parsedVals <- lift $ runParse code
-  eval primitiveBindings $ last parsedVals
-
-runParse :: String -> IO [LispVal]
-runParse = return . extractValue . readExprList ""
-
-runInterpret :: String -> IO (Either LispError [LispVal])
-runInterpret code = runExceptT $ do
-  parsedVals <- lift $ runParse code
-  mapM (eval primitiveBindings) parsedVals
-
 testTable :: (Show b, Eq b) => (a -> IO b) -> [(a, b)] -> IO ()
 testTable _ [] = return ()
 testTable runTest ((input, expected) : tests) = (runTest input `shouldReturn` expected) >> testTable runTest tests
-
-rstrip :: String -> String
-rstrip = reverse . dropWhile (\c -> isSpace c || (c == '\n')) . reverse

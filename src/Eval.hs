@@ -1,5 +1,3 @@
-{-# LANGUAGE TupleSections #-}
-
 module Eval
   ( stepEval,
     evalSteps,
@@ -42,16 +40,7 @@ evalSteps env val = evalSteps' [id] [Right zipper] zipper
     evalSteps' [] acc _ = return acc
 
 stepEval :: LVZipper -> IOThrowsError (LVZipper, [LVZipperTurn])
-stepEval z@(_, Unit, _) = return (z, [])
-stepEval z@(_, String _, _) = return (z, [])
-stepEval z@(_, Character _, _) = return (z, [])
-stepEval z@(_, Integer _, _) = return (z, [])
-stepEval z@(_, Float _, _) = return (z, [])
-stepEval z@(_, Bool _, _) = return (z, [])
-stepEval z@(_, PrimitiveFunc _ _, _) = return (z, [])
-stepEval z@(_, IOFunc _ _, _) = return (z, [])
-stepEval z@(_, Func {}, _) = return (z, [])
-stepEval z@(_, Type _, _) = return (z, [])
+stepEval z@(_, val, _) | isNormalForm val = return (z, [])
 stepEval z@(_, val@(List _ args), _) =
   let path = quoteEvalPath (Call args)
       correctPath path@(_ : _ : _) =
@@ -63,37 +52,57 @@ stepEval z@(_, val@(List _ args), _) =
    in case length correctedPath of
         0 -> return (lvSet val z, [])
         _ -> return (lvSet (func "evaluating-unquote-list" [Call args]) z, correctPath path)
-stepEval z@(env, Call [Atom _ "fn", List _ [List _ []], body], _) =
-  return (lvSet (makeNormalFunc env [] body) z, [])
-stepEval z@(env, Call [Atom _ "fn", List _ params, body], _) =
-  return (lvSet (makeNormalFunc env params body) z, [])
-stepEval z@(env, Call [Atom _ "fn", DottedList _ params varargs, body], _) =
-  return (lvSet (makeVarArgs varargs env params body) z, [])
+stepEval z@(env, fn@(Call (Atom _ "fn" : _)), _) =
+  return (lvSet (createFn env fn) z, [])
 stepEval z@(env, Atom _ name, _) = do
   var <- liftThrows $ getVar env name
   return $ case var of
     Call _ -> (lvSet var z, [id])
     Atom _ _ -> (lvSet var z, [id])
-    Func {} -> (lvSet var z, [id])
     _ -> (lvSet var z, [])
 stepEval z@(env, Call (Atom _ "let" : bindsAndExpr), _) = do
   let binds = init bindsAndExpr
   let expr = last bindsAndExpr
-  let functionEnv = bindVars (vars binds) env
-  newBinds <- mapM (evalFunctions functionEnv) (vars binds)
+  if null binds
+    then return (lvSet expr z, [id])
+    else do
+      let bindsEvalPath = replicate (length binds) lvRight
+      let newEnv = bindVars (vars binds) env
+      let unquotedBinds = unquoteBind newEnv <$> binds
+      let filteredEvalPath = fst <$> mergePath (zip bindsEvalPath unquotedBinds)
+      if null filteredEvalPath
+        then do
+          let unquotedEnv = bindVars (vars unquotedBinds) env
+          return (lvSetEnv unquotedEnv . lvSet expr $ z, [id])
+        else return (lvSetEnv newEnv . lvSet (func "evaluating-let" (unquotedBinds ++ [expr])) $ z, head filteredEvalPath . lvDown : tail filteredEvalPath ++ [lvUp])
+  where
+    matchVars (List _ [Atom _ name, var]) = (name, var)
+    vars binds = matchVars <$> binds
+    unquoteBind _ bind@(List _ [name, var]) | isNormalForm var = bind
+    unquoteBind env (List _ [name, fn@(Call (Atom _ "fn" : _))]) = list [name, createFn env fn]
+    unquoteBind _ (List _ [name, var]) = list [name, func "unquote" [var]]
+    mergePath ((p1, List _ [name, var]) : (p2, bind2) : next) | isNormalForm var = mergePath ((p2 . p1, bind2) : next)
+    mergePath [(p1, List _ [name, var])] | isNormalForm var = []
+    mergePath ((p1, bind1@(List _ [name, var])) : (p2, bind2) : next) = (p1, bind1) : mergePath ((p2, bind2) : next)
+    mergePath rest = rest
+stepEval z@(env, Call (Atom _ "evaluating-let" : bindsAndExpr), _) = do
+  let binds = init bindsAndExpr
+  let expr = last bindsAndExpr
+  let newBinds = bindVars (vars binds) env
   let newEnv = bindVars newBinds env
   return (lvSetEnv newEnv . lvSet expr $ z, [id])
   where
     matchVars (List _ [Atom _ name, var]) = (name, var)
     vars binds = matchVars <$> binds
-    evalFunctions env (name, var@(Call (Atom _ "fn" : _))) = (name,) . lvToAST . fst <$> stepEval (lvSetEnv env $ lvFromAST var)
-    evalFunctions _ bind = return bind
 stepEval z@(_, Call [Atom _ "if", Bool True, conseq, _], _) =
   return (lvSet conseq z, [id])
 stepEval z@(_, Call [Atom _ "if", Bool False, _, alt], _) =
   return (lvSet alt z, [id])
 stepEval z@(_, Call [Atom _ "if", _, _, _], _) =
   return (z, [lvRight . lvDown, lvUp])
+stepEval z@(_, Call [Atom _ "apply", f, args], _)
+  | isNormalForm f =
+    return (lvSet (func "evaluating-apply" [f, args]) z, [lvRight . lvRight . lvDown, lvUp])
 stepEval z@(_, Call [Atom _ "apply", f, args], _) =
   return (lvSet (func "evaluating-apply" [f, args]) z, [lvRight . lvDown, lvRight, lvUp])
 stepEval z@(_, Call [Atom _ "evaluating-apply", f, List _ args], _) =
@@ -113,6 +122,9 @@ stepEval z@(_, Call [Atom _ "evaluating-unquote", val], _) =
   return (lvSet (performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-list", val], _) =
   return (lvSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
+stepEval z@(_, Call [Atom _ "unquote", val], _)
+  | isNormalForm val =
+    return (lvSet val z, [])
 stepEval z@(_, Call [Atom _ "unquote", val], _) =
   return (lvSet val z, [id])
 stepEval z@(_, Call [Atom _ "unquote-splicing", val], _) =
@@ -180,8 +192,8 @@ quoteEvalPath val = case quoteEvalPath' val of
             0 -> Nothing
             _ -> Just $ concat unquotePaths
     quoteEvalPath' :: LispVal -> Maybe [LVZipperTurn]
-    quoteEvalPath' (Call [Atom _ "unquote", _]) = Just [id, id]
-    quoteEvalPath' (Call [Atom _ "unquote-splicing", _]) = Just [id, id]
+    quoteEvalPath' (Call [Atom _ "unquote", val]) = Just [id, id]
+    quoteEvalPath' (Call [Atom _ "unquote-splicing", val]) = Just [id, id]
     quoteEvalPath' (Call args) = callPath args
     quoteEvalPath' _ = Nothing
     composeUpDown (x : y : xs) = (y . x) : composeUpDown xs
@@ -202,3 +214,9 @@ evalUsingNode val = do
   jsOptimizedSource <- liftIO $ closureCompilerPass jsSource
   Stdout out <- liftIO $ command [Stdin jsOptimizedSource] "node" []
   return out
+
+createFn :: Env -> LispVal -> LispVal
+createFn env (Call [Atom _ "fn", List _ params, body]) =
+  makeNormalFunc env params body
+createFn env (Call [Atom _ "fn", DottedList _ params varargs, body]) =
+  makeVarArgs varargs env params body

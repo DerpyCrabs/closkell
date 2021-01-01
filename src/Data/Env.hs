@@ -11,4 +11,4 @@ getVar env var =
     (lookup var env)
 
 bindVars :: Env -> Env -> Env
-bindVars env1 env2 = env1 ++ filter (\(name, _) -> name `notElem` (fst <$> env1)) env2
+bindVars newEnv oldEnv = newEnv ++ filter (\(name, _) -> name `notElem` (fst <$> newEnv)) oldEnv
