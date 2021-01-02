@@ -331,6 +331,12 @@ emitJSTests =
               ("(io.read)", Right (emitPrimitives ++ "$$io$read()")),
               ("(io.panic 5)", Right (emitPrimitives ++ "$$io$panic(5)"))
             ]
+        it "handles unquote-splicing" $
+          test
+            [ ("(string.from [5 ~@[4 3]])", Right (emitPrimitives ++ "$$string$from([5,...([4,3])])")),
+              ("(string.from {\\c 5 ~@{\\d 6} })", Right (emitPrimitives ++ "$$string$from({'c':5,...({'d':6})})")),
+              ("(let [k #(car %&)] (k 3 ~@[4 5]))", Right (emitPrimitives ++ "(function(){const k = (...$$vararg) => $$car($$vararg);return k(3,...([4,5]));})()"))
+            ]
         it "produces correct JS code" $ do
           testNode "test1"
           testNode "test2"
