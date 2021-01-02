@@ -1,6 +1,6 @@
 (let
-  [$$module.test (let [sum (fn [x y] (+ x y))] ["sum" ~sum])]
-  [$$module.test2 (let [sub (fn [x y] (- x y))] ["sub" ~sub])]
+  [$$module.test (let [sum (fn [x y] (+ x y))] {"sum" ~sum})]
+  [$$module.test2 (let [sub (fn [x y] (- x y))] {"sub" ~sub})]
     (let
       [sum (get "sum" $$module.test)]
       [test2.sub (get "sub" $$module.test2)]

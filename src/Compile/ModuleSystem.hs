@@ -52,10 +52,10 @@ loadModule path = do
   getModuleInfo loadedModule
   where
     getModuleInfo (Call (Atom _ "module" : String name : List _ exports : loadExprs) : exprs) = do
-      value <- handleLoads loadExprs (Call (concat [[atom "let"], exprs, [list $ exportsList name (parseExports exports)]]))
+      value <- handleLoads loadExprs (Call (concat [[atom "let"], exprs, [Map $ exportsList name (parseExports exports)]]))
       return ModuleInfo {prefix = name, name = name, exports = parseExports exports, value = value}
     parseExports ((Atom _ export) : exports) = (export, Nothing) : parseExports exports
     parseExports ((List _ [Atom _ export, Atom _ "as", Atom _ alias]) : exports) = (export, Just alias) : parseExports exports
     parseExports [] = []
-    exportsList name ((export, _) : exports) = [String export, func "unquote" [atom export]] ++ exportsList name exports
+    exportsList name ((export, _) : exports) = (String export, func "unquote" [atom export]) : exportsList name exports
     exportsList _ [] = []

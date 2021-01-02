@@ -149,8 +149,8 @@ evaluationTests =
             ]
         it "handles get function" $
           test
-            [ ("(get \"k\" [\"b\" 5 \"k\" 6])", Right $ int 6),
-              ("(get \"b\" [\"b\" 5 \"k\" 6])", Right $ int 5)
+            [ ("(get \"k\" {\"b\" 5 \"k\" 6})", Right $ int 6),
+              ("(get \"b\" {\"b\" 5 \"k\" 6})", Right $ int 5)
             ]
         it "supports quoting" $ test [("'[4 5]", Right $ list [int 4, int 5])]
         it "supports unquoting" $

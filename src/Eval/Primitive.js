@@ -18,7 +18,7 @@ const $$string$toList = (a) => a.split('')
 const $$car = (l) => l[0]
 const $$cdr = (l) => l.slice(1)
 const $$cons = (x, xs) => [x, ...xs]
-const $$get = (x, xs) => xs[xs.findIndex((el) => el === x) + 1]
+const $$get = (key, m) => m[key]
 const $$nth = (n, xs) => xs[n]
 const $$equal = (a, b) => a >= b && a <= b
 const $$eq = (a, b) => $$equal(a, b)

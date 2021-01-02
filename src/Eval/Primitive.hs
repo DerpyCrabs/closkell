@@ -45,7 +45,7 @@ primitives =
     ("car", car, TFunc [TList (TVar "a")] Nothing (TVar "a")),
     ("cdr", cdr, TFunc [TList (TVar "a")] Nothing (TList (TVar "a"))),
     ("cons", cons, TFunc [TVar "a", TList (TVar "a")] Nothing (TList (TVar "a"))),
-    ("get", get, TFunc [TVar "a", TList $ TSum [TVar "a", TVar "b"]] Nothing (TVar "b")),
+    ("get", get, TFunc [TVar "a", TMap (TVar "a") (TVar "b")] Nothing (TVar "b")),
     ("nth", nth, TFunc [TInteger, TList (TVar "a")] Nothing (TVar "a")),
     ("eq?", eq, TFunc [TVar "a", TVar "a"] Nothing TBool),
     ("list?", isList, TFunc [TVar "a"] Nothing TBool),
@@ -149,9 +149,9 @@ notOp :: [LispVal] -> ThrowsError LispVal
 notOp [v] = Bool . not <$> unpackBool v
 
 get :: [LispVal] -> ThrowsError LispVal
-get [String key, List _ (String k : val : rest)]
+get [key, Map ((k, val) : rest)]
   | key == k = return val
-  | otherwise = get [String key, list rest]
+  | otherwise = get [key, Map rest]
 
 isList [List _ _] = return $ Bool True
 isList _ = return $ Bool False
