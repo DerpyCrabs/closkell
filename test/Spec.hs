@@ -173,6 +173,11 @@ evaluationTests =
             [ ("[4 ~@[5 6]]", Right $ list [int 4, int 5, int 6]),
               ("[4 ~@[5 6] ~@[7 8]]", Right $ list [int 4, int 5, int 6, int 7, int 8])
             ]
+        it "supports map unquoting" $
+          test
+            [ ("{4 ~(+ 1 5)}", Right $ Map [(int 4, int 6)]),
+              ("{4 ~(+ 5 6) \\c ~(+ 1 3)}", Right $ Map [(int 4, int 11), (Character 'c', int 4)])
+            ]
         it "supports unquote outside of quote" $
           test
             [ ("(+ 4 ~(quote 5))", Right $ int 9)
