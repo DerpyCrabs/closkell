@@ -22,6 +22,10 @@ lparen = lexeme $ char '('
 
 rparen = lexeme $ char ')'
 
+lcbracket = lexeme $ char '{'
+
+rcbracket = lexeme $ char '}'
+
 dottedListSeparator = lexeme $ char '.'
 
 parseString :: Parser LispVal
@@ -87,9 +91,6 @@ parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
       _ <- parseExpr
       return Nothing
 
-parseList :: Parser LispVal
-parseList = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parseExprOrSkip spaces
-
 parseCall :: Parser LispVal
 parseCall = do
   lparen
@@ -100,11 +101,38 @@ parseCall = do
 parseCallInner :: Parser LispVal
 parseCallInner = Call . catMaybes <$> sepBy parseExprOrSkip spaces
 
-parseDottedList :: Parser LispVal
-parseDottedList = do
+parseListInner :: Parser LispVal
+parseListInner = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parseExprOrSkip spaces
+
+parseDottedListInner :: Parser LispVal
+parseDottedListInner = do
   pos <- getSourcePos
   head <- manyTill parseExpr dottedListSeparator
   DottedList (Just pos) head <$> parseExpr
+
+parseList :: Parser LispVal
+parseList = do
+  lbracket
+  x <- lexeme (try parseDottedListInner <|> parseListInner)
+  rbracket
+  return x
+
+parseMapBind :: Parser (LispVal, LispVal)
+parseMapBind = do
+  key <- parseExpr
+  spaces
+  val <- parseExpr
+  return (key, val)
+
+parseMapInner :: Parser LispVal
+parseMapInner = Map <$> sepBy parseMapBind spaces
+
+parseMap :: Parser LispVal
+parseMap = do
+  lcbracket
+  map <- lexeme parseMapInner
+  rcbracket
+  return map
 
 parseQuoted :: Parser LispVal
 parseQuoted = do
@@ -162,11 +190,8 @@ parseExpr =
       <|> try parseUnquoteSplicing
       <|> parseUnquoted
       <|> parseCall
-      <|> do
-        lbracket
-        x <- lexeme (try parseDottedList <|> parseList)
-        rbracket
-        return x
+      <|> parseMap
+      <|> parseList
 
 readOrThrow :: Parser a -> String -> String -> ThrowsError a
 readOrThrow parser file input = case parse parser file input of

@@ -25,98 +25,88 @@ main = hspec $ do
   describe "EmitJS" emitJSTests
 
 parsingTests =
-  do
-    it "parses empty list" $
-      testTable
-        (fmap head . runParse)
-        [ ("[]", list []),
-          ("[   ]", list []),
-          (" [] ", list [])
-        ]
-    it "parses integers" $
-      testTable
-        (fmap head . runParse)
-        [ ("20", int 20),
-          ("  0x3F  ", int 63),
-          ("  0x3f", int 63),
-          ("0b101  ", int 5),
-          ("0o77", int 63),
-          ("-5", int (-5))
-        ]
-    it "parses booleans" $
-      testTable
-        (fmap head . runParse)
-        [ ("true", Bool True),
-          ("  false  ", Bool False)
-        ]
-    it "parses strings" $
-      testTable
-        (fmap head . runParse)
-        [ ("\"test\"", String "test"),
-          (" \"\\n \" ", String "\n "),
-          ("\"\\0222\"", String "\0222"),
-          ("\"\\f\"", String "\f")
-        ]
-    it "parses characters" $
-      testTable
-        (fmap head . runParse)
-        [ ("\\t", Character 't'),
-          (" \\formfeed ", Character '\f'),
-          ("\\0222", Character '\0222')
-        ]
-    it "parses floats" $
-      testTable
-        (fmap head . runParse)
-        [ ("0.345", Float 0.345)
-        ]
-    it "parses atoms" $
-      testTable
-        (fmap head . runParse)
-        [ ("test", atom "test"),
-          ("$", atom "$"),
-          ("test5", atom "test5"),
-          ("test!$%&|*+-/:<=>?&^_.", atom "test!$%&|*+-/:<=>?&^_.")
-        ]
-    it "parses lists" $
-      testTable
-        (fmap head . runParse)
-        [(" [ 3 4 5]", list [int 3, int 4, int 5])]
-    it "parses dotted lists" $
-      testTable
-        (fmap head . runParse)
-        [ ("[tt1 tt2 . tt3]", dottedList [atom "tt1", atom "tt2"] (atom "tt3")),
-          ("[. tt1]", dottedList [] (atom "tt1"))
-        ]
-    it "parses fn shorthand" $
-      testTable
-        (fmap head . runParse)
-        [("#(+ %&)", Call (atom "fn" : dottedList [] (atom "%&") : [func "+" [atom "%&"]]))]
-    it "parses fn shorthand arguments" $
-      testTable
-        (fmap head . runParse)
-        [ ("#(+ %%)", fn [] (Just $ atom "%&") [func "+" [func "car" [atom "%&"]]]),
-          ("#(+ %1 %5)", fn [] (Just $ atom "%&") [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]])
-        ]
-    it "parses quoted expressions" $
-      testTable
-        (fmap head . runParse)
-        [("'[3 4 5]", func "quote" [list [int 3, int 4, int 5]])]
-    it "parses unquoted expressions" $
-      testTable
-        (fmap head . runParse)
-        [("~[3 4 5]", func "unquote" [list [int 3, int 4, int 5]])]
-    it "parses unquote-spliced expressions" $
-      testTable
-        (fmap head . runParse)
-        [ ("~@[3 4 5]", func "unquote-splicing" [list [int 3, int 4, int 5]]),
-          ("'~@'[5 4]", func "quote" [func "unquote-splicing" [func "quote" [list [int 5, int 4]]]])
-        ]
-    it "parses top level expressions" $
-      testTable
-        runParse
-        [ (" (t 5) (k 6)", [func "t" [int 5], func "k" [int 6]]),
-          ("(t 5)\n(k 6) ", [func "t" [int 5], func "k" [int 6]])
-        ]
+  let test = testTable ((head <$>) . runParse)
+   in do
+        it "parses empty list" $
+          test
+            [ ("[]", list []),
+              ("[   ]", list []),
+              (" [] ", list [])
+            ]
+        it "parses integers" $
+          test
+            [ ("20", int 20),
+              ("  0x3F  ", int 63),
+              ("  0x3f", int 63),
+              ("0b101  ", int 5),
+              ("0o77", int 63),
+              ("-5", int (-5))
+            ]
+        it "parses booleans" $
+          test
+            [ ("true", Bool True),
+              ("  false  ", Bool False)
+            ]
+        it "parses strings" $
+          test
+            [ ("\"test\"", String "test"),
+              (" \"\\n \" ", String "\n "),
+              ("\"\\0222\"", String "\0222"),
+              ("\"\\f\"", String "\f")
+            ]
+        it "parses characters" $
+          test
+            [ ("\\t", Character 't'),
+              (" \\formfeed ", Character '\f'),
+              ("\\0222", Character '\0222')
+            ]
+        it "parses floats" $
+          test
+            [ ("0.345", Float 0.345)
+            ]
+        it "parses atoms" $
+          test
+            [ ("test", atom "test"),
+              ("$", atom "$"),
+              ("test5", atom "test5"),
+              ("test!$%&|*+-/:<=>?&^_.", atom "test!$%&|*+-/:<=>?&^_.")
+            ]
+        it "parses lists" $
+          test
+            [(" [ 3 4 5]", list [int 3, int 4, int 5])]
+        it "parses maps" $
+          test
+            [(" {7 \\k \\e   \"s\"} ", Map [(int 7, Character 'k'), (Character 'e', String "s")])]
+        it "parses dotted lists" $
+          test
+            [ ("[tt1 tt2 . tt3]", dottedList [atom "tt1", atom "tt2"] (atom "tt3")),
+              ("[. tt1]", dottedList [] (atom "tt1"))
+            ]
+        it "parses fn shorthand" $
+          test
+            [("#(+ %&)", Call (atom "fn" : dottedList [] (atom "%&") : [func "+" [atom "%&"]]))]
+        it "parses fn shorthand arguments" $
+          test
+            [ ("#(+ %%)", fn [] (Just $ atom "%&") [func "+" [func "car" [atom "%&"]]]),
+              ("#(+ %1 %5)", fn [] (Just $ atom "%&") [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]])
+            ]
+        it "parses quoted expressions" $
+          test
+            [("'[3 4 5]", func "quote" [list [int 3, int 4, int 5]])]
+        it "parses unquoted expressions" $
+          test
+            [("~[3 4 5]", func "unquote" [list [int 3, int 4, int 5]])]
+        it "parses unquote-spliced expressions" $
+          test
+            [ ("~@[3 4 5]", func "unquote-splicing" [list [int 3, int 4, int 5]]),
+              ("'~@'[5 4]", func "quote" [func "unquote-splicing" [func "quote" [list [int 5, int 4]]]])
+            ]
+        it "parses top level expressions" $
+          testTable
+            runParse
+            [ (" (t 5) (k 6)", [func "t" [int 5], func "k" [int 6]]),
+              ("(t 5)\n(k 6) ", [func "t" [int 5], func "k" [int 6]])
+            ]
 
 evaluationTests =
   let test = testTable runEval
