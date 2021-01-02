@@ -47,6 +47,7 @@ data LispVal
   = Atom (Maybe SourcePos) String
   | Character Char
   | List (Maybe SourcePos) [LispVal]
+  | Map [(LispVal, LispVal)]
   | DottedList (Maybe SourcePos) [LispVal] LispVal
   | Integer Integer
   | Float Double
@@ -63,6 +64,7 @@ data LispVal
 data LispType
   = TCharacter
   | TList LispType
+  | TMap LispType LispType
   | TInteger
   | TFloat
   | TString
@@ -87,6 +89,7 @@ type FocusedValPath = [Int]
 instance Eq LispVal where
   (Atom _ s1) == (Atom _ s2) = s1 == s2
   (List _ l1) == (List _ l2) = l1 == l2
+  (Map l1) == (Map l2) = l1 == l2
   (Call l1) == (Call l2) = l1 == l2
   (DottedList _ l1 e1) == (DottedList _ l2 e2) = l1 == l2 && e1 == e2
   (Integer i1) == (Integer i2) = i1 == i2
@@ -111,6 +114,7 @@ instance Show LispVal where
   show (Bool True) = "true"
   show (Bool False) = "false"
   show (List _ contents) = "[" ++ unwordsList contents ++ "]"
+  show (Map contents) = "{" ++ unwordsList (concat $ (\(key, val) -> [key, val]) <$> contents) ++ "}"
   show (Call contents) = "(" ++ unwordsList contents ++ ")"
   show (DottedList _ head tail) = "[" ++ unwordsList head ++ " . " ++ show tail ++ "]"
   show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"
@@ -151,6 +155,7 @@ instance Show LispError where
 instance Show LispType where
   show TCharacter = "TCharacter"
   show (TList t) = "TList[" ++ show t ++ "]"
+  show (TMap key val) = "TMap[" ++ show key ++ "," ++ show val ++ "]"
   show TInteger = "TInteger"
   show TFloat = "TFloat"
   show TString = "TString"

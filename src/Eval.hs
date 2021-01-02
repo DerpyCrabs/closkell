@@ -164,6 +164,7 @@ isNormalForm (IOFunc _ _) = True
 isNormalForm Func {} = True
 isNormalForm (Type _) = True
 isNormalForm (List _ xs) | all isNormalForm xs = True
+isNormalForm (Map xs) | all (\(key, value) -> isNormalForm key && isNormalForm value) xs = True
 isNormalForm _ = False
 
 applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
