@@ -27,6 +27,11 @@ emitJS' (Call [Atom _ "apply", f, args]) = "(" ++ emitJS' f ++ ").apply(" ++ emi
 emitJS' (Call (Atom _ func : args)) | isPrimitive func = primitiveName func ++ "(" ++ intercalate "," (emitJS' <$> args) ++ ")"
 emitJS' (Call (func@(Atom _ f) : args)) = emitJS' func ++ "(" ++ intercalate "," (emitJS' <$> args) ++ ")"
 emitJS' (List _ xs) = "[" ++ intercalate "," (emitJS' <$> xs) ++ "]"
+emitJS' (Map binds) = "{" ++ intercalate "," (emitBinds binds) ++ "}"
+  where
+    emitBinds (val@(Call (Atom _ "unquote-splicing" : _)) : rest) = emitJS' val : emitBinds rest
+    emitBinds (key : value : rest) = (emitJS' key ++ ":" ++ emitJS' value) : emitBinds rest
+    emitBinds [] = []
 emitJS' (Integer n) = show n
 emitJS' (String n) = show n
 emitJS' (Character n) = show n

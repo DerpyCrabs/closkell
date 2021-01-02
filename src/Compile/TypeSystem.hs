@@ -1,5 +1,6 @@
 module Compile.TypeSystem (typeSystem) where
 
+import Control.Applicative
 import Control.Monad (unless, zipWithM)
 import Control.Monad.IO.Class
 import Data.Env
@@ -105,6 +106,10 @@ applyVarsToType vars (TVar var) = case lookup var vars of
   Just t -> return t
   Nothing -> return (TVar var)
 applyVarsToType vars (TList t) = TList <$> applyVarsToType vars t
+applyVarsToType vars (TMap keyType valType) = do
+  key <- applyVarsToType vars keyType
+  val <- applyVarsToType vars valType
+  return $ TMap key val
 applyVarsToType vars (TFunc argTypes varArgType retType) = do
   args <- mapM (applyVarsToType vars) argTypes
   varArg <- mapM (applyVarsToType vars) varArgType
@@ -116,6 +121,10 @@ deduceArgType :: LispType -> LispType -> ThrowsError (Maybe (String, LispType), 
 deduceArgType (TVar v) t = return (Just (v, t), t)
 deduceArgType t (TVar v) = return (Just (v, t), t)
 deduceArgType (TList t1) (TList t2) = (TList <$>) <$> deduceArgType t1 t2
+deduceArgType (TMap k1 v1) (TMap k2 v2) = do
+  (var, key) <- deduceArgType k1 k2
+  (var2, val) <- deduceArgType v1 v2
+  return (var2 <|> var, TMap key val)
 deduceArgType t1 t2 | typeCompatibleWith t1 t2 = return (Nothing, t1)
 deduceArgType t1 t2 = throwError $ TypeMismatch t1 t2
 
@@ -126,6 +135,7 @@ typeCompatibleWith (TSum sumTypes) (TProd prodTypes) | all (`elem` sumTypes) pro
 typeCompatibleWith (TProd prodTypes1) (TProd prodTypes2) | all (uncurry typeCompatibleWith) (zip prodTypes1 prodTypes2) = True
 typeCompatibleWith (TList listType) (TList listType2) | typeCompatibleWith listType listType2 = True
 typeCompatibleWith (TList listType) (TProd types) | all (typeCompatibleWith listType) types = True
+typeCompatibleWith (TMap k1 v1) (TMap k2 v2) | typeCompatibleWith k1 k2 && typeCompatibleWith v1 v2 = True
 typeCompatibleWith (TProd types) (TList listType) | all (typeCompatibleWith listType) types = True
 typeCompatibleWith (TVar _) (TVar _) = True
 typeCompatibleWith (TVar _) t = True
@@ -144,7 +154,15 @@ typeOf (Type t) = t
 typeOf (List _ []) = TList $ TVar "l"
 typeOf (List _ xs@(x : _)) | allEqual $ typeOf <$> xs = TList $ typeOf x
 typeOf (List _ xs) = TProd $ typeOf <$> xs
+typeOf (Map xs) =
+  let keys = [key | (i, key) <- zip [0 ..] xs, even i]
+      values = [val | (i, val) <- zip [0 ..] xs, odd i]
+   in TMap (deduceSum (typeOf <$> keys)) (deduceSum (typeOf <$> values))
 typeOf t = error $ "typeOf error " ++ show t
+
+deduceSum :: [LispType] -> LispType
+deduceSum types | allEqual types = head types
+deduceSum types = flattenSum $ TSum $ deduplicate types
 
 isSumTypeDeducibleTo :: [LispType] -> [LispType] -> Bool
 isSumTypeDeducibleTo from = all (`elem` from)

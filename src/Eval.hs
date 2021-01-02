@@ -42,16 +42,15 @@ evalSteps env val = evalSteps' [id] [Right zipper] zipper
 stepEval :: LVZipper -> IOThrowsError (LVZipper, [LVZipperTurn])
 stepEval z@(_, val, _) | isNormalForm val = return (z, [])
 stepEval z@(_, val@(List _ args), _) =
-  let path = quoteEvalPath (Call args)
-      correctPath path@(_ : _ : _) =
-        let first = lvRight . lvDown . head path
-            lst = lvUp . last path
-         in [first] ++ init (tail path) ++ [lst]
-      correctPath p = p
-      correctedPath = correctPath path
+  let correctedPath = correctQuoteEvalPath (Call args)
    in case length correctedPath of
         0 -> return (lvSet val z, [])
-        _ -> return (lvSet (func "evaluating-unquote-list" [Call args]) z, correctPath path)
+        _ -> return (lvSet (func "evaluating-unquote-list" [Call args]) z, correctedPath)
+stepEval z@(_, val@(Map args), _) =
+  let correctedPath = correctQuoteEvalPath (Call args)
+   in case length correctedPath of
+        0 -> return (lvSet val z, [])
+        _ -> return (lvSet (func "evaluating-unquote-map" [Call args]) z, correctedPath)
 stepEval z@(env, fn@(Call (Atom _ "fn" : _)), _) =
   return (lvSet (createFn env fn) z, [])
 stepEval z@(env, Atom _ name, _) = do
@@ -108,20 +107,16 @@ stepEval z@(_, Call [Atom _ "apply", f, args], _) =
 stepEval z@(_, Call [Atom _ "evaluating-apply", f, List _ args], _) =
   return (lvSet (Call (f : args)) z, [id])
 stepEval z@(_, Call [Atom _ "quote", val], _) =
-  let path = quoteEvalPath val
-      correctPath path@(_ : _ : _) =
-        let first = lvRight . lvDown . head path
-            lst = lvUp . last path
-         in [first] ++ init (tail path) ++ [lst]
-      correctPath p = p
-      correctedPath = correctPath path
+  let correctedPath = correctQuoteEvalPath val
    in case length correctedPath of
         0 -> return (lvSet val z, [])
-        _ -> return (lvSet (func "evaluating-unquote" [val]) z, correctPath path)
+        _ -> return (lvSet (func "evaluating-unquote" [val]) z, correctedPath)
 stepEval z@(_, Call [Atom _ "evaluating-unquote", val], _) =
   return (lvSet (performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-list", val], _) =
   return (lvSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
+stepEval z@(_, Call [Atom _ "evaluating-unquote-map", val], _) =
+  return (lvSet ((\(Call args) -> Map args) $ performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "unquote", val], _)
   | isNormalForm val =
     return (lvSet val z, [])
@@ -130,6 +125,8 @@ stepEval z@(_, Call [Atom _ "unquote", val], _) =
 stepEval z@(_, Call [Atom _ "unquote-splicing", val], _) =
   return (lvSet (func "evaluating-unquote-splicing" [val]) z, [lvRight . lvDown, lvUp])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", List _ _], _) =
+  return (z, [])
+stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", Map _], _) =
   return (z, [])
 stepEval z@(_, Call (function : args), _) =
   case function of
@@ -164,6 +161,7 @@ isNormalForm (IOFunc _ _) = True
 isNormalForm Func {} = True
 isNormalForm (Type _) = True
 isNormalForm (List _ xs) | all isNormalForm xs = True
+isNormalForm (Map xs) | all isNormalForm xs = True
 isNormalForm _ = False
 
 applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
@@ -178,9 +176,10 @@ applyFunc (Func params varargs body closure) z args =
       Nothing -> env
 
 quoteEvalPath :: LispVal -> [LVZipperTurn]
-quoteEvalPath val = case quoteEvalPath' val of
-  Just path -> head path : composeUpDown (tail path)
-  Nothing -> []
+quoteEvalPath val =
+  case quoteEvalPath' val of
+    Just path -> head path : composeUpDown (tail path)
+    Nothing -> []
   where
     callPath args =
       let maybeUnquotePaths = quoteEvalPath' <$> args
@@ -205,6 +204,7 @@ performUnquoteSplicing = performUnquoteSplicing'
     performUnquoteSplicing' (Call vals) = Call (concat $ performUnquoteSplicing'' <$> vals)
     performUnquoteSplicing'' :: LispVal -> [LispVal]
     performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
+    performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", Map vals]) = vals
     performUnquoteSplicing'' v@(Call _) = [performUnquoteSplicing' v]
     performUnquoteSplicing'' other = [other]
 
@@ -220,3 +220,13 @@ createFn env (Call [Atom _ "fn", List _ params, body]) =
   makeNormalFunc env params body
 createFn env (Call [Atom _ "fn", DottedList _ params varargs, body]) =
   makeVarArgs varargs env params body
+
+correctQuoteEvalPath :: LispVal -> [LVZipperTurn]
+correctQuoteEvalPath val =
+  let path = quoteEvalPath val
+      correctPath path@(_ : _ : _) =
+        let first = head path . lvRight . lvDown
+            lst = lvUp . last path
+         in [first] ++ init (tail path) ++ [lst]
+      correctPath p = p
+   in correctPath path
