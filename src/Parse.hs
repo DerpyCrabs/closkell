@@ -117,15 +117,8 @@ parseList = do
   rbracket
   return x
 
-parseMapBind :: Parser (LispVal, LispVal)
-parseMapBind = do
-  key <- parseExpr
-  spaces
-  val <- parseExpr
-  return (key, val)
-
 parseMapInner :: Parser LispVal
-parseMapInner = Map <$> sepBy parseMapBind spaces
+parseMapInner = Map . catMaybes <$> sepBy parseExprOrSkip spaces
 
 parseMap :: Parser LispVal
 parseMap = do

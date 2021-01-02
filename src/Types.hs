@@ -47,7 +47,7 @@ data LispVal
   = Atom (Maybe SourcePos) String
   | Character Char
   | List (Maybe SourcePos) [LispVal]
-  | Map [(LispVal, LispVal)]
+  | Map [LispVal]
   | DottedList (Maybe SourcePos) [LispVal] LispVal
   | Integer Integer
   | Float Double
@@ -114,7 +114,7 @@ instance Show LispVal where
   show (Bool True) = "true"
   show (Bool False) = "false"
   show (List _ contents) = "[" ++ unwordsList contents ++ "]"
-  show (Map contents) = "{" ++ unwordsList (concat $ (\(key, val) -> [key, val]) <$> contents) ++ "}"
+  show (Map contents) = "{" ++ unwordsList contents ++ "}"
   show (Call contents) = "(" ++ unwordsList contents ++ ")"
   show (DottedList _ head tail) = "[" ++ unwordsList head ++ " . " ++ show tail ++ "]"
   show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"

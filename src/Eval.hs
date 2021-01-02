@@ -44,7 +44,7 @@ stepEval z@(_, val, _) | isNormalForm val = return (z, [])
 stepEval z@(_, val@(List _ args), _) =
   let path = quoteEvalPath (Call args)
       correctPath path@(_ : _ : _) =
-        let first = lvRight . lvDown . head path
+        let first = head path . lvRight . lvDown
             lst = lvUp . last path
          in [first] ++ init (tail path) ++ [lst]
       correctPath p = p
@@ -53,17 +53,16 @@ stepEval z@(_, val@(List _ args), _) =
         0 -> return (lvSet val z, [])
         _ -> return (lvSet (func "evaluating-unquote-list" [Call args]) z, correctPath path)
 stepEval z@(_, val@(Map args), _) =
-  let argsCall = Call (mapToList val)
-      path = quoteEvalPath argsCall
+  let path = quoteEvalPath (Call args)
       correctPath path@(_ : _ : _) =
-        let first = lvRight . lvDown . head path
+        let first = head path . lvRight . lvDown
             lst = lvUp . last path
          in [first] ++ init (tail path) ++ [lst]
       correctPath p = p
       correctedPath = correctPath path
    in case length correctedPath of
         0 -> return (lvSet val z, [])
-        _ -> return (lvSet (func "evaluating-unquote-map" [argsCall]) z, correctPath path)
+        _ -> return (lvSet (func "evaluating-unquote-map" [Call args]) z, correctPath path)
 stepEval z@(env, fn@(Call (Atom _ "fn" : _)), _) =
   return (lvSet (createFn env fn) z, [])
 stepEval z@(env, Atom _ name, _) = do
@@ -122,7 +121,7 @@ stepEval z@(_, Call [Atom _ "evaluating-apply", f, List _ args], _) =
 stepEval z@(_, Call [Atom _ "quote", val], _) =
   let path = quoteEvalPath val
       correctPath path@(_ : _ : _) =
-        let first = lvRight . lvDown . head path
+        let first = head path . lvRight . lvDown
             lst = lvUp . last path
          in [first] ++ init (tail path) ++ [lst]
       correctPath p = p
@@ -135,7 +134,7 @@ stepEval z@(_, Call [Atom _ "evaluating-unquote", val], _) =
 stepEval z@(_, Call [Atom _ "evaluating-unquote-list", val], _) =
   return (lvSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-map", val], _) =
-  return (lvSet ((\(Call args) -> mapFromList args) val) z, [])
+  return (lvSet ((\(Call args) -> Map args) $ performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "unquote", val], _)
   | isNormalForm val =
     return (lvSet val z, [])
@@ -144,6 +143,8 @@ stepEval z@(_, Call [Atom _ "unquote", val], _) =
 stepEval z@(_, Call [Atom _ "unquote-splicing", val], _) =
   return (lvSet (func "evaluating-unquote-splicing" [val]) z, [lvRight . lvDown, lvUp])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", List _ _], _) =
+  return (z, [])
+stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", Map _], _) =
   return (z, [])
 stepEval z@(_, Call (function : args), _) =
   case function of
@@ -178,7 +179,7 @@ isNormalForm (IOFunc _ _) = True
 isNormalForm Func {} = True
 isNormalForm (Type _) = True
 isNormalForm (List _ xs) | all isNormalForm xs = True
-isNormalForm (Map xs) | all (\(key, value) -> isNormalForm key && isNormalForm value) xs = True
+isNormalForm (Map xs) | all isNormalForm xs = True
 isNormalForm _ = False
 
 applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
@@ -220,6 +221,7 @@ performUnquoteSplicing = performUnquoteSplicing'
     performUnquoteSplicing' (Call vals) = Call (concat $ performUnquoteSplicing'' <$> vals)
     performUnquoteSplicing'' :: LispVal -> [LispVal]
     performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
+    performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", Map vals]) = vals
     performUnquoteSplicing'' v@(Call _) = [performUnquoteSplicing' v]
     performUnquoteSplicing'' other = [other]
 

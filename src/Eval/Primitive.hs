@@ -149,7 +149,7 @@ notOp :: [LispVal] -> ThrowsError LispVal
 notOp [v] = Bool . not <$> unpackBool v
 
 get :: [LispVal] -> ThrowsError LispVal
-get [key, Map ((k, val) : rest)]
+get [key, Map (k : val : rest)]
   | key == k = return val
   | otherwise = get [key, Map rest]
 

@@ -57,5 +57,5 @@ loadModule path = do
     parseExports ((Atom _ export) : exports) = (export, Nothing) : parseExports exports
     parseExports ((List _ [Atom _ export, Atom _ "as", Atom _ alias]) : exports) = (export, Just alias) : parseExports exports
     parseExports [] = []
-    exportsList name ((export, _) : exports) = (String export, func "unquote" [atom export]) : exportsList name exports
+    exportsList name ((export, _) : exports) = String export : func "unquote" [atom export] : exportsList name exports
     exportsList _ [] = []

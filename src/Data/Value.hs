@@ -19,8 +19,6 @@ module Data.Value
     lvModifyEnv,
     lvSet,
     lvSetEnv,
-    mapToList,
-    mapFromList,
   )
 where
 
@@ -87,10 +85,3 @@ lvFromAST val = ([], val, [])
 lvToAST :: LVZipper -> LispVal
 lvToAST (_, val, []) = val
 lvToAST z = lvToAST $ lvUp z
-
-mapFromList :: [LispVal] -> LispVal
-mapFromList (key : value : rest) = Map ((key, value) : (\(Map binds) -> binds) (mapFromList rest))
-mapFromList [] = Map []
-
-mapToList :: LispVal -> [LispVal]
-mapToList (Map binds) = concat $ (\(key, value) -> [key, value]) <$> binds
