@@ -236,6 +236,7 @@ typeSystemTests =
           test
             [ ("(+ \\a 5)", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
               ("(- (* \\b 5))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
+              ("(eq? 5 (get 5 {5 \\c 3 \\d}))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter]),
               ("(- \"s\" 5)", Left $ TypeMismatch (TSum [TInteger, TFloat]) TString)
             ]
         it "handles correct primitive function types" $
@@ -243,6 +244,7 @@ typeSystemTests =
             [ ("(+ 1 2.5)", Right Unit),
               ("(+ -5 3)", Right Unit),
               ("(== 3 3)", Right Unit),
+              ("(eq? \\c (get 5 {5 \\c 3 \\d}))", Right Unit),
               ("(+ (- 3 2) 2.5)", Right Unit)
             ]
         it "handles primitive io function types" $
