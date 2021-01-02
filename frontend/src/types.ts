@@ -37,6 +37,11 @@ type List<AdditionalInfo = {}> = {
   value: Array<LispVal<AdditionalInfo>>
 }
 
+type Map<AdditionalInfo = {}> = {
+  type: 'map'
+  value: Array<LispVal<AdditionalInfo>>
+}
+
 type Call<AdditionalInfo = {}> = {
   type: 'call'
   value: Array<LispVal<AdditionalInfo>>
@@ -91,6 +96,7 @@ export type LispVal<AdditionalInfo = {}> = (
   | Atom
   | Character
   | List<AdditionalInfo>
+  | Map<AdditionalInfo>
   | Call<AdditionalInfo>
   | DottedList<AdditionalInfo>
   | Integer
