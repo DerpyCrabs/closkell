@@ -1,4 +1,3 @@
-import React from 'react'
 import Value from '../../components/Value'
 import { FocusedLispVal } from '../../types'
 
