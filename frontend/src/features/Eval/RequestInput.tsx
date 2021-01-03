@@ -7,6 +7,7 @@ import {
   Paper,
 } from '@material-ui/core'
 import RunIcon from '@material-ui/icons/PlayArrow'
+import CodeEditor from '../../components/CodeEditor'
 import { EvalRequest } from '../../types'
 
 export default function EvalRequestInput({
@@ -20,30 +21,17 @@ export default function EvalRequestInput({
   const [typeCheck, setTypeCheck] = React.useState(request.typeCheck)
   const [macroExpand, setMacroExpand] = React.useState(request.macroExpand)
 
-  const tabKeyHandler = (e: React.KeyboardEvent) => {
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      document.execCommand('insertText', false, ' '.repeat(2))
-    }
-  }
-
   return (
     <div style={{ display: 'flex', width: '40%', flexDirection: 'column' }}>
-      <textarea
-        value={currentCode}
-        onChange={(e) => setCurrentCode(e.target.value)}
+      <div
         style={{
           width: '100%',
-          backgroundColor: '#303030',
           border: 0,
-          color: '#eee',
-          fontSize: '22px',
-          padding: '16px 16px',
           flex: 1,
-          resize: 'none',
         }}
-        onKeyDown={tabKeyHandler}
-      />
+      >
+        <CodeEditor code={currentCode} setCode={(s) => setCurrentCode(s)} />
+      </div>
       <Fab
         color='secondary'
         style={{
