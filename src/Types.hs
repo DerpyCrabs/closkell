@@ -13,6 +13,7 @@ module Types
     Env,
     LispType (..),
     FocusedValPath,
+    AST (..),
   )
 where
 
@@ -53,13 +54,33 @@ data Value
   | Float Double
   | String String
   | Bool Bool
+  | Unit
+  | Call [Value]
   | PrimitiveFunc String ([Value] -> ThrowsError Value)
   | IOFunc String ([Value] -> IOThrowsError Value)
-  | Call [Value]
-  | Unit
   | Func {params :: [String], vararg :: Maybe String, body :: Value, closure :: Env}
   | Macro {body :: Value, closure :: Env}
   | Type LispType
+
+data AST
+  = ASTAtom String
+  | ASTCharacter Char
+  | ASTList Bool [AST]
+  | ASTMap Bool [AST]
+  | ASTInteger Integer
+  | ASTFloat Double
+  | ASTString String
+  | ASTBool Bool
+  | ASTUnit
+  | ASTCall Bool AST [AST]
+  | ASTPrimitiveFunc String ([Value] -> ThrowsError Value)
+  | ASTIOFunc String ([Value] -> IOThrowsError Value)
+  | ASTFunc [String] (Maybe String) AST ASTEnv
+  | ASTType LispType
+  | ASTIf AST AST AST
+  | ASTLet Bool [(String, AST)] AST
+  | ASTUnquoteSplicing Bool AST
+  | ASTApply Bool AST AST
 
 data LispType
   = TCharacter
@@ -77,6 +98,8 @@ data LispType
   deriving (Eq, Generic)
 
 type Env = [(String, Value)]
+
+type ASTEnv = [(String, AST)]
 
 data ValueCrumb = ValueCrumb Env [Value] [Value] deriving (Show, Eq)
 
