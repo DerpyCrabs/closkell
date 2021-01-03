@@ -10,12 +10,12 @@ fromValue (List _ args) = ASTList False <$> mapM fromValue args
 fromValue (Map args) = ASTMap False <$> mapM fromValue args
 fromValue (Call [Atom _ "fn", List _ params, body]) = do
   astBody <- fromValue body
-  let paramNames = (\(String s) -> s) <$> params
+  let paramNames = (\(Atom _ s) -> s) <$> params
   return $ ASTFunc paramNames Nothing astBody []
 fromValue (Call [Atom _ "fn", DottedList _ params varargs, body]) = do
   astBody <- fromValue body
-  let paramNames = (\(String s) -> s) <$> params
-  let (String varargName) = varargs
+  let paramNames = (\(Atom _ s) -> s) <$> params
+  let (Atom _ varargName) = varargs
   return $ ASTFunc paramNames (Just varargName) astBody []
 fromValue (Atom _ name) = return $ ASTAtom name
 fromValue (Call [Atom _ "if", pred, conseq, alt]) = do

@@ -9,6 +9,7 @@ where
 import Compile.ClosureCompilerPass (closureCompilerPass)
 import Compile.EmitJS (emitJS)
 import Control.Monad.Except
+import Data.AST (fromValue)
 import Data.Env
 import Data.Error
 import Data.Maybe (isJust, isNothing)
@@ -210,10 +211,14 @@ performUnquoteSplicing = performUnquoteSplicing'
 
 evalUsingNode :: Value -> IOThrowsError String
 evalUsingNode val = do
-  let jsSource = emitJS val
-  jsOptimizedSource <- liftIO $ closureCompilerPass jsSource
-  Stdout out <- liftIO $ command [Stdin jsOptimizedSource] "node" []
-  return out
+  let astVal = fromValue val
+  case astVal of
+    Left err -> throwError err
+    Right astVal -> do
+      let jsSource = emitJS astVal
+      jsOptimizedSource <- liftIO $ closureCompilerPass jsSource
+      Stdout out <- liftIO $ command [Stdin jsOptimizedSource] "node" []
+      return out
 
 createFn :: Env -> Value -> Value
 createFn env (Call [Atom _ "fn", List _ params, body]) =
