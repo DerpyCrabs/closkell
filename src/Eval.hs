@@ -16,18 +16,18 @@ import Data.Value
 import System.Command
 import Types
 
-eval :: Env -> LispVal -> IOThrowsError LispVal
+eval :: Env -> Value -> IOThrowsError Value
 eval env val = do
   steps <- lift $ evalSteps env val
   case last steps of
     Left err -> throwError err
-    Right zipper -> return $ lvToAST zipper
+    Right zipper -> return $ vzToAST zipper
 
-evalSteps :: Env -> LispVal -> IO [ThrowsError LVZipper]
+evalSteps :: Env -> Value -> IO [ThrowsError ValueZipper]
 evalSteps env val = evalSteps' [id] [Right zipper] zipper
   where
-    zipper = lvSetEnv env . lvFromAST $ val
-    evalSteps' :: [LVZipperTurn] -> [ThrowsError LVZipper] -> LVZipper -> IO [ThrowsError LVZipper]
+    zipper = vzSetEnv env . vzFromAST $ val
+    evalSteps' :: [ValueZipperTurn] -> [ThrowsError ValueZipper] -> ValueZipper -> IO [ThrowsError ValueZipper]
     evalSteps' (step : steps) acc z@(_, val, _) = do
       res <- runExceptT $ stepEval (step z)
       case res of
@@ -39,41 +39,41 @@ evalSteps env val = evalSteps' [id] [Right zipper] zipper
         Left err -> return (acc ++ [Left err])
     evalSteps' [] acc _ = return acc
 
-stepEval :: LVZipper -> IOThrowsError (LVZipper, [LVZipperTurn])
+stepEval :: ValueZipper -> IOThrowsError (ValueZipper, [ValueZipperTurn])
 stepEval z@(_, val, _) | isNormalForm val = return (z, [])
 stepEval z@(_, val@(List _ args), _) =
   let correctedPath = correctQuoteEvalPath (Call args)
    in case length correctedPath of
-        0 -> return (lvSet val z, [])
-        _ -> return (lvSet (func "evaluating-unquote-list" [Call args]) z, correctedPath)
+        0 -> return (vzSet val z, [])
+        _ -> return (vzSet (func "evaluating-unquote-list" [Call args]) z, correctedPath)
 stepEval z@(_, val@(Map args), _) =
   let correctedPath = correctQuoteEvalPath (Call args)
    in case length correctedPath of
-        0 -> return (lvSet val z, [])
-        _ -> return (lvSet (func "evaluating-unquote-map" [Call args]) z, correctedPath)
+        0 -> return (vzSet val z, [])
+        _ -> return (vzSet (func "evaluating-unquote-map" [Call args]) z, correctedPath)
 stepEval z@(env, fn@(Call (Atom _ "fn" : _)), _) =
-  return (lvSet (createFn env fn) z, [])
+  return (vzSet (createFn env fn) z, [])
 stepEval z@(env, Atom _ name, _) = do
   var <- liftThrows $ getVar env name
   return $ case var of
-    Call _ -> (lvSet var z, [id])
-    Atom _ _ -> (lvSet var z, [id])
-    _ -> (lvSet var z, [])
+    Call _ -> (vzSet var z, [id])
+    Atom _ _ -> (vzSet var z, [id])
+    _ -> (vzSet var z, [])
 stepEval z@(env, Call (Atom _ "let" : bindsAndExpr), _) = do
   let binds = init bindsAndExpr
   let expr = last bindsAndExpr
   if null binds
-    then return (lvSet expr z, [id])
+    then return (vzSet expr z, [id])
     else do
-      let bindsEvalPath = replicate (length binds) lvRight
+      let bindsEvalPath = replicate (length binds) vzRight
       let newEnv = bindVars (vars binds) env
       let unquotedBinds = unquoteBind newEnv <$> binds
       let filteredEvalPath = fst <$> mergePath (zip bindsEvalPath unquotedBinds)
       if null filteredEvalPath
         then do
           let unquotedEnv = bindVars (vars unquotedBinds) env
-          return (lvSetEnv unquotedEnv . lvSet expr $ z, [id])
-        else return (lvSetEnv newEnv . lvSet (func "evaluating-let" (unquotedBinds ++ [expr])) $ z, head filteredEvalPath . lvDown : tail filteredEvalPath ++ [lvUp])
+          return (vzSetEnv unquotedEnv . vzSet expr $ z, [id])
+        else return (vzSetEnv newEnv . vzSet (func "evaluating-let" (unquotedBinds ++ [expr])) $ z, head filteredEvalPath . vzDown : tail filteredEvalPath ++ [vzUp])
   where
     matchVars (List _ [Atom _ name, var]) = (name, var)
     vars binds = matchVars <$> binds
@@ -89,41 +89,41 @@ stepEval z@(env, Call (Atom _ "evaluating-let" : bindsAndExpr), _) = do
   let expr = last bindsAndExpr
   let newBinds = bindVars (vars binds) env
   let newEnv = bindVars newBinds env
-  return (lvSetEnv newEnv . lvSet expr $ z, [id])
+  return (vzSetEnv newEnv . vzSet expr $ z, [id])
   where
     matchVars (List _ [Atom _ name, var]) = (name, var)
     vars binds = matchVars <$> binds
 stepEval z@(_, Call [Atom _ "if", Bool True, conseq, _], _) =
-  return (lvSet conseq z, [id])
+  return (vzSet conseq z, [id])
 stepEval z@(_, Call [Atom _ "if", Bool False, _, alt], _) =
-  return (lvSet alt z, [id])
+  return (vzSet alt z, [id])
 stepEval z@(_, Call [Atom _ "if", _, _, _], _) =
-  return (z, [lvRight . lvDown, lvUp])
+  return (z, [vzRight . vzDown, vzUp])
 stepEval z@(_, Call [Atom _ "apply", f, args], _)
   | isNormalForm f =
-    return (lvSet (func "evaluating-apply" [f, args]) z, [lvRight . lvRight . lvDown, lvUp])
+    return (vzSet (func "evaluating-apply" [f, args]) z, [vzRight . vzRight . vzDown, vzUp])
 stepEval z@(_, Call [Atom _ "apply", f, args], _) =
-  return (lvSet (func "evaluating-apply" [f, args]) z, [lvRight . lvDown, lvRight, lvUp])
+  return (vzSet (func "evaluating-apply" [f, args]) z, [vzRight . vzDown, vzRight, vzUp])
 stepEval z@(_, Call [Atom _ "evaluating-apply", f, List _ args], _) =
-  return (lvSet (Call (f : args)) z, [id])
+  return (vzSet (Call (f : args)) z, [id])
 stepEval z@(_, Call [Atom _ "quote", val], _) =
   let correctedPath = correctQuoteEvalPath val
    in case length correctedPath of
-        0 -> return (lvSet val z, [])
-        _ -> return (lvSet (func "evaluating-unquote" [val]) z, correctedPath)
+        0 -> return (vzSet val z, [])
+        _ -> return (vzSet (func "evaluating-unquote" [val]) z, correctedPath)
 stepEval z@(_, Call [Atom _ "evaluating-unquote", val], _) =
-  return (lvSet (performUnquoteSplicing val) z, [])
+  return (vzSet (performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-list", val], _) =
-  return (lvSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
+  return (vzSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-map", val], _) =
-  return (lvSet ((\(Call args) -> Map args) $ performUnquoteSplicing val) z, [])
+  return (vzSet ((\(Call args) -> Map args) $ performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "unquote", val], _)
   | isNormalForm val =
-    return (lvSet val z, [])
+    return (vzSet val z, [])
 stepEval z@(_, Call [Atom _ "unquote", val], _) =
-  return (lvSet val z, [id])
+  return (vzSet val z, [id])
 stepEval z@(_, Call [Atom _ "unquote-splicing", val], _) =
-  return (lvSet (func "evaluating-unquote-splicing" [val]) z, [lvRight . lvDown, lvUp])
+  return (vzSet (func "evaluating-unquote-splicing" [val]) z, [vzRight . vzDown, vzUp])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", List _ _], _) =
   return (z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", Map _], _) =
@@ -132,10 +132,10 @@ stepEval z@(_, Call (function : args), _) =
   case function of
     PrimitiveFunc _ f -> do
       res <- liftThrows $ f $ unsplice args
-      return (lvSet res z, [])
+      return (vzSet res z, [])
     IOFunc _ f -> do
       res <- f $ unsplice args
-      return (lvSet res z, [])
+      return (vzSet res z, [])
     f@Func {} -> do
       res <- liftThrows $ applyFunc f z $ unsplice args
       return (res, [id])
@@ -143,13 +143,13 @@ stepEval z@(_, Call (function : args), _) =
       return (z, evalArgsPath)
   where
     unsplice args = (\(Call args) -> args) $ performUnquoteSplicing $ Call args
-    evalArgsPath = reverse $ foldl foldFunc [lvDown] (zip [1 ..] (function : args))
+    evalArgsPath = reverse $ foldl foldFunc [vzDown] (zip [1 ..] (function : args))
       where
-        foldFunc (t : ts) (i, arg) | i /= length args + 1 = if isNormalForm arg then lvRight . t : ts else lvRight : t : ts
-        foldFunc (t : ts) (_, arg) = if isNormalForm arg then lvUp . t : ts else lvUp : t : ts
+        foldFunc (t : ts) (i, arg) | i /= length args + 1 = if isNormalForm arg then vzRight . t : ts else vzRight : t : ts
+        foldFunc (t : ts) (_, arg) = if isNormalForm arg then vzUp . t : ts else vzUp : t : ts
 stepEval (_, badForm, _) = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
-isNormalForm :: LispVal -> Bool
+isNormalForm :: Value -> Bool
 isNormalForm Unit = True
 isNormalForm (String _) = True
 isNormalForm (Character _) = True
@@ -164,18 +164,18 @@ isNormalForm (List _ xs) | all isNormalForm xs = True
 isNormalForm (Map xs) | all isNormalForm xs = True
 isNormalForm _ = False
 
-applyFunc :: LispVal -> LVZipper -> [LispVal] -> ThrowsError LVZipper
+applyFunc :: Value -> ValueZipper -> [Value] -> ThrowsError ValueZipper
 applyFunc (Func params varargs body closure) z args =
   do
     let env = bindVarArgs varargs . bindVars (zip params args) $ closure
-    return . lvSet body . lvSetEnv env $ z
+    return . vzSet body . vzSetEnv env $ z
   where
     remainingArgs = drop (length params) args
     bindVarArgs arg env = case arg of
       Just argName -> bindVars [(argName, list remainingArgs)] env
       Nothing -> env
 
-quoteEvalPath :: LispVal -> [LVZipperTurn]
+quoteEvalPath :: Value -> [ValueZipperTurn]
 quoteEvalPath val =
   case quoteEvalPath' val of
     Just path -> head path : composeUpDown (tail path)
@@ -183,14 +183,14 @@ quoteEvalPath val =
   where
     callPath args =
       let maybeUnquotePaths = quoteEvalPath' <$> args
-          argPaths = scanl (\path _ -> lvRight . path) lvDown $ tail args
+          argPaths = scanl (\path _ -> vzRight . path) vzDown $ tail args
           unquotePaths =
-            (\(Just [d, u], t) -> [d . t, lvUp . u])
+            (\(Just [d, u], t) -> [d . t, vzUp . u])
               <$> filter (\(p, _) -> isJust p) (zip maybeUnquotePaths argPaths)
        in case length unquotePaths of
             0 -> Nothing
             _ -> Just $ concat unquotePaths
-    quoteEvalPath' :: LispVal -> Maybe [LVZipperTurn]
+    quoteEvalPath' :: Value -> Maybe [ValueZipperTurn]
     quoteEvalPath' (Call [Atom _ "unquote", val]) = Just [id, id]
     quoteEvalPath' (Call [Atom _ "unquote-splicing", val]) = Just [id, id]
     quoteEvalPath' (Call args) = callPath args
@@ -198,35 +198,35 @@ quoteEvalPath val =
     composeUpDown (x : y : xs) = (y . x) : composeUpDown xs
     composeUpDown [x] = [x]
 
-performUnquoteSplicing :: LispVal -> LispVal
+performUnquoteSplicing :: Value -> Value
 performUnquoteSplicing = performUnquoteSplicing'
   where
     performUnquoteSplicing' (Call vals) = Call (concat $ performUnquoteSplicing'' <$> vals)
-    performUnquoteSplicing'' :: LispVal -> [LispVal]
+    performUnquoteSplicing'' :: Value -> [Value]
     performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
     performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", Map vals]) = vals
     performUnquoteSplicing'' v@(Call _) = [performUnquoteSplicing' v]
     performUnquoteSplicing'' other = [other]
 
-evalUsingNode :: LispVal -> IOThrowsError String
+evalUsingNode :: Value -> IOThrowsError String
 evalUsingNode val = do
   let jsSource = emitJS val
   jsOptimizedSource <- liftIO $ closureCompilerPass jsSource
   Stdout out <- liftIO $ command [Stdin jsOptimizedSource] "node" []
   return out
 
-createFn :: Env -> LispVal -> LispVal
+createFn :: Env -> Value -> Value
 createFn env (Call [Atom _ "fn", List _ params, body]) =
   makeNormalFunc env params body
 createFn env (Call [Atom _ "fn", DottedList _ params varargs, body]) =
   makeVarArgs varargs env params body
 
-correctQuoteEvalPath :: LispVal -> [LVZipperTurn]
+correctQuoteEvalPath :: Value -> [ValueZipperTurn]
 correctQuoteEvalPath val =
   let path = quoteEvalPath val
       correctPath path@(_ : _ : _) =
-        let first = head path . lvRight . lvDown
-            lst = lvUp . last path
+        let first = head path . vzRight . vzDown
+            lst = vzUp . last path
          in [first] ++ init (tail path) ++ [lst]
       correctPath p = p
    in correctPath path

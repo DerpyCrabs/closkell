@@ -3,7 +3,7 @@ import { useQuery } from 'react-query'
 import { useLocalStorage } from 'react-use'
 import { CircularProgress, Divider, Fade } from '@material-ui/core'
 import { Alert, AlertTitle } from '@material-ui/lab'
-import { EvalRequest, FocusedLispVal, LispError, Result } from '../../types'
+import { Error, EvalRequest, FocusedLispVal, Result } from '../../types'
 import CodeInput from './RequestInput'
 import Step from './Step'
 import Steps from './Steps'
@@ -16,7 +16,7 @@ export default function Eval() {
   }) as [EvalRequest, (s: EvalRequest) => void, () => void]
 
   const { isLoading, isError, error, data } = useQuery<
-    Array<Result<LispError, FocusedLispVal>>,
+    Array<Result<Error, FocusedLispVal>>,
     Error
   >(JSON.stringify(request), () =>
     fetch('http://localhost:8081/eval', {

@@ -3,13 +3,13 @@
 module Types
   ( ThrowsError,
     IOThrowsError,
-    LispError (..),
-    LispVal (..),
+    Error (..),
+    Value (..),
     Parser,
     MacroExpansionState (..),
-    LVCrumb (..),
-    LVZipper,
-    LVZipperTurn,
+    ValueCrumb (..),
+    ValueZipper,
+    ValueZipperTurn,
     Env,
     LispType (..),
     FocusedValPath,
@@ -25,40 +25,40 @@ import Text.Megaparsec hiding (State)
 
 newtype MacroExpansionState = MacroExpansionState {gensymCounter :: Integer}
 
-type ThrowsError = Either LispError
+type ThrowsError = Either Error
 
-type IOThrowsError = ExceptT LispError IO
+type IOThrowsError = ExceptT Error IO
 
 type Parser = Parsec Void String
 
-data LispError
-  = NumArgs Integer [LispVal]
+data Error
+  = NumArgs Integer [Value]
   | TypeMismatch LispType LispType
   | FailedToDeduceVar String [LispType]
-  | BadSpecialForm String LispVal
+  | BadSpecialForm String Value
   | NotFunction String String
   | Parsing (ParseErrorBundle String Void)
   | UnboundVar String String
-  | FromCode LispVal
+  | FromCode Value
   | Default String
   deriving (Eq)
 
-data LispVal
+data Value
   = Atom (Maybe SourcePos) String
   | Character Char
-  | List (Maybe SourcePos) [LispVal]
-  | Map [LispVal]
-  | DottedList (Maybe SourcePos) [LispVal] LispVal
+  | List (Maybe SourcePos) [Value]
+  | Map [Value]
+  | DottedList (Maybe SourcePos) [Value] Value
   | Integer Integer
   | Float Double
   | String String
   | Bool Bool
-  | PrimitiveFunc String ([LispVal] -> ThrowsError LispVal)
-  | IOFunc String ([LispVal] -> IOThrowsError LispVal)
-  | Call [LispVal]
+  | PrimitiveFunc String ([Value] -> ThrowsError Value)
+  | IOFunc String ([Value] -> IOThrowsError Value)
+  | Call [Value]
   | Unit
-  | Func {params :: [String], vararg :: Maybe String, body :: LispVal, closure :: Env}
-  | Macro {body :: LispVal, closure :: Env}
+  | Func {params :: [String], vararg :: Maybe String, body :: Value, closure :: Env}
+  | Macro {body :: Value, closure :: Env}
   | Type LispType
 
 data LispType
@@ -76,17 +76,17 @@ data LispType
   | TVar String
   deriving (Eq, Generic)
 
-data LVCrumb = LVCrumb Env [LispVal] [LispVal] deriving (Show, Eq)
+type Env = [(String, Value)]
 
-type Env = [(String, LispVal)]
+data ValueCrumb = ValueCrumb Env [Value] [Value] deriving (Show, Eq)
 
-type LVZipper = (Env, LispVal, [LVCrumb])
+type ValueZipper = (Env, Value, [ValueCrumb])
 
-type LVZipperTurn = LVZipper -> LVZipper
+type ValueZipperTurn = ValueZipper -> ValueZipper
 
 type FocusedValPath = [Int]
 
-instance Eq LispVal where
+instance Eq Value where
   (Atom _ s1) == (Atom _ s2) = s1 == s2
   (List _ l1) == (List _ l2) = l1 == l2
   (Map l1) == (Map l2) = l1 == l2
@@ -105,7 +105,7 @@ instance Eq LispVal where
   (Func p1 v1 b1 c1) == (Func p2 v2 b2 c2) = p1 == p2 && v1 == v2 && b1 == b2 && c1 == c2
   _ == _ = False
 
-instance Show LispVal where
+instance Show Value where
   show (String contents) = "\"" ++ contents ++ "\""
   show (Character contents) = "'" ++ [contents] ++ "'"
   show (Atom _ name) = name
@@ -132,10 +132,10 @@ instance Show LispVal where
   show (Type t) = show t
   show Unit = "unit"
 
-unwordsList :: [LispVal] -> String
+unwordsList :: [Value] -> String
 unwordsList = unwords . map show
 
-instance Show LispError where
+instance Show Error where
   show (UnboundVar message var) = message ++ ": " ++ var
   show (BadSpecialForm message form) = message ++ ": " ++ show form
   show (NotFunction message func) = message ++ ": " ++ show func

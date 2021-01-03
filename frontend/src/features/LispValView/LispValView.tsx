@@ -1,7 +1,7 @@
 import React from 'react'
-import LispVal from '../../components/LispVal'
+import Value from '../../components/Value'
 import { FocusedLispVal } from '../../types'
 
 export default function LispValView({ val }: { val: FocusedLispVal }) {
-  return <LispVal val={val} level={0} />
+  return <Value val={val} level={0} />
 }

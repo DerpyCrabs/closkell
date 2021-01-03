@@ -57,7 +57,7 @@ getSource :: Input -> IO (String, String)
 getSource StdInput = ("stdin",) <$> getContents
 getSource (FileInput path) = (path,) <$> readFile path
 
-compileSource :: (String, String) -> Bool -> IO LispVal
+compileSource :: (String, String) -> Bool -> IO Value
 compileSource (name, src) withoutTypecheck = do
   let ast = readExprList name src
   case ast of

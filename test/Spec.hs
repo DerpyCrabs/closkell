@@ -21,7 +21,7 @@ main = hspec $ do
   describe "Module system" moduleSystemTests
   describe "Macro system" macroSystemTests
   describe "Type system" typeSystemTests
-  describe "LispVal Zipper" zipperTests
+  describe "Value Zipper" zipperTests
   describe "EmitJS" emitJSTests
 
 parsingTests =
@@ -220,14 +220,14 @@ macroSystemTests =
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
 
 zipperTests = do
-  it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` ([], int 1, [])
-  it "can be converted to LispVal" $ lvToAST ([], int 2, [LVCrumb [] [int 1] [int 3]]) `shouldBe` Call [int 1, int 2, int 3]
-  it "can go down" $ (lvDown . lvFromAST . Call $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [LVCrumb [] [] [int 2, int 3]])
-  it "can go up" $ lvUp ([], int 2, [LVCrumb [] [int 1] [int 3]]) `shouldBe` ([], Call [int 1, int 2, int 3], [])
+  it "can be converted from Value" $ vzFromAST (int 1) `shouldBe` ([], int 1, [])
+  it "can be converted to Value" $ vzToAST ([], int 2, [ValueCrumb [] [int 1] [int 3]]) `shouldBe` Call [int 1, int 2, int 3]
+  it "can go down" $ (vzDown . vzFromAST . Call $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [ValueCrumb [] [] [int 2, int 3]])
+  it "can go up" $ vzUp ([], int 2, [ValueCrumb [] [int 1] [int 3]]) `shouldBe` ([], Call [int 1, int 2, int 3], [])
   it "can go right" $
-    (lvRight . lvRight . lvDown . lvFromAST . Call $ [int 1, int 2, int 3])
-      `shouldBe` ([], int 3, [LVCrumb [] [int 1, int 2] []])
-  it "can modify current value" $ (lvModify (\(Integer n) -> Integer (n + 1)) . lvFromAST $ int 1) `shouldBe` lvFromAST (int 2)
+    (vzRight . vzRight . vzDown . vzFromAST . Call $ [int 1, int 2, int 3])
+      `shouldBe` ([], int 3, [ValueCrumb [] [int 1, int 2] []])
+  it "can modify current value" $ (vzModify (\(Integer n) -> Integer (n + 1)) . vzFromAST $ int 1) `shouldBe` vzFromAST (int 2)
 
 typeSystemTests =
   let test = testTable runTypeSystem
@@ -343,7 +343,7 @@ emitJSTests =
           testNode "test1"
           testNode "test2"
 
-runFolderTest :: (String -> IO (Either LispError LispVal)) -> [Char] -> IO ()
+runFolderTest :: (String -> IO (Either Error Value)) -> [Char] -> IO ()
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")
   expected <- readFile (testPath ++ "/expected.clsk")

@@ -23,7 +23,7 @@ tNumber = TSum [TInteger, TFloat]
 
 stripType (name, val, _) = (name, val)
 
-primitives :: [(String, [LispVal] -> ThrowsError LispVal, LispType)]
+primitives :: [(String, [Value] -> ThrowsError Value, LispType)]
 primitives =
   [ ("+", numericBinop (+) (+), TFunc [tNumber, tNumber] Nothing tNumber),
     ("-", numericBinop (-) (-), TFunc [tNumber, tNumber] Nothing tNumber),
@@ -62,42 +62,42 @@ primitives =
 isPrimitive :: String -> Bool
 isPrimitive str = str `elem` ((fst . stripType <$> primitives) ++ (fst . stripType <$> ioPrimitives))
 
-ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal, LispType)]
+ioPrimitives :: [(String, [Value] -> IOThrowsError Value, LispType)]
 ioPrimitives =
   [ ("io.read", readProc, TFunc [] Nothing TString),
     ("io.write", writeProc, TFunc [TString] Nothing TUnit),
     ("io.panic", panic, TFunc [TVar "a"] Nothing (TVar "b"))
   ]
 
-panic :: [LispVal] -> IOThrowsError LispVal
+panic :: [Value] -> IOThrowsError Value
 panic [err] = liftThrows $ throwError $ FromCode err
 
-readProc :: [LispVal] -> IOThrowsError LispVal
+readProc :: [Value] -> IOThrowsError Value
 readProc [] = liftIO getLine >>= liftThrows . Right . String
 
-writeProc :: [LispVal] -> IOThrowsError LispVal
+writeProc :: [Value] -> IOThrowsError Value
 writeProc [String obj] = liftIO $ putStrLn obj >> return Unit
 
-integerBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
+integerBinop :: (Integer -> Integer -> Integer) -> [Value] -> ThrowsError Value
 integerBinop op [Integer a, Integer b] = return $ Integer $ op a b
 
-floatBinop :: (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
+floatBinop :: (Double -> Double -> Double) -> [Value] -> ThrowsError Value
 floatBinop op [Float a, Float b] = return $ Float $ op a b
 
-unpackInteger :: LispVal -> ThrowsError Integer
+unpackInteger :: Value -> ThrowsError Integer
 unpackInteger (Integer n) = return n
 
-unpackFloat :: LispVal -> ThrowsError Double
+unpackFloat :: Value -> ThrowsError Double
 unpackFloat (Float n) = return n
 
-boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinop :: (Value -> ThrowsError a) -> (a -> a -> Bool) -> [Value] -> ThrowsError Value
 boolBinop unpacker op [arg, arg2] =
   do
     left <- unpacker arg
     right <- unpacker arg2
     return $ Bool $ left `op` right
 
-stringBinop :: (LispVal -> ThrowsError a) -> (a -> a -> String) -> [LispVal] -> ThrowsError LispVal
+stringBinop :: (Value -> ThrowsError a) -> (a -> a -> String) -> [Value] -> ThrowsError Value
 stringBinop unpacker op [arg, arg2] =
   do
     left <- unpacker arg
@@ -105,12 +105,12 @@ stringBinop unpacker op [arg, arg2] =
     return $ String $ left `op` right
 
 createNumericBinop ::
-  ((Integer -> Integer -> a) -> [LispVal] -> ThrowsError LispVal) ->
-  ((Double -> Double -> b) -> [LispVal] -> ThrowsError LispVal) ->
+  ((Integer -> Integer -> a) -> [Value] -> ThrowsError Value) ->
+  ((Double -> Double -> b) -> [Value] -> ThrowsError Value) ->
   (Integer -> Integer -> a) ->
   (Double -> Double -> b) ->
-  [LispVal] ->
-  ThrowsError LispVal
+  [Value] ->
+  ThrowsError Value
 createNumericBinop intBinop floatBinop opInt opFloat xs
   | all isInteger xs = intBinop opInt xs
   | all isFloat xs = floatBinop opFloat xs
@@ -125,10 +125,10 @@ createNumericBinop intBinop floatBinop opInt opFloat xs
     toFloat (Integer i) = Float $ fromInteger i
     toFloat f = f
 
-numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [LispVal] -> ThrowsError LispVal
+numBoolBinop :: (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> [Value] -> ThrowsError Value
 numBoolBinop = createNumericBinop intBoolBinop floatBoolBinop
 
-numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [LispVal] -> ThrowsError LispVal
+numericBinop :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> [Value] -> ThrowsError Value
 numericBinop = createNumericBinop integerBinop floatBinop
 
 intBoolBinop = boolBinop unpackInteger
@@ -139,16 +139,16 @@ strStringBinop = stringBinop unpackStr
 
 boolBoolBinop = boolBinop unpackBool
 
-unpackStr :: LispVal -> ThrowsError String
+unpackStr :: Value -> ThrowsError String
 unpackStr (String s) = return s
 
-unpackBool :: LispVal -> ThrowsError Bool
+unpackBool :: Value -> ThrowsError Bool
 unpackBool (Bool b) = return b
 
-notOp :: [LispVal] -> ThrowsError LispVal
+notOp :: [Value] -> ThrowsError Value
 notOp [v] = Bool . not <$> unpackBool v
 
-get :: [LispVal] -> ThrowsError LispVal
+get :: [Value] -> ThrowsError Value
 get [key, Map (k : val : rest)]
   | key == k = return val
   | otherwise = get [key, Map rest]
@@ -177,28 +177,28 @@ isBool _ = return $ Bool False
 isDottedList [DottedList {}] = return $ Bool True
 isDottedList _ = return $ Bool False
 
-doFunc :: [LispVal] -> ThrowsError LispVal
+doFunc :: [Value] -> ThrowsError Value
 doFunc [] = throwError $ NumArgs 0 []
 doFunc args = return $ last args
 
-stringFrom :: [LispVal] -> ThrowsError LispVal
+stringFrom :: [Value] -> ThrowsError Value
 stringFrom [x] = return $ String $ show x
 stringFrom xs = stringFrom [list xs]
 
-stringToList :: [LispVal] -> ThrowsError LispVal
+stringToList :: [Value] -> ThrowsError Value
 stringToList [String str] = return $ list (Character <$> str)
 
-cdr :: [LispVal] -> ThrowsError LispVal
+cdr :: [Value] -> ThrowsError Value
 cdr [List _ (_ : xs)] = return $ list xs
 
-cons :: [LispVal] -> ThrowsError LispVal
+cons :: [Value] -> ThrowsError Value
 cons [x, List _ xs] = return $ list $ x : xs
 
-car :: [LispVal] -> ThrowsError LispVal
+car :: [Value] -> ThrowsError Value
 car [List _ (x : _)] = return x
 
-nth :: [LispVal] -> ThrowsError LispVal
+nth :: [Value] -> ThrowsError Value
 nth [Integer i, List _ xs] | length xs > fromIntegral i = return $ xs !! fromIntegral i
 
-eq :: [LispVal] -> ThrowsError LispVal
+eq :: [Value] -> ThrowsError Value
 eq [arg, arg2] = return $ Bool (arg == arg2)

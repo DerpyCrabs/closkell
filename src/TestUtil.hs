@@ -12,7 +12,7 @@ import Control.Monad.Except
 import Data.Char (isDigit, isSpace)
 import Data.Error (extractValue)
 import Data.List (isPrefixOf)
-import Data.Value (LispVal (..))
+import Data.Value (Value (..))
 import Eval (eval)
 import Eval.Primitive
 import Parse
@@ -20,23 +20,23 @@ import System.Command
 import Test.Hspec
 import Types
 
-runModuleSystem :: String -> IO (Either LispError LispVal)
+runModuleSystem :: String -> IO (Either Error Value)
 runModuleSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
   moduleSystem parsedVals
 
-runTypeSystem :: String -> IO (Either LispError LispVal)
+runTypeSystem :: String -> IO (Either Error Value)
 runTypeSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
   _ <- typeSystem (last parsedVals)
   return Unit
 
-runMacroSystem :: String -> IO (Either LispError LispVal)
+runMacroSystem :: String -> IO (Either Error Value)
 runMacroSystem code = runExceptT $ do
   parsedVals <- lift $ runParse code
   macroSystem (last parsedVals)
 
-runEmitJS :: String -> IO (Either LispError String)
+runEmitJS :: String -> IO (Either Error String)
 runEmitJS code = runExceptT $ do
   parsedVals <- lift $ runParse code
   return $ emitJS $ last parsedVals
@@ -52,15 +52,15 @@ runNodeTest testPath = do
       rstrip out `shouldBe` rstrip expected
     Left err -> error (show err)
 
-runEval :: String -> IO (Either LispError LispVal)
+runEval :: String -> IO (Either Error Value)
 runEval code = runExceptT $ do
   parsedVals <- lift $ runParse code
   eval primitiveBindings $ last parsedVals
 
-runParse :: String -> IO [LispVal]
+runParse :: String -> IO [Value]
 runParse = return . extractValue . readExprList ""
 
-runInterpret :: String -> IO (Either LispError [LispVal])
+runInterpret :: String -> IO (Either Error [Value])
 runInterpret code = runExceptT $ do
   parsedVals <- lift $ runParse code
   mapM (eval primitiveBindings) parsedVals

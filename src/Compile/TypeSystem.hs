@@ -14,23 +14,23 @@ import Eval
 import Eval.Primitive
 import Types
 
-typeSystem :: LispVal -> IOThrowsError LispVal
+typeSystem :: Value -> IOThrowsError Value
 typeSystem val =
   let env = typeBindings
-      z = lvSetEnv env . lvFromAST $ val
+      z = vzSetEnv env . vzFromAST $ val
    in do
         _ <- typeSystem' [] [id] z
         return val
 
-typeSystem' :: [String] -> [LVZipperTurn] -> LVZipper -> IOThrowsError LispVal
+typeSystem' :: [String] -> [ValueZipperTurn] -> ValueZipper -> IOThrowsError Value
 typeSystem' stack steps z@(env, Call [Atom _ "if", pred, conseq, alt], _) = do
-  predType <- typeSystem' stack [id] $ lvSet pred z
-  conseqType <- typeSystem' stack [id] $ lvSet conseq z
-  altType <- typeSystem' stack [id] $ lvSet alt z
+  predType <- typeSystem' stack [id] $ vzSet pred z
+  conseqType <- typeSystem' stack [id] $ vzSet conseq z
+  altType <- typeSystem' stack [id] $ vzSet alt z
   unless (checkType predType TBool) $ throwError $ TypeMismatch TBool (unwrapType predType)
   if unwrapType conseqType == unwrapType altType
-    then typeSystem' stack steps $ lvSet conseqType z
-    else typeSystem' stack steps $ lvSet (Type $ deduceReturnType (unwrapType conseqType) (unwrapType altType)) z
+    then typeSystem' stack steps $ vzSet conseqType z
+    else typeSystem' stack steps $ vzSet (Type $ deduceReturnType (unwrapType conseqType) (unwrapType altType)) z
   where
     deduceReturnType (TVar var) (TVar _) = TVar var
     deduceReturnType (TVar _) t = t
@@ -49,7 +49,7 @@ typeSystem' stack steps z@(_, Call (Func {vararg = vararg, params = params} : ar
 typeSystem' stack steps z@(env, Call (Atom _ func : _), crumbs) = do
   let newStack = if isFunc env func then func : stack else stack
   if func `elem` stack && isFunc env func
-    then typeSystem' newStack steps $ lvSet (Type (TVar func)) z
+    then typeSystem' newStack steps $ vzSet (Type (TVar func)) z
     else do
       (newZ, newSteps) <- stepEval z
       case newSteps ++ steps of
@@ -74,7 +74,7 @@ typeBindings = primitiveBindings ++ ioBindings
     primitiveBindings = makeFunc PrimitiveFunc <$> (transformType <$> primitives)
     ioBindings = makeFunc PrimitiveFunc <$> (transformType <$> ioPrimitives)
 
-createType :: LispType -> ([LispVal] -> ThrowsError LispVal)
+createType :: LispType -> ([Value] -> ThrowsError Value)
 createType (TFunc argTypes varArg retType) args = do
   argTypesWithVarArgs <- case varArg of
     Nothing ->
@@ -143,7 +143,7 @@ typeCompatibleWith t (TVar _) = True
 typeCompatibleWith t1 t2 | t1 == t2 = True
 typeCompatibleWith _ _ = False
 
-typeOf :: LispVal -> LispType
+typeOf :: Value -> LispType
 typeOf (Integer _) = TInteger
 typeOf (Character _) = TCharacter
 typeOf (String _) = TString
@@ -171,11 +171,11 @@ allEqual :: Eq a => [a] -> Bool
 allEqual [] = True
 allEqual (x : xs) = all (== x) xs
 
-unwrapType :: LispVal -> LispType
+unwrapType :: Value -> LispType
 unwrapType (Type t) = t
 unwrapType t = error $ "Failed to unwrap type " ++ show t
 
-checkType :: LispVal -> LispType -> Bool
+checkType :: Value -> LispType -> Bool
 checkType (Type t) t2 | t == t2 = True
 checkType _ _ = False
 

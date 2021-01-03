@@ -1,9 +1,5 @@
 import React from 'react'
-import {
-  FocusedLispVal,
-  FocusedValPath,
-  LispVal as LispValType,
-} from '../types'
+import { FocusedLispVal, FocusedValPath, Value as LispValType } from '../types'
 
 function selectColor(number: number) {
   const hue = number * 137.508 // use golden angle approximation

@@ -5,12 +5,12 @@ module Compile.EmitJS (emitJS, emitPrimitives) where
 import Data.FileEmbed (embedStringFile)
 import Data.List (intercalate)
 import Eval.Primitive (ioPrimitives, primitives)
-import Types (LispVal (..))
+import Types (Value (..))
 
-emitJS :: LispVal -> String
+emitJS :: Value -> String
 emitJS val = emitPrimitives ++ emitJS' val
 
-emitJS' :: LispVal -> String
+emitJS' :: Value -> String
 emitJS' (Call [Atom _ "fn", List _ [List _ []], body]) = "() => " ++ emitJS' body
 emitJS' (Call [Atom _ "fn", List _ params, body]) = "(" ++ intercalate "," (emitJS' <$> params) ++ ") => " ++ emitJS' body
 emitJS' (Call [Atom _ "fn", DottedList _ [] (Atom _ "%&"), body]) = "(..." ++ "$$vararg" ++ ") => " ++ emitJS' body
