@@ -11,9 +11,9 @@ emitJS :: AST -> String
 emitJS val = emitPrimitives ++ emitJS' val
 
 emitJS' :: AST -> String
-emitJS' (ASTFunc params Nothing body _) = "(" ++ intercalate "," (escapeName <$> params) ++ ") => " ++ emitJS' body
-emitJS' (ASTFunc [] (Just "%&") body _) = "(..." ++ "$$vararg" ++ ") => " ++ emitJS' body
-emitJS' (ASTFunc params (Just varargs) body _) = "(" ++ intercalate "," (escapeName <$> params) ++ (if null params then "" else ",") ++ "..." ++ escapeName varargs ++ ") => " ++ emitJS' body
+emitJS' (ASTFunc params Nothing body _) = "((" ++ intercalate "," (escapeName <$> params) ++ ") => " ++ emitJS' body ++ ")"
+emitJS' (ASTFunc [] (Just "%&") body _) = "((..." ++ "$$vararg" ++ ") => " ++ emitJS' body ++ ")"
+emitJS' (ASTFunc params (Just varargs) body _) = "((" ++ intercalate "," (escapeName <$> params) ++ (if null params then "" else ",") ++ "..." ++ escapeName varargs ++ ") => " ++ emitJS' body ++ ")"
 emitJS' (ASTUnquoteSplicing _ val) = "...(" ++ emitJS' val ++ ")"
 emitJS' (ASTLet _ binds expr) = "(function(){" ++ concat (emitBind <$> binds) ++ "return " ++ emitJS' expr ++ ";" ++ "})()"
   where
