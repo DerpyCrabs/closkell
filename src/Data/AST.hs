@@ -42,7 +42,7 @@ fromValue (Call (Atom _ "let" : bindsAndExpr)) = do
 fromValue (Call (function : args)) = do
   astFunction <- fromValue function
   astArgs <- mapM fromValue args
-  return $ ASTCall False astFunction astArgs
+  return $ ASTApp False astFunction astArgs
 fromValue Unit = return ASTUnit
 fromValue (String s) = return $ ASTString s
 fromValue (Character s) = return $ ASTCharacter s

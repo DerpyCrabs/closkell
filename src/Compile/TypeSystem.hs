@@ -141,6 +141,8 @@ typeCompatibleWith (TVar _) (TVar _) = True
 typeCompatibleWith (TVar _) t = True
 typeCompatibleWith t (TVar _) = True
 typeCompatibleWith t1 t2 | t1 == t2 = True
+typeCompatibleWith t1 TAny = True
+typeCompatibleWith TAny t2 = True
 typeCompatibleWith _ _ = False
 
 typeOf :: Value -> LispType

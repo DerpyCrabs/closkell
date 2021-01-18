@@ -72,7 +72,7 @@ data AST
   | ASTString String
   | ASTBool Bool
   | ASTUnit
-  | ASTCall Bool AST [AST]
+  | ASTApp Bool AST [AST]
   | ASTPrimitiveFunc String ([Value] -> ThrowsError Value)
   | ASTIOFunc String ([Value] -> IOThrowsError Value)
   | ASTFunc [String] (Maybe String) AST ASTEnv
@@ -95,6 +95,7 @@ data LispType
   | TProd [LispType]
   | TUnit
   | TVar String
+  | TAny
   deriving (Eq, Generic)
 
 type Env = [(String, Value)]
@@ -192,4 +193,5 @@ instance Show LispType where
   show (TSum variants) = intercalate " | " (show <$> variants)
   show (TProd elements) = intercalate " & " (show <$> elements)
   show TUnit = "TUnit"
+  show TAny = "TAny"
   show (TVar var) = var
