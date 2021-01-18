@@ -76,10 +76,10 @@ data AST
   | ASTPrimitiveFunc String ([Value] -> ThrowsError Value)
   | ASTIOFunc String ([Value] -> IOThrowsError Value)
   | ASTFunc [String] (Maybe String) AST ASTEnv
-  | ASTType LispType
   | ASTIf AST AST AST
   | ASTLet Bool [(String, AST)] AST
   | ASTUnquoteSplicing Bool AST
+  | ASTType LispType
 
 data LispType
   = TCharacter

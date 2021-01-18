@@ -48,8 +48,19 @@ macroExpand state (_, val, _) = return (state, val)
 evalMacro :: MacroExpansionState -> Env -> Value -> [Value] -> ValueZipper -> IOThrowsError (MacroExpansionState, Value)
 evalMacro state env body args z = evalMacro' [id] state (vzSet body . vzSetEnv (("body", list args) : env) $ z)
   where
-    evalMacro' (step : steps) state z = do
-      (newZ, newSteps) <- stepEval (step z)
+    evalMacro' steps state z@(_, Call [Atom _ "quote", val], _) =
+      let correctedPath = correctQuoteEvalPath val
+       in case length correctedPath of
+            0 -> return (state, val)
+            _ -> evalMacro' (tail correctedPath ++ steps) state (head correctedPath $ vzSet (func "evaluating-unquote" [val]) z)
+    evalMacro' steps state z@(_, Call [Atom _ "unquote", val], _) =
+      evalMacro' steps state (vzSet val z)
+    evalMacro' steps state z@(_, Call [Atom _ "evaluating-unquote", val], _) =
+      return (state, val)
+    evalMacro' steps state z = do
+      (newZ, newSteps) <- stepEval z
       (newState, newVal) <- macroExpand state newZ
-      evalMacro' (newSteps ++ steps) newState (vzSet newVal newZ)
-    evalMacro' [] state z = return (state, vzToAST z)
+      let nextSteps = newSteps ++ steps
+      case nextSteps of
+        (step : nextSteps) -> evalMacro' nextSteps newState $ step (vzSet newVal newZ)
+        [] -> return (newState, newVal)

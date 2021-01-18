@@ -3,6 +3,7 @@ module Eval
     evalSteps,
     eval,
     evalUsingNode,
+    correctQuoteEvalPath,
   )
 where
 
@@ -80,7 +81,7 @@ stepEval z@(env, Call (Atom _ "let" : bindsAndExpr), _) = do
     vars binds = matchVars <$> binds
     unquoteBind _ bind@(List _ [name, var]) | isNormalForm var = bind
     unquoteBind env (List _ [name, fn@(Call (Atom _ "fn" : _))]) = list [name, createFn env fn]
-    unquoteBind _ (List _ [name, var]) = list [name, func "unquote" [var]]
+    unquoteBind _ (List _ [name, var]) = list [name, var]
     mergePath ((p1, List _ [name, var]) : (p2, bind2) : next) | isNormalForm var = mergePath ((p2 . p1, bind2) : next)
     mergePath [(p1, List _ [name, var])] | isNormalForm var = []
     mergePath ((p1, bind1@(List _ [name, var])) : (p2, bind2) : next) = (p1, bind1) : mergePath ((p2, bind2) : next)
@@ -100,22 +101,10 @@ stepEval z@(_, Call [Atom _ "if", Bool False, _, alt], _) =
   return (vzSet alt z, [id])
 stepEval z@(_, Call [Atom _ "if", _, _, _], _) =
   return (z, [vzRight . vzDown, vzUp])
-stepEval z@(_, Call [Atom _ "quote", val], _) =
-  let correctedPath = correctQuoteEvalPath val
-   in case length correctedPath of
-        0 -> return (vzSet val z, [])
-        _ -> return (vzSet (func "evaluating-unquote" [val]) z, correctedPath)
-stepEval z@(_, Call [Atom _ "evaluating-unquote", val], _) =
-  return (vzSet (performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-list", val], _) =
   return (vzSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-map", val], _) =
   return (vzSet ((\(Call args) -> Map args) $ performUnquoteSplicing val) z, [])
-stepEval z@(_, Call [Atom _ "unquote", val], _)
-  | isNormalForm val =
-    return (vzSet val z, [])
-stepEval z@(_, Call [Atom _ "unquote", val], _) =
-  return (vzSet val z, [id])
 stepEval z@(_, Call [Atom _ "unquote-splicing", val], _) =
   return (vzSet (func "evaluating-unquote-splicing" [val]) z, [vzRight . vzDown, vzUp])
 stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", List _ _], _) =
@@ -125,18 +114,17 @@ stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", Map _], _) =
 stepEval z@(_, Call (function : args), _) =
   case function of
     PrimitiveFunc _ f -> do
-      res <- liftThrows $ f $ unsplice args
+      res <- liftThrows $ f args
       return (vzSet res z, [])
     IOFunc _ f -> do
-      res <- f $ unsplice args
+      res <- f args
       return (vzSet res z, [])
     f@Func {} -> do
-      res <- liftThrows $ applyFunc f z $ unsplice args
+      res <- liftThrows $ applyFunc f z args
       return (res, [id])
     _ ->
       return (z, evalArgsPath)
   where
-    unsplice args = (\(Call args) -> args) $ performUnquoteSplicing $ Call args
     evalArgsPath = reverse $ foldl foldFunc [vzDown] (zip [1 ..] (function : args))
       where
         foldFunc (t : ts) (i, arg) | i /= length args + 1 = if isNormalForm arg then vzRight . t : ts else vzRight : t : ts

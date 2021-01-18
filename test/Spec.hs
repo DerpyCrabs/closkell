@@ -147,37 +147,16 @@ evaluationTests =
             [ ("(get \"k\" {\"b\" 5 \"k\" 6})", Right $ int 6),
               ("(get \"b\" {\"b\" 5 \"k\" 6})", Right $ int 5)
             ]
-        it "supports quoting" $ test [("'[4 5]", Right $ list [int 4, int 5])]
-        it "supports unquoting" $
-          test
-            [ ("(+ 4 ~(+ 1 5))", Right $ int 10),
-              ("(+ 3 ~(+ 1 3))", Right $ int 7)
-            ]
-        it "supports unquote-splicing" $
-          test
-            [ ("(+ ~@[5 6])", Right $ int 11),
-              ("(+ ~@[5] ~@[8])", Right $ int 13)
-            ]
-        it "supports list unquoting" $
-          test
-            [ ("[4 ~(+ 1 5)]", Right $ list [int 4, int 6]),
-              ("[4 ~(+ 5 6) ~(+ 1 3)]", Right $ list [int 4, int 11, int 4])
-            ]
         it "supports list unquote-splicing" $
           test
             [ ("[4 ~@[5 6]]", Right $ list [int 4, int 5, int 6]),
               ("[4 ~@[5 6] ~@[7 8]]", Right $ list [int 4, int 5, int 6, int 7, int 8]),
               ("[4 5 ~@[1 3]]", Right $ list [int 4, int 5, int 1, int 3])
             ]
-        it "supports map unquoting" $
-          test
-            [ ("{4 ~(+ 1 5)}", Right $ Map [int 4, int 6]),
-              ("{4 ~(+ 5 6) \\c ~(+ 1 3)}", Right $ Map [int 4, int 11, Character 'c', int 4])
-            ]
         it "supports map unquote-splicing" $
           test
             [ ("{4 5 ~@{1 3}}", Right $ Map [int 4, int 5, int 1, int 3]),
-              ("{4 5 ~@{1 3} 3 2 ~@{1 3}}", Right $ Map [int 4, int 5, int 1, int 3, int 3, int 2, int 1, int 3])
+              ("{4 ~@{1 3} 3 ~@{1 3}}", Right $ Map [int 4, int 1, int 3, int 3, int 1, int 3])
             ]
         it "supports all of std" $
           test
@@ -273,9 +252,7 @@ typeSystemTests =
         it "supports user-defined functions" $
           test
             [ ("(let [kek (fn [x y] (+ x y))] (kek 5 3))", Right Unit),
-              ("(let [kek (fn [x y] (+ x y))] (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
-              ("(let [kek (fn [x y . pek] (+ x ~@pek))] (kek 5 3 4))", Right Unit),
-              ("(let [kek (fn [x y . pek] (+ y ~@pek))] (kek 5 3 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+              ("(let [kek (fn [x y] (+ x y))] (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
         it "handles user-defined function argument number mismatch" $
           test
