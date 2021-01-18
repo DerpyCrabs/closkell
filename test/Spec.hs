@@ -268,6 +268,15 @@ typeSystemTests =
               ("(let [rec (fn [a] (let [rec (fn [b] (rec a))] (rec 5)))] (rec 1))", Right Unit),
               ("(let [rec (fn [a] (if (== a 5) true (rec \\c)))] (eq? false (rec 6)))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
+        it "supports list and map unquote-splicing" $
+          test
+            [ ("(car [3 4 ~@[5 6]])", Right Unit),
+              ("(get 5 {3 4 ~@{5 6}})", Right Unit),
+              ("(+ 3 (car [3 4 ~@[5 6]]))", Right Unit),
+              ("(+ 3 (get 5 {3 4 ~@{5 6}}))", Right Unit),
+              ("(== \\c (car [3 4 ~@[5 6]]))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
+              ("(== \\c (get 5 {3 4 ~@{5 6}}))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+            ]
         it "supports all std code" $
           test
             [ ("(let [not (fn [arg] arg)] [not2 #(if %% \"s\" true)] (not2 (not true)))", Right Unit),
