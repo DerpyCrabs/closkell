@@ -19,7 +19,6 @@ emitJS' (ASTLet _ binds expr) = "(function(){" ++ concat (emitBind <$> binds) ++
   where
     emitBind (name, val) = "const " ++ escapeName name ++ " = " ++ emitJS' val ++ ";"
 emitJS' (ASTIf pred conseq alt) = "(" ++ emitJS' pred ++ ") ? (" ++ emitJS' conseq ++ ") : (" ++ emitJS' alt ++ ")"
-emitJS' (ASTApply _ f args) = "(" ++ emitJS' f ++ ").apply(" ++ emitJS' args ++ ")"
 emitJS' (ASTApp _ (ASTAtom func) args) | isPrimitive func = primitiveName func ++ "(" ++ intercalate "," (emitJS' <$> args) ++ ")"
 emitJS' (ASTApp _ func args) = emitJS' func ++ "(" ++ intercalate "," (emitJS' <$> args) ++ ")"
 emitJS' (ASTList _ xs) = "[" ++ intercalate "," (emitJS' <$> xs) ++ "]"

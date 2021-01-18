@@ -23,10 +23,6 @@ fromValue (Call [Atom _ "if", pred, conseq, alt]) = do
   astConseq <- fromValue conseq
   astAlt <- fromValue alt
   return $ ASTIf astPred astConseq astAlt
-fromValue (Call [Atom _ "apply", f, args]) = do
-  astF <- fromValue f
-  astArgs <- fromValue args
-  return $ ASTApply False astF astArgs
 fromValue (Call [Atom _ "unquote-splicing", val]) = do
   astVal <- fromValue val
   return $ ASTUnquoteSplicing False astVal

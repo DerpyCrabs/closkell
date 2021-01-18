@@ -130,7 +130,7 @@ deduceArgType t1 t2 = throwError $ TypeMismatch t1 t2
 
 typeCompatibleWith :: LispType -> LispType -> Bool
 typeCompatibleWith (TSum sumTypes) (TSum sumTypes2) | isSumTypeDeducibleTo sumTypes2 sumTypes = True
-typeCompatibleWith (TSum sumTypes) argType | argType `elem` sumTypes = True
+typeCompatibleWith (TSum sumTypes) argType | any (typeCompatibleWith argType) sumTypes = True
 typeCompatibleWith (TSum sumTypes) (TProd prodTypes) | all (`elem` sumTypes) prodTypes = True
 typeCompatibleWith (TProd prodTypes1) (TProd prodTypes2) | all (uncurry typeCompatibleWith) (zip prodTypes1 prodTypes2) = True
 typeCompatibleWith (TList listType) (TList listType2) | typeCompatibleWith listType listType2 = True

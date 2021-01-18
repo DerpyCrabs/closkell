@@ -80,7 +80,6 @@ data AST
   | ASTIf AST AST AST
   | ASTLet Bool [(String, AST)] AST
   | ASTUnquoteSplicing Bool AST
-  | ASTApply Bool AST AST
 
 data LispType
   = TCharacter

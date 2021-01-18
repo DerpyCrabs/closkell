@@ -19,7 +19,7 @@
 [fold1 (fn [func lst] (foldl func (car lst) (cdr lst)))]
 [last (fn [lst] (fold1 (fn [acc stmt] stmt) lst))]
 [unfold (fn [func init pred]
-  (if (pred init)
+  (if (pred initfunction to list)
       (cons init [])
       (cons init (unfold func (func init) pred))))]
 [max (fn [first . rest] (foldl (fn [old new] (if (> old new) old new)) first rest))]
@@ -32,8 +32,6 @@
 [remove (fn [pred lst] (filter (complement pred) lst))]
 [append (fn [l1 l2] (foldr cons l2 l1))]
 [curry (fn [func arg] #(func arg ~@%&))]
-
-[curry (fn [func . args]  #(apply func (append args %&)))]
 
 ; (define (dec i) (- i 1))
 ; (define (inc i) (+ i 1))

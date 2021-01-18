@@ -100,13 +100,6 @@ stepEval z@(_, Call [Atom _ "if", Bool False, _, alt], _) =
   return (vzSet alt z, [id])
 stepEval z@(_, Call [Atom _ "if", _, _, _], _) =
   return (z, [vzRight . vzDown, vzUp])
-stepEval z@(_, Call [Atom _ "apply", f, args], _)
-  | isNormalForm f =
-    return (vzSet (func "evaluating-apply" [f, args]) z, [vzRight . vzRight . vzDown, vzUp])
-stepEval z@(_, Call [Atom _ "apply", f, args], _) =
-  return (vzSet (func "evaluating-apply" [f, args]) z, [vzRight . vzDown, vzRight, vzUp])
-stepEval z@(_, Call [Atom _ "evaluating-apply", f, List _ args], _) =
-  return (vzSet (Call (f : args)) z, [id])
 stepEval z@(_, Call [Atom _ "quote", val], _) =
   let correctedPath = correctQuoteEvalPath val
    in case length correctedPath of
