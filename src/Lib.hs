@@ -9,7 +9,7 @@ module Lib
     primitiveBindings,
     Value (..),
     Error (..),
-    LispType (..),
+    Type (..),
     ValueZipper,
     ValueCrumb (..),
     readExprList,

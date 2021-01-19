@@ -11,7 +11,7 @@ module Types
     ValueZipper,
     ValueZipperTurn,
     Env,
-    LispType (..),
+    Type (..),
     FocusedValPath,
     AST (..),
   )
@@ -34,8 +34,8 @@ type Parser = Parsec Void String
 
 data Error
   = NumArgs Integer [Value]
-  | TypeMismatch LispType LispType
-  | FailedToDeduceVar String [LispType]
+  | TypeMismatch Type Type
+  | FailedToDeduceVar String [Type]
   | BadSpecialForm String Value
   | NotFunction String String
   | Parsing (ParseErrorBundle String Void)
@@ -60,7 +60,7 @@ data Value
   | IOFunc String ([Value] -> IOThrowsError Value)
   | Func {params :: [String], vararg :: Maybe String, body :: Value, closure :: Env}
   | Macro {body :: Value, closure :: Env}
-  | Type LispType
+  | Type Type
 
 data AST
   = ASTAtom String
@@ -79,19 +79,19 @@ data AST
   | ASTIf AST AST AST
   | ASTLet Bool [(String, AST)] AST
   | ASTUnquoteSplicing Bool AST
-  | ASTType LispType
+  | ASTType Type
 
-data LispType
+data Type
   = TCharacter
-  | TList LispType
-  | TMap LispType LispType
+  | TList Type
+  | TMap Type Type
   | TInteger
   | TFloat
   | TString
   | TBool
-  | TFunc [LispType] (Maybe LispType) LispType
-  | TSum [LispType]
-  | TProd [LispType]
+  | TFunc [Type] (Maybe Type) Type
+  | TSum [Type]
+  | TProd [Type]
   | TUnit
   | TVar String
   | TAny
@@ -175,7 +175,7 @@ instance Show Error where
   show (Default err) = err
   show (FailedToDeduceVar name varTypes) = "Failed to deduce variable '" ++ name ++ "' from types: " ++ intercalate ", " (show <$> varTypes)
 
-instance Show LispType where
+instance Show Type where
   show TCharacter = "TCharacter"
   show (TList t) = "TList[" ++ show t ++ "]"
   show (TMap key val) = "TMap[" ++ show key ++ "," ++ show val ++ "]"

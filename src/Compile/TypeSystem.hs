@@ -74,7 +74,7 @@ typeBindings = primitiveBindings ++ ioBindings
     primitiveBindings = makeFunc PrimitiveFunc <$> (transformType <$> primitives)
     ioBindings = makeFunc PrimitiveFunc <$> (transformType <$> ioPrimitives)
 
-createType :: LispType -> ([Value] -> ThrowsError Value)
+createType :: Type -> ([Value] -> ThrowsError Value)
 createType (TFunc argTypes varArg retType) args = do
   argTypesWithVarArgs <- case varArg of
     Nothing ->
@@ -87,21 +87,21 @@ createType (TFunc argTypes varArg retType) args = do
   mapM_ (uncurry checkTypeCompatibility) (zip (snd <$> deducedArgTypes) (typeOf <$> args))
   Type <$> applyVarsToType (catMaybes $ fst <$> deducedArgTypes) retType
   where
-    checkTypeCompatibility :: LispType -> LispType -> ThrowsError ()
+    checkTypeCompatibility :: Type -> Type -> ThrowsError ()
     checkTypeCompatibility t1 t2 | typeCompatibleWith t1 t2 = return ()
     checkTypeCompatibility t1 t2 = throwError $ TypeMismatch t1 t2
-    tryDeduceVariables :: (String, [LispType]) -> ThrowsError (String, LispType)
+    tryDeduceVariables :: (String, [Type]) -> ThrowsError (String, Type)
     tryDeduceVariables (name, types) = case deduceVariables types of
       Nothing -> throwError $ FailedToDeduceVar name types
       Just t -> return (name, t)
-    deduceVariables :: [LispType] -> Maybe LispType
+    deduceVariables :: [Type] -> Maybe Type
     deduceVariables [t] = Just t
     deduceVariables (t : types) = do
       deducedType <- deduceVariables types
       either (const Nothing) Just $ snd <$> deduceArgType deducedType t
 createType _ _ = error "createType: unsupported"
 
-applyVarsToType :: [(String, LispType)] -> LispType -> ThrowsError LispType
+applyVarsToType :: [(String, Type)] -> Type -> ThrowsError Type
 applyVarsToType vars (TVar var) = case lookup var vars of
   Just t -> return t
   Nothing -> return (TVar var)
@@ -117,7 +117,7 @@ applyVarsToType vars (TFunc argTypes varArgType retType) = do
   return $ TFunc args varArg ret
 applyVarsToType _ t = return t
 
-deduceArgType :: LispType -> LispType -> ThrowsError (Maybe (String, LispType), LispType)
+deduceArgType :: Type -> Type -> ThrowsError (Maybe (String, Type), Type)
 deduceArgType (TVar v) t = return (Just (v, t), t)
 deduceArgType t (TVar v) = return (Just (v, t), t)
 deduceArgType (TList t1) (TList t2) = (TList <$>) <$> deduceArgType t1 t2
@@ -128,7 +128,7 @@ deduceArgType (TMap k1 v1) (TMap k2 v2) = do
 deduceArgType t1 t2 | typeCompatibleWith t1 t2 = return (Nothing, t1)
 deduceArgType t1 t2 = throwError $ TypeMismatch t1 t2
 
-typeCompatibleWith :: LispType -> LispType -> Bool
+typeCompatibleWith :: Type -> Type -> Bool
 typeCompatibleWith (TSum sumTypes) (TSum sumTypes2) | isSumTypeDeducibleTo sumTypes2 sumTypes = True
 typeCompatibleWith (TSum sumTypes) argType | any (typeCompatibleWith argType) sumTypes = True
 typeCompatibleWith (TSum sumTypes) (TProd prodTypes) | all (`elem` sumTypes) prodTypes = True
@@ -145,7 +145,7 @@ typeCompatibleWith t1 TAny = True
 typeCompatibleWith TAny t2 = True
 typeCompatibleWith _ _ = False
 
-typeOf :: Value -> LispType
+typeOf :: Value -> Type
 typeOf (Integer _) = TInteger
 typeOf (Character _) = TCharacter
 typeOf (String _) = TString
@@ -162,38 +162,38 @@ typeOf (Map xs) =
    in TMap (deduceSum (typeOf <$> keys)) (deduceSum (typeOf <$> values))
 typeOf t = error $ "typeOf error " ++ show t
 
-deduceSum :: [LispType] -> LispType
+deduceSum :: [Type] -> Type
 deduceSum types | allEqual types = head types
 deduceSum types = flattenSum $ TSum $ deduplicate types
 
-isSumTypeDeducibleTo :: [LispType] -> [LispType] -> Bool
+isSumTypeDeducibleTo :: [Type] -> [Type] -> Bool
 isSumTypeDeducibleTo from = all (`elem` from)
 
 allEqual :: Eq a => [a] -> Bool
 allEqual [] = True
 allEqual (x : xs) = all (== x) xs
 
-unwrapType :: Value -> LispType
+unwrapType :: Value -> Type
 unwrapType (Type t) = t
 unwrapType t = error $ "Failed to unwrap type " ++ show t
 
-checkType :: Value -> LispType -> Bool
+checkType :: Value -> Type -> Bool
 checkType (Type t) t2 | t == t2 = True
 checkType _ _ = False
 
-groupVariables :: [(String, LispType)] -> [(String, [LispType])]
+groupVariables :: [(String, Type)] -> [(String, [Type])]
 groupVariables =
   map (\l -> (fst . head $ l, map snd l)) . groupBy ((==) `on` fst)
     . sortBy (comparing fst)
 
-flattenSum :: LispType -> LispType
+flattenSum :: Type -> Type
 flattenSum (TSum elements) = TSum $ deduplicate $ concatMap go elements
   where
-    go :: LispType -> [LispType]
+    go :: Type -> [Type]
     go (TSum innerElements) = concatMap go innerElements
     go v = [v]
 
-isSum :: LispType -> Bool
+isSum :: Type -> Bool
 isSum (TSum _) = True
 isSum _ = False
 

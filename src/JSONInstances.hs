@@ -6,7 +6,7 @@ module JSONInstances where
 import Data.Aeson (ToJSON (..), object, (.=))
 import Types
 
-instance ToJSON LispType
+instance ToJSON Type
 
 instance ToJSON Value where
   toJSON (Character c) = object ["type" .= ("character" :: String), "value" .= c]

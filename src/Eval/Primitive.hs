@@ -23,7 +23,7 @@ tNumber = TSum [TInteger, TFloat]
 
 stripType (name, val, _) = (name, val)
 
-primitives :: [(String, [Value] -> ThrowsError Value, LispType)]
+primitives :: [(String, [Value] -> ThrowsError Value, Type)]
 primitives =
   [ ("+", numericBinop (+) (+), TFunc [tNumber, tNumber] Nothing tNumber),
     ("-", numericBinop (-) (-), TFunc [tNumber, tNumber] Nothing tNumber),
@@ -62,7 +62,7 @@ primitives =
 isPrimitive :: String -> Bool
 isPrimitive str = str `elem` ((fst . stripType <$> primitives) ++ (fst . stripType <$> ioPrimitives))
 
-ioPrimitives :: [(String, [Value] -> IOThrowsError Value, LispType)]
+ioPrimitives :: [(String, [Value] -> IOThrowsError Value, Type)]
 ioPrimitives =
   [ ("io.read", readProc, TFunc [] Nothing TString),
     ("io.write", writeProc, TFunc [TString] Nothing TUnit),
