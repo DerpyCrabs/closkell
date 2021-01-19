@@ -43,13 +43,9 @@ compileCommand CompileOptions {coCommon = common, coJSOutput = jsOutput, coCLSKO
   compiledSource <- compileSource source (optWithoutTypecheck common)
   case jsOutput of
     Just jsOutput -> do
-      let astVal = fromValue compiledSource
-      case astVal of
-        Left err -> hPutStrLn stderr "Syntax analysis error: " >> error (show err)
-        Right astVal -> do
-          let jsSource = emitJS astVal
-          optimized <- closureCompilerPass jsSource
-          writeFile jsOutput optimized
+      let jsSource = emitJS compiledSource
+      optimized <- closureCompilerPass jsSource
+      writeFile jsOutput optimized
     Nothing -> return ()
   case clskOutput of
     Just clskOutput -> do

@@ -13,7 +13,6 @@ module Types
     Env,
     Type (..),
     FocusedValPath,
-    AST (..),
   )
 where
 
@@ -62,25 +61,6 @@ data Value
   | Macro {body :: Value, closure :: Env}
   | Type Type
 
-data AST
-  = ASTAtom String
-  | ASTCharacter Char
-  | ASTList Bool [AST]
-  | ASTMap Bool [AST]
-  | ASTInteger Integer
-  | ASTFloat Double
-  | ASTString String
-  | ASTBool Bool
-  | ASTUnit
-  | ASTApp Bool AST [AST]
-  | ASTPrimitiveFunc String ([Value] -> ThrowsError Value)
-  | ASTIOFunc String ([Value] -> IOThrowsError Value)
-  | ASTFunc [String] (Maybe String) AST ASTEnv
-  | ASTIf AST AST AST
-  | ASTLet Bool [(String, AST)] AST
-  | ASTUnquoteSplicing Bool AST
-  | ASTType Type
-
 data Type
   = TCharacter
   | TList Type
@@ -98,8 +78,6 @@ data Type
   deriving (Eq, Generic)
 
 type Env = [(String, Value)]
-
-type ASTEnv = [(String, AST)]
 
 data ValueCrumb = ValueCrumb Env [Value] [Value] deriving (Show, Eq)
 

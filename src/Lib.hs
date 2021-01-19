@@ -24,7 +24,6 @@ module Lib
     atom,
     list,
     evalUsingNode,
-    fromValue,
   )
 where
 
@@ -34,7 +33,6 @@ import Compile.EmitJS
 import Compile.MacroSystem
 import Compile.ModuleSystem
 import Compile.TypeSystem
-import Data.AST
 import Data.Env
 import Data.Error
 import Data.Value

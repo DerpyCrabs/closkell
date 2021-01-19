@@ -9,7 +9,6 @@ import Control.Monad.Except
     MonadTrans (lift),
     runExceptT,
   )
-import Data.AST (fromValue)
 import Data.Char (isDigit, isSpace)
 import Data.Error (extractValue, throwError)
 import Data.List (isPrefixOf)
@@ -40,10 +39,7 @@ runMacroSystem code = runExceptT $ do
 runEmitJS :: String -> IO (Either Error String)
 runEmitJS code = runExceptT $ do
   parsedVals <- lift $ runParse code
-  let astVal = fromValue (last parsedVals)
-  case astVal of
-    Left err -> throwError err
-    Right astVal -> return $ emitJS astVal
+  return $ emitJS $ last parsedVals
 
 runNodeTest :: String -> IO ()
 runNodeTest testPath = do
