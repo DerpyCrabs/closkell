@@ -21,7 +21,7 @@ main = hspec $ do
   describe "Module system" moduleSystemTests
   describe "Macro system" macroSystemTests
   describe "Type system" typeSystemTests
-  describe "LispVal Zipper" zipperTests
+  describe "Value Zipper" zipperTests
   describe "EmitJS" emitJSTests
 
 parsingTests =
@@ -121,11 +121,6 @@ evaluationTests =
             [ ("(+ 1 2)", Right $ int 3),
               ("(+ 1 (+ 2 3))", Right $ int 6)
             ]
-        it "evaluates apply" $
-          test
-            [ ("(apply + [5 6])", Right $ int 11),
-              ("(apply + (cdr [3 4 5]))", Right $ int 9)
-            ]
         it "can throw errors from code" $
           test [("(io.panic \"Error\")", Left $ FromCode $ String "Error")]
         it "evaluates if" $
@@ -152,37 +147,16 @@ evaluationTests =
             [ ("(get \"k\" {\"b\" 5 \"k\" 6})", Right $ int 6),
               ("(get \"b\" {\"b\" 5 \"k\" 6})", Right $ int 5)
             ]
-        it "supports quoting" $ test [("'[4 5]", Right $ list [int 4, int 5])]
-        it "supports unquoting" $
-          test
-            [ ("(+ 4 ~(+ 1 5))", Right $ int 10),
-              ("(+ 3 ~(+ 1 3))", Right $ int 7)
-            ]
-        it "supports unquote-splicing" $
-          test
-            [ ("(+ ~@[5 6])", Right $ int 11),
-              ("(+ ~@[5] ~@[8])", Right $ int 13)
-            ]
-        it "supports list unquoting" $
-          test
-            [ ("[4 ~(+ 1 5)]", Right $ list [int 4, int 6]),
-              ("[4 ~(+ 5 6) ~(+ 1 3)]", Right $ list [int 4, int 11, int 4])
-            ]
         it "supports list unquote-splicing" $
           test
             [ ("[4 ~@[5 6]]", Right $ list [int 4, int 5, int 6]),
               ("[4 ~@[5 6] ~@[7 8]]", Right $ list [int 4, int 5, int 6, int 7, int 8]),
               ("[4 5 ~@[1 3]]", Right $ list [int 4, int 5, int 1, int 3])
             ]
-        it "supports map unquoting" $
-          test
-            [ ("{4 ~(+ 1 5)}", Right $ Map [int 4, int 6]),
-              ("{4 ~(+ 5 6) \\c ~(+ 1 3)}", Right $ Map [int 4, int 11, Character 'c', int 4])
-            ]
         it "supports map unquote-splicing" $
           test
             [ ("{4 5 ~@{1 3}}", Right $ Map [int 4, int 5, int 1, int 3]),
-              ("{4 5 ~@{1 3} 3 2 ~@{1 3}}", Right $ Map [int 4, int 5, int 1, int 3, int 3, int 2, int 1, int 3])
+              ("{4 ~@{1 3} 3 ~@{1 3}}", Right $ Map [int 4, int 1, int 3, int 3, int 1, int 3])
             ]
         it "supports all of std" $
           test
@@ -220,14 +194,14 @@ macroSystemTests =
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
 
 zipperTests = do
-  it "can be converted from LispVal" $ lvFromAST (int 1) `shouldBe` ([], int 1, [])
-  it "can be converted to LispVal" $ lvToAST ([], int 2, [LVCrumb [] [int 1] [int 3]]) `shouldBe` Call [int 1, int 2, int 3]
-  it "can go down" $ (lvDown . lvFromAST . Call $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [LVCrumb [] [] [int 2, int 3]])
-  it "can go up" $ lvUp ([], int 2, [LVCrumb [] [int 1] [int 3]]) `shouldBe` ([], Call [int 1, int 2, int 3], [])
+  it "can be converted from Value" $ vzFromAST (int 1) `shouldBe` ([], int 1, [])
+  it "can be converted to Value" $ vzToAST ([], int 2, [ValueCrumb [] [int 1] [int 3]]) `shouldBe` Call [int 1, int 2, int 3]
+  it "can go down" $ (vzDown . vzFromAST . Call $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [ValueCrumb [] [] [int 2, int 3]])
+  it "can go up" $ vzUp ([], int 2, [ValueCrumb [] [int 1] [int 3]]) `shouldBe` ([], Call [int 1, int 2, int 3], [])
   it "can go right" $
-    (lvRight . lvRight . lvDown . lvFromAST . Call $ [int 1, int 2, int 3])
-      `shouldBe` ([], int 3, [LVCrumb [] [int 1, int 2] []])
-  it "can modify current value" $ (lvModify (\(Integer n) -> Integer (n + 1)) . lvFromAST $ int 1) `shouldBe` lvFromAST (int 2)
+    (vzRight . vzRight . vzDown . vzFromAST . Call $ [int 1, int 2, int 3])
+      `shouldBe` ([], int 3, [ValueCrumb [] [int 1, int 2] []])
+  it "can modify current value" $ (vzModify (\(Integer n) -> Integer (n + 1)) . vzFromAST $ int 1) `shouldBe` vzFromAST (int 2)
 
 typeSystemTests =
   let test = testTable runTypeSystem
@@ -278,9 +252,7 @@ typeSystemTests =
         it "supports user-defined functions" $
           test
             [ ("(let [kek (fn [x y] (+ x y))] (kek 5 3))", Right Unit),
-              ("(let [kek (fn [x y] (+ x y))] (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
-              ("(let [kek (fn [x y . pek] (+ x ~@pek))] (kek 5 3 4))", Right Unit),
-              ("(let [kek (fn [x y . pek] (+ y ~@pek))] (kek 5 3 \\c))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+              ("(let [kek (fn [x y] (+ x y))] (kek \\c 3))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
         it "handles user-defined function argument number mismatch" $
           test
@@ -296,6 +268,15 @@ typeSystemTests =
               ("(let [rec (fn [a] (let [rec (fn [b] (rec a))] (rec 5)))] (rec 1))", Right Unit),
               ("(let [rec (fn [a] (if (== a 5) true (rec \\c)))] (eq? false (rec 6)))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
+        it "supports list and map unquote-splicing" $
+          test
+            [ ("(car [3 4 ~@[5 6]])", Right Unit),
+              ("(get 5 {3 4 ~@{5 6}})", Right Unit),
+              ("(+ 3 (car [3 4 ~@[5 6]]))", Right Unit),
+              ("(+ 3 (get 5 {3 4 ~@{5 6}}))", Right Unit),
+              ("(== \\c (car [3 4 ~@[5 6]]))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
+              ("(== \\c (get 5 {3 4 ~@{5 6}}))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
+            ]
         it "supports all std code" $
           test
             [ ("(let [not (fn [arg] arg)] [not2 #(if %% \"s\" true)] (not2 (not true)))", Right Unit),
@@ -306,14 +287,14 @@ typeSystemTests =
               ("(let [not #(if %% 3 true)] [null? #(if (not (eq? %% [])) true false)] (if (not (not (null? []))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
               ("(eq? 5 (car [2 \\c]))", Right Unit),
               ("(eq? \\c (car [2 5]))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger]),
-              ("(let [get-second (fn [a b] b)] (eq? 5 (apply get-second [\\c 5])))", Right Unit),
-              ("(let [get-second (fn [a b] b)] (eq? 5 (apply get-second [\\c \\с])))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter]),
+              ("(let [get-second (fn [a b] b)] (eq? 5 (get-second \\c 5)))", Right Unit),
+              ("(let [get-second (fn [a b] b)] (eq? 5 (get-second \\c \\с)))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter]),
               ("(let [some-fn (fn [] (if (== 3 4) \\c 5))] (eq? true (some-fn)))", Left $ FailedToDeduceVar "a" [TBool, TSum [TCharacter, TInteger]]),
               ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right Unit),
               ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr sum end (cdr lst)))))] (foldr sum 8 [1 2 4]))", Right Unit),
               ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Left $ NumArgs 3 [int 3, Type $ TList TInteger]),
               ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr + 3 [1 2 4]))", Right Unit),
-              ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] [append (fn [l1 l2] (foldr cons l2 l1))] [curry (fn [func . args] #(apply func (append args %&)))] [filter (fn [pred lst] (foldr (fn [x y] (if (pred x) (cons x y) y)) [] lst))] (filter (curry < 5) [1 5]))", Right Unit)
+              ("(do (+ 3 5) (io.write \"t\") 5)", Right Unit)
             ]
 
 emitJSTests =
@@ -337,13 +318,14 @@ emitJSTests =
           test
             [ ("(string.from [5 ~@[4 3]])", Right (emitPrimitives ++ "$$string$from([5,...([4,3])])")),
               ("(string.from {\\c 5 ~@{\\d 6} })", Right (emitPrimitives ++ "$$string$from({'c':5,...({'d':6})})")),
-              ("(let [k #(car %&)] (k 3 ~@[4 5]))", Right (emitPrimitives ++ "(function(){const k = (...$$vararg) => $$car($$vararg);return k(3,...([4,5]));})()"))
+              ("(let [k #(car %&)] (k 3 ~@[4 5]))", Right (emitPrimitives ++ "(function(){const k = ((...$$vararg) => $$car($$vararg));return k(3,...([4,5]));})()"))
             ]
         it "produces correct JS code" $ do
           testNode "test1"
           testNode "test2"
+          testNode "test3"
 
-runFolderTest :: (String -> IO (Either LispError LispVal)) -> [Char] -> IO ()
+runFolderTest :: (String -> IO (Either Error Value)) -> [Char] -> IO ()
 runFolderTest runner testPath = do
   input <- readFile (testPath ++ "/input.clsk")
   expected <- readFile (testPath ++ "/expected.clsk")

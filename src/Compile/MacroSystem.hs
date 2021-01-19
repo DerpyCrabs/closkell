@@ -6,14 +6,14 @@ import Eval
 import Eval.Primitive
 import Types
 
-macroSystem :: LispVal -> IOThrowsError LispVal
+macroSystem :: Value -> IOThrowsError Value
 macroSystem val =
   let state = MacroExpansionState 0
       env = primitiveBindings
-      z = lvSetEnv env . lvFromAST $ val
+      z = vzSetEnv env . vzFromAST $ val
    in snd <$> macroExpand state z
 
-macroExpand :: MacroExpansionState -> LVZipper -> IOThrowsError (MacroExpansionState, LispVal)
+macroExpand :: MacroExpansionState -> ValueZipper -> IOThrowsError (MacroExpansionState, Value)
 macroExpand state (_, Call [Atom _ "gensym"], _) =
   return (state {gensymCounter = gensymCounter state + 1}, atom (show $ gensymCounter state))
 macroExpand state (_, Call [Atom _ "gensym", String prefix], _) =
@@ -22,7 +22,7 @@ macroExpand state z@(env, Call (Atom _ "let" : bindsAndExpr), _) = do
   let binds = init bindsAndExpr
   let expr = last bindsAndExpr
   let newEnv = evalMacro newEnv <$> bindVars (vars binds) env
-  (state, z) <- macroExpand state (lvSet expr . lvSetEnv newEnv $ z)
+  (state, z) <- macroExpand state (vzSet expr . vzSetEnv newEnv $ z)
   return (state, makeLet (varsWithoutMacros binds) z)
   where
     matchVar (List _ [Atom _ name, var]) = (name, var)
@@ -38,18 +38,29 @@ macroExpand state z@(env, Call (Atom _ function : args), _) = do
     Right (Macro body macroEnv) ->
       evalMacro state (env ++ macroEnv) body args z
     _ -> do
-      expanded <- mapM (macroExpand state) (lvSetEnv env . lvFromAST <$> (atom function : args))
+      expanded <- mapM (macroExpand state) (vzSetEnv env . vzFromAST <$> (atom function : args))
       return (state, Call $ snd <$> expanded)
 macroExpand state (env, Call args, _) = do
-  expanded <- mapM (macroExpand state) (lvSetEnv env . lvFromAST <$> args)
+  expanded <- mapM (macroExpand state) (vzSetEnv env . vzFromAST <$> args)
   return (state, Call $ snd <$> expanded)
 macroExpand state (_, val, _) = return (state, val)
 
-evalMacro :: MacroExpansionState -> Env -> LispVal -> [LispVal] -> LVZipper -> IOThrowsError (MacroExpansionState, LispVal)
-evalMacro state env body args z = evalMacro' [id] state (lvSet body . lvSetEnv (("body", list args) : env) $ z)
+evalMacro :: MacroExpansionState -> Env -> Value -> [Value] -> ValueZipper -> IOThrowsError (MacroExpansionState, Value)
+evalMacro state env body args z = evalMacro' [id] state (vzSet body . vzSetEnv (("body", list args) : env) $ z)
   where
-    evalMacro' (step : steps) state z = do
-      (newZ, newSteps) <- stepEval (step z)
+    evalMacro' steps state z@(_, Call [Atom _ "quote", val], _) =
+      let correctedPath = correctQuoteEvalPath val
+       in case length correctedPath of
+            0 -> return (state, val)
+            _ -> evalMacro' (tail correctedPath ++ steps) state (head correctedPath $ vzSet (func "evaluating-unquote" [val]) z)
+    evalMacro' steps state z@(_, Call [Atom _ "unquote", val], _) =
+      evalMacro' steps state (vzSet val z)
+    evalMacro' steps state z@(_, Call [Atom _ "evaluating-unquote", val], _) =
+      return (state, val)
+    evalMacro' steps state z = do
+      (newZ, newSteps) <- stepEval z
       (newState, newVal) <- macroExpand state newZ
-      evalMacro' (newSteps ++ steps) newState (lvSet newVal newZ)
-    evalMacro' [] state z = return (state, lvToAST z)
+      let nextSteps = newSteps ++ steps
+      case nextSteps of
+        (step : nextSteps) -> evalMacro' nextSteps newState $ step (vzSet newVal newZ)
+        [] -> return (newState, newVal)

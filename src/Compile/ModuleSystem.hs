@@ -4,7 +4,7 @@ import Data.Value
 import Parse
 import Types
 
-moduleSystem :: [LispVal] -> IOThrowsError LispVal
+moduleSystem :: [Value] -> IOThrowsError Value
 moduleSystem (Call (Atom _ "executable" : loadExprs) : [expr]) = handleLoads loadExprs expr
 moduleSystem (Call (Atom _ "executable" : loadExprs) : exprs) = handleLoads loadExprs (func "do" exprs)
 moduleSystem exprs = moduleSystem $ func "executable" [] : exprs
@@ -13,10 +13,10 @@ data ModuleInfo = ModuleInfo
   { prefix :: String,
     name :: String,
     exports :: [(String, Maybe String)],
-    value :: LispVal
+    value :: Value
   }
 
-handleLoads :: [LispVal] -> LispVal -> IOThrowsError LispVal
+handleLoads :: [Value] -> Value -> IOThrowsError Value
 handleLoads [] inner = return inner
 handleLoads loadExprs inner = do
   modules <- mapM getModuleInfo loadExprs
@@ -24,7 +24,7 @@ handleLoads loadExprs inner = do
   let innerBindings = Call (concat [[atom "let"], concat $ moduleExportsBindings <$> modules, [inner]])
   return $ Call (concat [[atom "let"], moduleBindings, [innerBindings]])
   where
-    getModuleInfo :: LispVal -> IOThrowsError ModuleInfo
+    getModuleInfo :: Value -> IOThrowsError ModuleInfo
     getModuleInfo (List _ [Atom _ "load", String loadPath, Atom _ "unqualified"]) = do
       info <- loadModule loadPath
       return $ info {prefix = ""}
@@ -35,7 +35,7 @@ handleLoads loadExprs inner = do
     moduleBinding (ModuleInfo _ name _ value) = list [atom $ "$$module." ++ name, value]
     moduleExportsBindings (ModuleInfo prefix name exports _) = bindExports prefix name exports
       where
-        bindExports :: String -> String -> [(String, Maybe String)] -> [LispVal]
+        bindExports :: String -> String -> [(String, Maybe String)] -> [Value]
         bindExports prefix name ((export, Nothing) : exports) = bindExports prefix name ((export, Just export) : exports)
         bindExports prefix name ((export, Just alias) : exports) =
           let bindName =

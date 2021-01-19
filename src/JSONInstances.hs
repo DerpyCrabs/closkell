@@ -6,9 +6,9 @@ module JSONInstances where
 import Data.Aeson (ToJSON (..), object, (.=))
 import Types
 
-instance ToJSON LispType
+instance ToJSON Type
 
-instance ToJSON LispVal where
+instance ToJSON Value where
   toJSON (Character c) = object ["type" .= ("character" :: String), "value" .= c]
   toJSON (String s) = object ["type" .= ("string" :: String), "value" .= s]
   toJSON (Atom _ a) = object ["type" .= ("atom" :: String), "value" .= a]
@@ -26,8 +26,8 @@ instance ToJSON LispVal where
   toJSON Unit = object ["type" .= ("unit" :: String)]
   toJSON (Type t) = object ["type" .= ("type" :: String), "value" .= t]
 
-instance ToJSON LispError where
+instance ToJSON Error where
   toJSON err = object ["error" .= show err]
 
-instance ToJSON LVCrumb where
-  toJSON (LVCrumb env ls rs) = object ["type" .= ("crumb" :: String), "env" .= env, "ls" .= ls, "rs" .= rs]
+instance ToJSON ValueCrumb where
+  toJSON (ValueCrumb env ls rs) = object ["type" .= ("crumb" :: String), "env" .= env, "ls" .= ls, "rs" .= rs]

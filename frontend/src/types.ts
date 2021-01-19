@@ -1,6 +1,6 @@
-export type LVZipper = [Env, LispVal, Array<LVCrumb>]
+export type ValueZipper = [Env, Value, Array<ValueCrumb>]
 
-export type Env = Array<[string, LispVal]>
+export type Env = Array<[string, Value]>
 
 type String = {
   type: 'string'
@@ -34,30 +34,30 @@ type Bool = {
 
 type List<AdditionalInfo = {}> = {
   type: 'list'
-  value: Array<LispVal<AdditionalInfo>>
+  value: Array<Value<AdditionalInfo>>
 }
 
 type Map<AdditionalInfo = {}> = {
   type: 'map'
-  value: Array<LispVal<AdditionalInfo>>
+  value: Array<Value<AdditionalInfo>>
 }
 
 type Call<AdditionalInfo = {}> = {
   type: 'call'
-  value: Array<LispVal<AdditionalInfo>>
+  value: Array<Value<AdditionalInfo>>
 }
 
 type DottedList<AdditionalInfo = {}> = {
   type: 'dotted-list'
-  head: Array<LispVal<AdditionalInfo>>
-  tail: LispVal<AdditionalInfo>
+  head: Array<Value<AdditionalInfo>>
+  tail: Value<AdditionalInfo>
 }
 
 type Func<AdditionalInfo = {}> = {
   type: 'func'
   params: Array<string>
   vararg?: string
-  body: LispVal<AdditionalInfo>
+  body: Value<AdditionalInfo>
   closure: Env
 }
 
@@ -77,22 +77,22 @@ type Unit = {
 
 type Macro<AdditionalInfo = {}> = {
   type: 'macro'
-  body: LispVal<AdditionalInfo>
+  body: Value<AdditionalInfo>
   closure: Env
 }
 
-type LVCrumb = {
+type ValueCrumb = {
   type: 'crumb'
   env: Env
-  ls: Array<LispVal>
-  rs: Array<LispVal>
+  ls: Array<Value>
+  rs: Array<Value>
 }
 
-export type LispError = {
+export type Error = {
   error: string
 }
 
-export type LispVal<AdditionalInfo = {}> = (
+export type Value<AdditionalInfo = {}> = (
   | Atom
   | Character
   | List<AdditionalInfo>
@@ -113,7 +113,7 @@ export type LispVal<AdditionalInfo = {}> = (
 
 export type FocusedValPath = Array<number>
 
-export type FocusedLispVal = [LispVal, FocusedValPath | null]
+export type FocusedLispVal = [Value, FocusedValPath | null]
 
 export type LeftResult<T> = {
   Left?: T

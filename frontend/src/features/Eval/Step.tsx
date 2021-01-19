@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box } from '@material-ui/core'
-import { FocusedLispVal, LispError, Result } from '../../types'
+import { Error, FocusedLispVal, Result } from '../../types'
 import LispValView from '../LispValView/LispValView'
 
 export default function Step({
@@ -8,7 +8,7 @@ export default function Step({
   index,
   step,
 }: {
-  step: Result<LispError, FocusedLispVal>
+  step: Result<Error, FocusedLispVal>
   value: number
   index: number
 }) {

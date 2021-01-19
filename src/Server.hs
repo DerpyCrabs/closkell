@@ -10,7 +10,7 @@ import Compile.MacroSystem (macroSystem)
 import Compile.TypeSystem (typeSystem)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.Aeson
+import Data.Aeson hiding (Value)
 import Data.Value
 import Eval (evalSteps)
 import Eval.Primitive
@@ -27,7 +27,7 @@ data EvalBody = EvalBody {typeCheck :: Bool, macroExpand :: Bool, expression :: 
 
 instance FromJSON EvalBody
 
-type EvalAPI = "eval" :> ReqBody '[JSON] EvalBody :> Post '[JSON] [ThrowsError (LispVal, FocusedValPath)]
+type EvalAPI = "eval" :> ReqBody '[JSON] EvalBody :> Post '[JSON] [ThrowsError (Value, FocusedValPath)]
 
 evalAPI :: Proxy EvalAPI
 evalAPI = Proxy
@@ -55,19 +55,19 @@ evalServer = eval
                 Left err -> return [Left err]
                 Right expr -> do
                   steps <- liftIO $ evalSteps env expr
-                  return $ ((\z -> (lvToAST z, getFocusedValPath z)) <$>) . filterEnv <$> steps
+                  return $ ((\z -> (vzToAST z, getFocusedValPath z)) <$>) . filterEnv <$> steps
         Left err -> return [Left err]
-    filterEnv :: ThrowsError LVZipper -> ThrowsError LVZipper
+    filterEnv :: ThrowsError ValueZipper -> ThrowsError ValueZipper
     filterEnv =
       fmap
         ( \(env, val, crumbs) ->
             ( filter notIntrinsic env,
               val,
-              map (\(LVCrumb env ls rs) -> LVCrumb (filter notIntrinsic env) ls rs) crumbs
+              map (\(ValueCrumb env ls rs) -> ValueCrumb (filter notIntrinsic env) ls rs) crumbs
             )
         )
-    getFocusedValPath :: LVZipper -> FocusedValPath
-    getFocusedValPath z@(_, val, LVCrumb _ ls rs : crumbs) = getFocusedValPath (lvUp z) ++ [length ls]
+    getFocusedValPath :: ValueZipper -> FocusedValPath
+    getFocusedValPath z@(_, val, ValueCrumb _ ls rs : crumbs) = getFocusedValPath (vzUp z) ++ [length ls]
     getFocusedValPath _ = []
     notIntrinsic (_, IOFunc _ _) = False
     notIntrinsic (_, PrimitiveFunc _ _) = False

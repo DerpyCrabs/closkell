@@ -5,17 +5,15 @@ module Compile.EmitJS (emitJS, emitPrimitives) where
 import Data.FileEmbed (embedStringFile)
 import Data.List (intercalate)
 import Eval.Primitive (ioPrimitives, primitives)
-import Types (LispVal (..))
+import Types (Value (..))
 
-emitJS :: LispVal -> String
+emitJS :: Value -> String
 emitJS val = emitPrimitives ++ emitJS' val
 
-emitJS' :: LispVal -> String
-emitJS' (Call [Atom _ "fn", List _ [List _ []], body]) = "() => " ++ emitJS' body
-emitJS' (Call [Atom _ "fn", List _ params, body]) = "(" ++ intercalate "," (emitJS' <$> params) ++ ") => " ++ emitJS' body
-emitJS' (Call [Atom _ "fn", DottedList _ [] (Atom _ "%&"), body]) = "(..." ++ "$$vararg" ++ ") => " ++ emitJS' body
-emitJS' (Call [Atom _ "fn", DottedList _ params varargs, body]) = "(" ++ intercalate "," (emitJS' <$> params) ++ (if null params then "" else ",") ++ "..." ++ show varargs ++ ") => " ++ emitJS' body
-emitJS' (Call [Atom _ "unquote", val]) = emitJS' val
+emitJS' :: Value -> String
+emitJS' (Call [Atom _ "fn", List _ params, body]) = "((" ++ intercalate "," (emitJS' <$> params) ++ ") => " ++ emitJS' body ++ ")"
+emitJS' (Call [Atom _ "fn", DottedList _ [] (Atom _ "%&"), body]) = "((...$$vararg) => " ++ emitJS' body ++ ")"
+emitJS' (Call [Atom _ "fn", DottedList _ params varargs, body]) = "((" ++ intercalate "," (emitJS' <$> params) ++ (if null params then "" else ",") ++ "..." ++ show varargs ++ ") => " ++ emitJS' body ++ ")"
 emitJS' (Call [Atom _ "unquote-splicing", val]) = "...(" ++ emitJS' val ++ ")"
 emitJS' (Call (Atom _ "let" : bindsAndExpr)) = "(function(){" ++ concat (emitBind <$> binds) ++ "return " ++ emitJS' expr ++ ";" ++ "})()"
   where
@@ -23,9 +21,8 @@ emitJS' (Call (Atom _ "let" : bindsAndExpr)) = "(function(){" ++ concat (emitBin
     expr = last bindsAndExpr
     emitBind (List _ [name@(Atom _ _), val]) = "const " ++ emitJS' name ++ " = " ++ emitJS' val ++ ";"
 emitJS' (Call [Atom _ "if", pred, conseq, alt]) = "(" ++ emitJS' pred ++ ") ? (" ++ emitJS' conseq ++ ") : (" ++ emitJS' alt ++ ")"
-emitJS' (Call [Atom _ "apply", f, args]) = "(" ++ emitJS' f ++ ").apply(" ++ emitJS' args ++ ")"
 emitJS' (Call (Atom _ func : args)) | isPrimitive func = primitiveName func ++ "(" ++ intercalate "," (emitJS' <$> args) ++ ")"
-emitJS' (Call (func@(Atom _ f) : args)) = emitJS' func ++ "(" ++ intercalate "," (emitJS' <$> args) ++ ")"
+emitJS' (Call (func : args)) = emitJS' func ++ "(" ++ intercalate "," (emitJS' <$> args) ++ ")"
 emitJS' (List _ xs) = "[" ++ intercalate "," (emitJS' <$> xs) ++ "]"
 emitJS' (Map binds) = "{" ++ intercalate "," (emitBinds binds) ++ "}"
   where

@@ -1,5 +1,5 @@
 module Data.Value
-  ( LispVal (..),
+  ( Value (..),
     list,
     dottedList,
     atom,
@@ -10,78 +10,78 @@ module Data.Value
     makeNormalFunc,
     makeVarArgs,
     makeLet,
-    lvFromAST,
-    lvToAST,
-    lvRight,
-    lvDown,
-    lvUp,
-    lvModify,
-    lvModifyEnv,
-    lvSet,
-    lvSetEnv,
+    vzFromAST,
+    vzToAST,
+    vzRight,
+    vzDown,
+    vzUp,
+    vzModify,
+    vzModifyEnv,
+    vzSet,
+    vzSetEnv,
   )
 where
 
 import Types
 
-list :: [LispVal] -> LispVal
+list :: [Value] -> Value
 list = List Nothing
 
-dottedList :: [LispVal] -> LispVal -> LispVal
+dottedList :: [Value] -> Value -> Value
 dottedList = DottedList Nothing
 
-atom :: String -> LispVal
+atom :: String -> Value
 atom = Atom Nothing
 
-func :: String -> [LispVal] -> LispVal
+func :: String -> [Value] -> Value
 func f args = Call (atom f : args)
 
-int :: Integer -> LispVal
+int :: Integer -> Value
 int = Integer
 
-float :: Double -> LispVal
+float :: Double -> Value
 float = Float
 
-fn :: [LispVal] -> Maybe LispVal -> [LispVal] -> LispVal
+fn :: [Value] -> Maybe Value -> [Value] -> Value
 fn args Nothing body = Call (atom "fn" : list args : body)
 fn args (Just vararg) body = Call (atom "fn" : dottedList args vararg : body)
 
-makeFunc :: Maybe String -> Env -> [LispVal] -> LispVal -> LispVal
+makeFunc :: Maybe String -> Env -> [Value] -> Value -> Value
 makeFunc varargs env params body = Func (map show params) varargs body env
 
-makeNormalFunc :: Env -> [LispVal] -> LispVal -> LispVal
+makeNormalFunc :: Env -> [Value] -> Value -> Value
 makeNormalFunc = makeFunc Nothing
 
-makeVarArgs :: LispVal -> Env -> [LispVal] -> LispVal -> LispVal
+makeVarArgs :: Value -> Env -> [Value] -> Value -> Value
 makeVarArgs = makeFunc . Just . show
 
-makeLet :: [(String, LispVal)] -> LispVal -> LispVal
+makeLet :: [(String, Value)] -> Value -> Value
 makeLet binds expr = Call $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
 
-lvUp :: LVZipperTurn
-lvUp (_, val, LVCrumb env ls rs : bs) = (env, Call (ls ++ [val] ++ rs), bs)
+vzUp :: ValueZipperTurn
+vzUp (_, val, ValueCrumb env ls rs : bs) = (env, Call (ls ++ [val] ++ rs), bs)
 
-lvDown :: LVZipperTurn
-lvDown (env, Call (val : rest), crumbs) = (env, val, LVCrumb env [] rest : crumbs)
+vzDown :: ValueZipperTurn
+vzDown (env, Call (val : rest), crumbs) = (env, val, ValueCrumb env [] rest : crumbs)
 
-lvRight :: LVZipperTurn
-lvRight (env, val, LVCrumb crumbEnv ls (newVal : rs) : bs) = (crumbEnv, newVal, LVCrumb crumbEnv (ls ++ [val]) rs : bs)
+vzRight :: ValueZipperTurn
+vzRight (env, val, ValueCrumb crumbEnv ls (newVal : rs) : bs) = (crumbEnv, newVal, ValueCrumb crumbEnv (ls ++ [val]) rs : bs)
 
-lvModify :: (LispVal -> LispVal) -> LVZipperTurn
-lvModify f (env, val, crumbs) = (env, f val, crumbs)
+vzModify :: (Value -> Value) -> ValueZipperTurn
+vzModify f (env, val, crumbs) = (env, f val, crumbs)
 
-lvModifyEnv :: (Env -> Env) -> LVZipperTurn
-lvModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
+vzModifyEnv :: (Env -> Env) -> ValueZipperTurn
+vzModifyEnv f (env, val, crumbs) = (f env, val, crumbs)
 
-lvSet :: LispVal -> LVZipperTurn
-lvSet = lvModify . const
+vzSet :: Value -> ValueZipperTurn
+vzSet = vzModify . const
 
-lvSetEnv :: Env -> LVZipperTurn
-lvSetEnv = lvModifyEnv . const
+vzSetEnv :: Env -> ValueZipperTurn
+vzSetEnv = vzModifyEnv . const
 
-lvFromAST :: LispVal -> LVZipper
-lvFromAST val = ([], val, [])
+vzFromAST :: Value -> ValueZipper
+vzFromAST val = ([], val, [])
 
-lvToAST :: LVZipper -> LispVal
-lvToAST (_, val, []) = val
-lvToAST z = lvToAST $ lvUp z
+vzToAST :: ValueZipper -> Value
+vzToAST (_, val, []) = val
+vzToAST z = vzToAST $ vzUp z

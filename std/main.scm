@@ -63,7 +63,6 @@
 ; (io.dump (gensym "kek"))
 ; (io.write (string.from (fib 2)))
 
-; (io.dump (apply + '(4 5)))
 ; (io.dump (append '(1 2 3) '(4 5 6) '(7 8)))
 
 ; (cond 

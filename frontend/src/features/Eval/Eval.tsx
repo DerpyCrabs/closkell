@@ -3,7 +3,12 @@ import { useQuery } from 'react-query'
 import { useLocalStorage } from 'react-use'
 import { CircularProgress, Divider, Fade } from '@material-ui/core'
 import { Alert, AlertTitle } from '@material-ui/lab'
-import { EvalRequest, FocusedLispVal, LispError, Result } from '../../types'
+import {
+  EvalRequest,
+  FocusedLispVal,
+  Error as LispError,
+  Result,
+} from '../../types'
 import CodeInput from './RequestInput'
 import Step from './Step'
 import Steps from './Steps'

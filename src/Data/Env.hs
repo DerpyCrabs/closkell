@@ -3,7 +3,7 @@ module Data.Env (getVar, bindVars) where
 import Data.Error
 import Types
 
-getVar :: Env -> String -> ThrowsError LispVal
+getVar :: Env -> String -> ThrowsError Value
 getVar env var =
   maybe
     (throwError $ UnboundVar "Getting an unbound variable" var)

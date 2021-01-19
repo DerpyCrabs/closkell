@@ -28,13 +28,13 @@ rcbracket = lexeme $ char '}'
 
 dottedListSeparator = lexeme $ char '.'
 
-parseString :: Parser LispVal
+parseString :: Parser Value
 parseString = char '"' >> String <$> manyTill L.charLiteral (char '"')
 
-parseUnit :: Parser LispVal
+parseUnit :: Parser Value
 parseUnit = L.symbol spaces "unit" >> return Unit
 
-parseAtom :: Parser LispVal
+parseAtom :: Parser Value
 parseAtom = do
   pos <- getSourcePos
   first <- letterChar <|> symbol
@@ -51,7 +51,7 @@ lexeme = L.lexeme spaces
 parseUnicodeCharacter :: Parser Char
 parseUnicodeCharacter = toEnum . read <$> count 4 digitChar
 
-parseCharacter :: Parser LispVal
+parseCharacter :: Parser Value
 parseCharacter =
   Character
     <$> ( char '\\'
@@ -77,10 +77,10 @@ parseHexadecimal = char '0' >> char 'x' >> L.hexadecimal
 parseDecimal :: Parser Integer
 parseDecimal = L.decimal
 
-parseInteger :: Parser LispVal
+parseInteger :: Parser Value
 parseInteger = Integer <$> L.signed (return ()) (try parseBinary <|> try parseOctal <|> try parseHexadecimal <|> parseDecimal)
 
-parseFloat :: Parser LispVal
+parseFloat :: Parser Value
 parseFloat = Float <$> L.signed (return ()) L.float
 
 parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
@@ -91,64 +91,64 @@ parseExprOrSkip = try skipExpr <|> (Just <$> parseExpr)
       _ <- parseExpr
       return Nothing
 
-parseCall :: Parser LispVal
+parseCall :: Parser Value
 parseCall = do
   lparen
   v <- parseCallInner
   rparen
   return v
 
-parseCallInner :: Parser LispVal
+parseCallInner :: Parser Value
 parseCallInner = Call . catMaybes <$> sepBy parseExprOrSkip spaces
 
-parseListInner :: Parser LispVal
+parseListInner :: Parser Value
 parseListInner = getSourcePos >>= \pos -> List (Just pos) . catMaybes <$> sepBy parseExprOrSkip spaces
 
-parseDottedListInner :: Parser LispVal
+parseDottedListInner :: Parser Value
 parseDottedListInner = do
   pos <- getSourcePos
   head <- manyTill parseExpr dottedListSeparator
   DottedList (Just pos) head <$> parseExpr
 
-parseList :: Parser LispVal
+parseList :: Parser Value
 parseList = do
   lbracket
   x <- lexeme (try parseDottedListInner <|> parseListInner)
   rbracket
   return x
 
-parseMapInner :: Parser LispVal
+parseMapInner :: Parser Value
 parseMapInner = Map . catMaybes <$> sepBy parseExprOrSkip spaces
 
-parseMap :: Parser LispVal
+parseMap :: Parser Value
 parseMap = do
   lcbracket
   map <- lexeme parseMapInner
   rcbracket
   return map
 
-parseQuoted :: Parser LispVal
+parseQuoted :: Parser Value
 parseQuoted = do
   pos <- getSourcePos
   char '\''
   x <- parseExpr
   return $ Call [Atom (Just pos) "quote", x]
 
-parseUnquoted :: Parser LispVal
+parseUnquoted :: Parser Value
 parseUnquoted = do
   pos <- getSourcePos
   char '~'
   x <- parseExpr
   return $ Call [Atom (Just pos) "unquote", x]
 
-parseUnquoteSplicing :: Parser LispVal
+parseUnquoteSplicing :: Parser Value
 parseUnquoteSplicing = do
   pos <- getSourcePos
   char '~' >> char '@'
   x <- parseExpr
   return $ Call [Atom (Just pos) "unquote-splicing", x]
 
-parseLambdaShorthand :: Parser LispVal
+parseLambdaShorthand :: Parser Value
 parseLambdaShorthand = do
   pos <- getSourcePos
   char '#' >> lparen
@@ -162,13 +162,13 @@ parseLambdaShorthandArgs =
     parseSingle = do
       char '%' >> char '%'
       return (Call [Atom Nothing "car", Atom Nothing "%&"])
-    parseNth :: Parser LispVal
+    parseNth :: Parser Value
     parseNth = do
       char '%'
       n <- digitChar
       return (Call [Atom Nothing "nth", Integer (read [n] - 1), Atom Nothing "%&"])
 
-parseExpr :: Parser LispVal
+parseExpr :: Parser Value
 parseExpr =
   lexeme $
     parseString
@@ -199,5 +199,5 @@ readExprList = readOrThrow $ do
   _ <- eof
   return exprs
 
-load :: String -> IOThrowsError [LispVal]
+load :: String -> IOThrowsError [Value]
 load filename = liftIO (readFile filename) >>= liftThrows . readExprList filename
