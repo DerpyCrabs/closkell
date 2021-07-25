@@ -10,7 +10,7 @@ data Input = FileInput String | StdInput
 
 data EvalOptions = EvalOptions {eoCommon :: CommonOptions, eoUsingNode :: Bool, eoArgs :: [String]}
 
-data CompileOptions = CompileOptions {coCommon :: CommonOptions, coJSOutput :: Maybe String, coCLSKOutput :: Maybe String}
+data CompileOptions = CompileOptions {coCommon :: CommonOptions, coJSOutput :: Maybe String, coCLSKOutput :: Maybe String, coLLVMOutput :: Maybe String}
 
 newtype ServeOptions = ServeOptions {sPort :: Int}
 
@@ -46,6 +46,14 @@ clskOutput =
         <> help "Output compiled clsk source to file"
     )
 
+llvmOutput :: Parser String
+llvmOutput =
+  strOption
+    ( long "emit-llvm"
+        <> metavar "FILENAME"
+        <> help "Output compiled LLVM IR source to file"
+    )
+
 stdInput :: Parser Input
 stdInput =
   flag'
@@ -70,7 +78,7 @@ evalOptions :: Parser EvalOptions
 evalOptions = EvalOptions <$> commonOptions <*> usingNode <*> many arg
 
 compileOptions :: Parser CompileOptions
-compileOptions = CompileOptions <$> commonOptions <*> optional jsOutput <*> optional clskOutput
+compileOptions = CompileOptions <$> commonOptions <*> optional jsOutput <*> optional clskOutput <*> optional llvmOutput
 
 serveOptions :: Parser ServeOptions
 serveOptions = ServeOptions <$> port

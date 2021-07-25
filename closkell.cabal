@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 08b95abece17235f666604e658ebe5b87aa6a9a4abaa7944430a7509fb46f018
+-- hash: 9b522a0497bbc66e91054e7623361a74198bb7c1ebd22e4ed1d1f27e61c80286
 
 name:           closkell
 version:        0.1.0.0
@@ -26,6 +26,7 @@ library
       Compile
       Compile.ClosureCompilerPass
       Compile.EmitJS
+      Compile.EmitLLVM
       Compile.MacroSystem
       Compile.ModuleSystem
       Compile.TypeSystem

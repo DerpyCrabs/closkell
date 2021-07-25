@@ -19,6 +19,7 @@ module Lib
     typeSystem,
     server,
     emitJS,
+    emitLLVM,
     closureCompilerPass,
     macroSystem,
     atom,
@@ -30,6 +31,7 @@ where
 import Compile
 import Compile.ClosureCompilerPass
 import Compile.EmitJS
+import Compile.EmitLLVM
 import Compile.MacroSystem
 import Compile.ModuleSystem
 import Compile.TypeSystem

@@ -38,7 +38,7 @@ evalCommand EvalOptions {eoCommon = common, eoUsingNode = usingNode, eoArgs = ar
         Left err -> hPutStrLn stderr "Eval error: " >> error (show err)
 
 compileCommand :: CompileOptions -> IO ()
-compileCommand CompileOptions {coCommon = common, coJSOutput = jsOutput, coCLSKOutput = clskOutput} = do
+compileCommand CompileOptions {coCommon = common, coJSOutput = jsOutput, coCLSKOutput = clskOutput, coLLVMOutput = llvmOutput} = do
   source <- getSource (optInput common)
   compiledSource <- compileSource source (optWithoutTypecheck common)
   case jsOutput of
@@ -51,7 +51,11 @@ compileCommand CompileOptions {coCommon = common, coJSOutput = jsOutput, coCLSKO
     Just clskOutput -> do
       writeFile clskOutput (show compiledSource)
     Nothing -> return ()
-  when (isNothing jsOutput && isNothing clskOutput) $ error "No output selected"
+  case llvmOutput of
+    Just llvmOutput ->
+      writeFile llvmOutput $ emitLLVM compiledSource
+    Nothing -> return ()
+  when (isNothing jsOutput && isNothing clskOutput && isNothing llvmOutput) $ error "No output selected"
 
 getSource :: Input -> IO (String, String)
 getSource StdInput = ("stdin",) <$> getContents

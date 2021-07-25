@@ -1,6 +1,7 @@
-module TestUtil (runModuleSystem, runTypeSystem, runMacroSystem, runEmitJS, runNodeTest, runEval, runParse) where
+module TestUtil (runModuleSystem, runTypeSystem, runMacroSystem, runEmitJS, runNodeTest, runEval, runParse, runWasmTest, runEmitLLVM) where
 
 import Compile.EmitJS (emitJS, emitPrimitives)
+import Compile.EmitLLVM (emitLLVM)
 import Compile.MacroSystem (macroSystem)
 import Compile.ModuleSystem (moduleSystem)
 import Compile.TypeSystem (typeSystem)
@@ -67,3 +68,15 @@ runInterpret code = runExceptT $ do
 
 rstrip :: String -> String
 rstrip = reverse . dropWhile (\c -> isSpace c || (c == '\n')) . reverse
+
+runEmitLLVM :: String -> IO (Either Error String)
+runEmitLLVM code = runExceptT $ do
+  parsedVals <- lift $ runParse code
+  expandedMacros <- macroSystem (last parsedVals)
+  return $ emitLLVM expandedMacros
+
+runWasmTest :: String -> IO ()
+runWasmTest testPath = do
+  expected <- readFile (testPath ++ "/expected.txt")
+  Stdout out <- command [] "bash" ["./test/EmitLLVM/compile_and_run_wasm.sh", testPath ++ "/input.clsk"]
+  rstrip out `shouldBe` rstrip expected

@@ -1,4 +1,5 @@
 import Compile.EmitJS (emitJS, emitPrimitives)
+import Compile.EmitLLVM (emitLLVM)
 import Compile.MacroSystem (macroSystem)
 import Compile.ModuleSystem (moduleSystem)
 import Compile.TypeSystem (typeSystem)
@@ -23,6 +24,7 @@ main = hspec $ do
   describe "Type system" typeSystemTests
   describe "Value Zipper" zipperTests
   describe "EmitJS" emitJSTests
+  describe "EmitLLVM" emitLLVMTests
 
 parsingTests =
   let test = testTable ((head <$>) . runParse)
@@ -324,6 +326,13 @@ emitJSTests =
           testNode "test1"
           testNode "test2"
           testNode "test3"
+
+emitLLVMTests =
+  let test = testTable runEmitLLVM
+      testWasm path = runWasmTest ("test/EmitLLVM/" ++ path)
+   in do
+        it "handles primitive functions with constants" $ do
+          testWasm "add-ints"
 
 runFolderTest :: (String -> IO (Either Error Value)) -> [Char] -> IO ()
 runFolderTest runner testPath = do
