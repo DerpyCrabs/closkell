@@ -43,7 +43,10 @@ compileCommand CompileOptions {coCommon = common, coJSOutput = jsOutput, coCLSKO
   compiledSource <- compileSource source (optWithoutTypecheck common)
   case jsOutput of
     Just jsOutput -> do
-      let jsSource = emitJS compiledSource
+      ast <- case fromValue compiledSource of
+        Left err -> hPutStrLn stderr "Value to AST conversion error: " >> error (show err)
+        Right ast -> return ast
+      let jsSource = emitJS ast
       optimized <- closureCompilerPass jsSource
       writeFile jsOutput optimized
     Nothing -> return ()
@@ -76,4 +79,4 @@ compileSource (name, src) withoutTypecheck = do
                 else
                   runExceptT (typeSystem withoutMacros) >>= \case
                     Left err -> hPutStrLn stderr "TypeSystem error: " >> error (show err)
-                    Right checkedAST -> return checkedAST
+                    Right ast -> return ast

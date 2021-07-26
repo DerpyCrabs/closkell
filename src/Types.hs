@@ -12,6 +12,7 @@ module Types
     ValueZipperTurn,
     Env,
     Type (..),
+    AST (..),
     FocusedValPath,
   )
 where
@@ -86,6 +87,25 @@ type ValueZipper = (Env, Value, [ValueCrumb])
 type ValueZipperTurn = ValueZipper -> ValueZipper
 
 type FocusedValPath = [Int]
+
+data AST
+  = ASTUnit
+  | ASTCharacter Char
+  | ASTInteger Integer
+  | ASTFloat Double
+  | ASTString String
+  | ASTBool Bool
+  | ASTList [AST]
+  | ASTMap [(AST, AST)]
+  | ASTAtom String
+  | ASTCall AST [AST]
+  | ASTPrimitiveFunc String
+  | ASTFunc [String] AST ASTEnv
+  | ASTIf AST AST AST
+  | ASTLet [(String, AST)] AST
+  | ASTType Type
+
+type ASTEnv = [(String, AST)]
 
 instance Eq Value where
   (Atom _ s1) == (Atom _ s2) = s1 == s2

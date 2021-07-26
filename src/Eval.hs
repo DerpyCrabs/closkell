@@ -10,6 +10,7 @@ where
 import Compile.ClosureCompilerPass (closureCompilerPass)
 import Compile.EmitJS (emitJS)
 import Control.Monad.Except
+import Data.AST
 import Data.Env
 import Data.Error
 import Data.Maybe (isJust, isNothing)
@@ -167,7 +168,11 @@ quoteEvalPath val =
 
 evalUsingNode :: Value -> IOThrowsError String
 evalUsingNode val = do
-  let jsSource = emitJS val
+  let ast = fromValue val
+  jsSource <- case ast of
+    Left err -> throwError err
+    Right ast -> return $ emitJS ast
+
   jsOptimizedSource <- liftIO $ closureCompilerPass jsSource
   Stdout out <- liftIO $ command [Stdin jsOptimizedSource] "node" []
   return out
