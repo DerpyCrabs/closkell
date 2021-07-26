@@ -3,5 +3,5 @@
   [m (fn [a b] (- a b))]
   [n (m 11 1)]
   [!$%&|*+-/:<=>?^_test (+ 3 5)]
-  [io.dump #(io.write (string.from %%))]
+  [io.dump (fn [%%] (io.write (string.from %%)))]
   (io.dump (+ !$%&|*+-/:<=>?^_test (+ n k))))

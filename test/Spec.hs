@@ -82,14 +82,6 @@ parsingTests =
             [ ("[tt1 tt2 . tt3]", dottedList [atom "tt1", atom "tt2"] (atom "tt3")),
               ("[. tt1]", dottedList [] (atom "tt1"))
             ]
-        it "parses fn shorthand" $
-          test
-            [("#(+ %&)", Call (atom "fn" : dottedList [] (atom "%&") : [func "+" [atom "%&"]]))]
-        it "parses fn shorthand arguments" $
-          test
-            [ ("#(+ %%)", fn [] (Just $ atom "%&") [func "+" [func "car" [atom "%&"]]]),
-              ("#(+ %1 %5)", fn [] (Just $ atom "%&") [func "+" [func "nth" [int 0, atom "%&"], func "nth" [int 4, atom "%&"]]])
-            ]
         it "parses quoted expressions" $
           test
             [("'[3 4 5]", func "quote" [list [int 3, int 4, int 5]])]
@@ -139,7 +131,7 @@ evaluationTests =
             ]
         it "supports function definition" $
           test
-            [ ("(#(+ %1 %2) 2 3)", Right $ int 5),
+            [ ("((fn [a b] (+ a b)) 2 3)", Right $ int 5),
               ("(let [f (fn [a b] (+ a b))] (f 2 3))", Right $ int 5)
             ]
         it "handles get function" $
@@ -160,9 +152,9 @@ evaluationTests =
             ]
         it "supports all of std" $
           test
-            [ ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 0 [1]))", Right $ int 1),
-              ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 5 []))", Right $ int 5),
-              ("(let [sum #(+ %1 %2)] [null? #(if (eq? %% []) true false)] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right $ int 10),
+            [ ("(let [sum (fn [a b] (+ a b))] [null? (fn [n] (if (eq? n []) true false))] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 0 [1]))", Right $ int 1),
+              ("(let [sum (fn [a b] (+ a b))] [null? (fn [n] (if (eq? n []) true false))] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 5 []))", Right $ int 5),
+              ("(let [sum (fn [a b] (+ a b))] [null? (fn [n] (if (eq? n []) true false))] [foldr (fn [func end lst] (if (null? lst) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right $ int 10),
               ("(let [foldl (fn [func accum lst] (if (eq? lst []) accum (foldl func (func accum (car lst)) (cdr lst))))] (foldl (fn [acc stmt] stmt) 0 [1 2]))", Right $ int 2)
             ]
 
@@ -258,8 +250,8 @@ typeSystemTests =
           test
             [ ("(let [sum (fn [a b] 5)] (sum 5))", Left $ NumArgs 2 [int 5]),
               ("(let [sum (fn [a b] 5)] (sum 5 3 5))", Left $ NumArgs 2 [int 5, int 3, int 5]),
-              ("(let [sum (fn [a b . c] 5)] (sum 5 3 5))", Right Unit),
-              ("(let [sum (fn [. c] 5)] (sum 5))", Right Unit),
+              ("(let [sum (fn [a b] 5)] (sum 5 3))", Right Unit),
+              ("(let [sum (fn [c] 5)] (sum 5))", Right Unit),
               ("(let [sum (fn [a b] 5)] (sum))", Left $ NumArgs 2 [])
             ]
         it "supports recursive functions" $
@@ -279,20 +271,20 @@ typeSystemTests =
             ]
         it "supports all std code" $
           test
-            [ ("(let [not (fn [arg] arg)] [not2 #(if %% \"s\" true)] (not2 (not true)))", Right Unit),
-              ("(let [not #(if %% false true)] [not2 #(if %% \\c true)] (not2 (not true)))", Right Unit),
-              ("(let [not #(if %% false true)] [not2 #(if %% \"s\" true)] (if (not2 (not true)) 5 0))", Left $ TypeMismatch TBool (TSum [TString, TBool])),
+            [ ("(let [not (fn [arg] arg)] [not2 (fn [a] (if a \"s\" true))] (not2 (not true)))", Right Unit),
+              ("(let [not (fn [pred] (if pred false true))] [not2 (fn [a] (if a \\c true))] (not2 (not true)))", Right Unit),
+              ("(let [not (fn [pred] (if pred false true))] [not2 (fn [a] (if a \"s\" true))] (if (not2 (not true)) 5 0))", Left $ TypeMismatch TBool (TSum [TString, TBool])),
               ("(if (eq? [] []) 5 0)", Right Unit),
-              ("(let [not #(if %% 3 true)] [null? #(if (not (eq? %% [])) true false)] (if (not (not (null? []))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
-              ("(let [not #(if %% 3 true)] [null? #(if (not (eq? %% [])) true false)] (if (not (not (null? []))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
+              ("(let [not (fn [pred] (if pred 3 true))] [null? (fn [v] (if (not (eq? v [])) true false))] (if (not (not (null? []))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
+              ("(let [not (fn [pred] (if pred 3 true))] [null? (fn [v] (if (not (eq? v [])) true false))] (if (not (not (null? []))) 5 0))", Left $ TypeMismatch TBool (TSum [TInteger, TBool])),
               ("(eq? 5 (car [2 \\c]))", Right Unit),
               ("(eq? \\c (car [2 5]))", Left $ FailedToDeduceVar "a" [TCharacter, TInteger]),
               ("(let [get-second (fn [a b] b)] (eq? 5 (get-second \\c 5)))", Right Unit),
               ("(let [get-second (fn [a b] b)] (eq? 5 (get-second \\c \\с)))", Left $ FailedToDeduceVar "a" [TInteger, TCharacter]),
               ("(let [some-fn (fn [] (if (== 3 4) \\c 5))] (eq? true (some-fn)))", Left $ FailedToDeduceVar "a" [TBool, TSum [TCharacter, TInteger]]),
-              ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right Unit),
-              ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr sum end (cdr lst)))))] (foldr sum 8 [1 2 4]))", Right Unit),
-              ("(let [sum #(+ %1 %2)] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Left $ NumArgs 3 [int 3, Type $ TList TInteger]),
+              ("(let [sum (fn [a b] (+ a b))] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Right Unit),
+              ("(let [sum (fn [a b] (+ a b))] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr sum end (cdr lst)))))] (foldr sum 8 [1 2 4]))", Right Unit),
+              ("(let [sum (fn [a b] (+ a b))] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Left $ NumArgs 3 [int 3, Type $ TList TInteger]),
               ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr + 3 [1 2 4]))", Right Unit),
               ("(do (+ 3 5) (io.write \"t\") 5)", Right Unit)
             ]
@@ -318,7 +310,7 @@ emitJSTests =
           test
             [ ("(string.from [5 ~@[4 3]])", Right (emitPrimitives ++ "$$string$from([5,...([4,3])])")),
               ("(string.from {\\c 5 ~@{\\d 6} })", Right (emitPrimitives ++ "$$string$from({'c':5,...({'d':6})})")),
-              ("(let [k #(car %&)] (k 3 ~@[4 5]))", Right (emitPrimitives ++ "(function(){const k = ((...$$vararg) => $$car($$vararg));return k(3,...([4,5]));})()"))
+              ("(let [k (fn [a b c] a)] (k 3 ~@[4 5]))", Right (emitPrimitives ++ "(function(){const k = ((a,b,c) => a);return k(3,...([4,5]));})()"))
             ]
         it "produces correct JS code" $ do
           testNode "test1"

@@ -57,7 +57,7 @@ data Value
   | Call [Value]
   | PrimitiveFunc String ([Value] -> ThrowsError Value)
   | IOFunc String ([Value] -> IOThrowsError Value)
-  | Func {params :: [String], vararg :: Maybe String, body :: Value, closure :: Env}
+  | Func {params :: [String], body :: Value, closure :: Env}
   | Macro {body :: Value, closure :: Env}
   | Type Type
 
@@ -103,7 +103,7 @@ instance Eq Value where
   (Macro b1 c1) == (Macro b2 c2) = b1 == b2 && c1 == c2
   (Type t1) == (Type t2) = t1 == t2
   Unit == Unit = True
-  (Func p1 v1 b1 c1) == (Func p2 v2 b2 c2) = p1 == p2 && v1 == v2 && b1 == b2 && c1 == c2
+  (Func p1 b1 c1) == (Func p2 b2 c2) = p1 == p2 && b1 == b2 && c1 == c2
   _ == _ = False
 
 instance Show Value where
@@ -119,12 +119,8 @@ instance Show Value where
   show (Call contents) = "(" ++ unwordsList contents ++ ")"
   show (DottedList _ head tail) = "[" ++ unwordsList head ++ " . " ++ show tail ++ "]"
   show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"
-  show Func {params = args, vararg = varargs, body = body} =
+  show Func {params = args, body = body} =
     "{fn [" ++ unwords (map show args)
-      ++ ( case varargs of
-             Nothing -> ""
-             Just arg -> " . " ++ arg
-         )
       ++ "] "
       ++ show body
       ++ "}"

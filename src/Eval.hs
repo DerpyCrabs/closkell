@@ -146,15 +146,12 @@ isNormalForm (Map xs) | all isNormalForm xs = True
 isNormalForm _ = False
 
 applyFunc :: Value -> ValueZipper -> [Value] -> ThrowsError ValueZipper
-applyFunc (Func params varargs body closure) z args =
+applyFunc (Func params body closure) z args =
   do
-    let env = bindVarArgs varargs . bindVars (zip params args) $ closure
+    let env = bindVars (zip params args) $ closure
     return . vzSet body . vzSetEnv env $ z
   where
     remainingArgs = drop (length params) args
-    bindVarArgs arg env = case arg of
-      Just argName -> bindVars [(argName, list remainingArgs)] env
-      Nothing -> env
 
 quoteEvalPath :: Value -> [ValueZipperTurn]
 quoteEvalPath val =
@@ -198,9 +195,8 @@ evalUsingNode val = do
 
 createFn :: Env -> Value -> Value
 createFn env (Call [Atom _ "fn", List _ params, body]) =
-  makeNormalFunc env params body
-createFn env (Call [Atom _ "fn", DottedList _ params varargs, body]) =
-  makeVarArgs varargs env params body
+  Func (show <$> params) body env
+createFn _ v = error $ show v
 
 correctQuoteEvalPath :: Value -> [ValueZipperTurn]
 correctQuoteEvalPath val =

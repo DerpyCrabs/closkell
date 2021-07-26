@@ -7,8 +7,6 @@ module Data.Value
     float,
     func,
     fn,
-    makeNormalFunc,
-    makeVarArgs,
     makeLet,
     vzFromAST,
     vzToAST,
@@ -42,18 +40,8 @@ int = Integer
 float :: Double -> Value
 float = Float
 
-fn :: [Value] -> Maybe Value -> [Value] -> Value
-fn args Nothing body = Call (atom "fn" : list args : body)
-fn args (Just vararg) body = Call (atom "fn" : dottedList args vararg : body)
-
-makeFunc :: Maybe String -> Env -> [Value] -> Value -> Value
-makeFunc varargs env params body = Func (map show params) varargs body env
-
-makeNormalFunc :: Env -> [Value] -> Value -> Value
-makeNormalFunc = makeFunc Nothing
-
-makeVarArgs :: Value -> Env -> [Value] -> Value -> Value
-makeVarArgs = makeFunc . Just . show
+fn :: [Value] -> [Value] -> Value
+fn args body = Call (atom "fn" : list args : body)
 
 makeLet :: [(String, Value)] -> Value -> Value
 makeLet binds expr = Call $ (atom "let" : ((\(name, val) -> list [atom name, val]) <$> binds)) ++ [expr]
