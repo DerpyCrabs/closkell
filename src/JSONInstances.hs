@@ -19,7 +19,7 @@ instance ToJSON Value where
   toJSON (Map xs) = object ["type" .= ("map" :: String), "value" .= xs]
   toJSON (Call xs) = object ["type" .= ("call" :: String), "value" .= xs]
   toJSON (DottedList _ head tail) = object ["type" .= ("dotted-list" :: String), "head" .= head, "tail" .= tail]
-  toJSON (Func params vararg body closure) = object ["type" .= ("func" :: String), "params" .= params, "vararg" .= vararg, "body" .= body, "closure" .= closure]
+  toJSON (Func params body closure) = object ["type" .= ("func" :: String), "params" .= params, "body" .= body, "closure" .= closure]
   toJSON (PrimitiveFunc name _) = object ["type" .= ("primitive-func" :: String), "value" .= name]
   toJSON (IOFunc name _) = object ["type" .= ("io-func" :: String), "value" .= name]
   toJSON (Macro body closure) = object ["type" .= ("macro" :: String), "body" .= body, "closure" .= closure]

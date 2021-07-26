@@ -1,1 +1,1 @@
-(io.write (string.from (#(+ %% 4) 5)))
+(io.write (string.from ((fn [n] (+ n 4)) 5)))

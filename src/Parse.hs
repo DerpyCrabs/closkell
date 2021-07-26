@@ -3,6 +3,7 @@ module Parse (readExpr, readExprList, load) where
 import Control.Monad.Except
 import Data.Error
 import Data.Maybe (catMaybes)
+import Data.Value (atom, list)
 import Text.Megaparsec hiding (spaces)
 import Text.Megaparsec.Char hiding (space)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -148,26 +149,6 @@ parseUnquoteSplicing = do
   x <- parseExpr
   return $ Call [Atom (Just pos) "unquote-splicing", x]
 
-parseLambdaShorthand :: Parser Value
-parseLambdaShorthand = do
-  pos <- getSourcePos
-  char '#' >> lparen
-  inner <- lexeme parseCallInner
-  rparen
-  return $ Call (Atom Nothing "fn" : DottedList Nothing [] (Atom Nothing "%&") : [inner])
-
-parseLambdaShorthandArgs =
-  try parseSingle <|> parseNth
-  where
-    parseSingle = do
-      char '%' >> char '%'
-      return (Call [Atom Nothing "car", Atom Nothing "%&"])
-    parseNth :: Parser Value
-    parseNth = do
-      char '%'
-      n <- digitChar
-      return (Call [Atom Nothing "nth", Integer (read [n] - 1), Atom Nothing "%&"])
-
 parseExpr :: Parser Value
 parseExpr =
   lexeme $
@@ -175,10 +156,8 @@ parseExpr =
       <|> parseCharacter
       <|> try parseFloat
       <|> try parseInteger
-      <|> try parseLambdaShorthandArgs
       <|> parseUnit
       <|> parseAtom
-      <|> parseLambdaShorthand
       <|> parseQuoted
       <|> try parseUnquoteSplicing
       <|> parseUnquoted
