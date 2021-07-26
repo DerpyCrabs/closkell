@@ -12,7 +12,6 @@ emitJS val = emitPrimitives ++ emitJS' val
 
 emitJS' :: Value -> String
 emitJS' (Call [Atom _ "fn", List _ params, body]) = "((" ++ intercalate "," (emitJS' <$> params) ++ ") => " ++ emitJS' body ++ ")"
-emitJS' (Call [Atom _ "unquote-splicing", val]) = "...(" ++ emitJS' val ++ ")"
 emitJS' (Call (Atom _ "let" : bindsAndExpr)) = "(function(){" ++ concat (emitBind <$> binds) ++ "return " ++ emitJS' expr ++ ";" ++ "})()"
   where
     binds = init bindsAndExpr
@@ -24,7 +23,6 @@ emitJS' (Call (func : args)) = emitJS' func ++ "(" ++ intercalate "," (emitJS' <
 emitJS' (List _ xs) = "[" ++ intercalate "," (emitJS' <$> xs) ++ "]"
 emitJS' (Map binds) = "{" ++ intercalate "," (emitBinds binds) ++ "}"
   where
-    emitBinds (val@(Call (Atom _ "unquote-splicing" : _)) : rest) = emitJS' val : emitBinds rest
     emitBinds (key : value : rest) = (emitJS' key ++ ":" ++ emitJS' value) : emitBinds rest
     emitBinds [] = []
 emitJS' (Integer n) = show n

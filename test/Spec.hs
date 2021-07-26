@@ -88,11 +88,6 @@ parsingTests =
         it "parses unquoted expressions" $
           test
             [("~[3 4 5]", func "unquote" [list [int 3, int 4, int 5]])]
-        it "parses unquote-spliced expressions" $
-          test
-            [ ("~@[3 4 5]", func "unquote-splicing" [list [int 3, int 4, int 5]]),
-              ("'~@'[5 4]", func "quote" [func "unquote-splicing" [func "quote" [list [int 5, int 4]]]])
-            ]
         it "parses top level expressions" $
           testTable
             runParse
@@ -138,17 +133,6 @@ evaluationTests =
           test
             [ ("(get \"k\" {\"b\" 5 \"k\" 6})", Right $ int 6),
               ("(get \"b\" {\"b\" 5 \"k\" 6})", Right $ int 5)
-            ]
-        it "supports list unquote-splicing" $
-          test
-            [ ("[4 ~@[5 6]]", Right $ list [int 4, int 5, int 6]),
-              ("[4 ~@[5 6] ~@[7 8]]", Right $ list [int 4, int 5, int 6, int 7, int 8]),
-              ("[4 5 ~@[1 3]]", Right $ list [int 4, int 5, int 1, int 3])
-            ]
-        it "supports map unquote-splicing" $
-          test
-            [ ("{4 5 ~@{1 3}}", Right $ Map [int 4, int 5, int 1, int 3]),
-              ("{4 ~@{1 3} 3 ~@{1 3}}", Right $ Map [int 4, int 1, int 3, int 3, int 1, int 3])
             ]
         it "supports all of std" $
           test
@@ -260,15 +244,6 @@ typeSystemTests =
               ("(let [rec (fn [a] (let [rec (fn [b] (rec a))] (rec 5)))] (rec 1))", Right Unit),
               ("(let [rec (fn [a] (if (== a 5) true (rec \\c)))] (eq? false (rec 6)))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
             ]
-        it "supports list and map unquote-splicing" $
-          test
-            [ ("(car [3 4 ~@[5 6]])", Right Unit),
-              ("(get 5 {3 4 ~@{5 6}})", Right Unit),
-              ("(+ 3 (car [3 4 ~@[5 6]]))", Right Unit),
-              ("(+ 3 (get 5 {3 4 ~@{5 6}}))", Right Unit),
-              ("(== \\c (car [3 4 ~@[5 6]]))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter),
-              ("(== \\c (get 5 {3 4 ~@{5 6}}))", Left $ TypeMismatch (TSum [TInteger, TFloat]) TCharacter)
-            ]
         it "supports all std code" $
           test
             [ ("(let [not (fn [arg] arg)] [not2 (fn [a] (if a \"s\" true))] (not2 (not true)))", Right Unit),
@@ -305,12 +280,6 @@ emitJSTests =
             [ ("(io.write \"str\")", Right (emitPrimitives ++ "$$io$write(\"str\")")),
               ("(io.read)", Right (emitPrimitives ++ "$$io$read()")),
               ("(io.panic 5)", Right (emitPrimitives ++ "$$io$panic(5)"))
-            ]
-        it "handles unquote-splicing" $
-          test
-            [ ("(string.from [5 ~@[4 3]])", Right (emitPrimitives ++ "$$string$from([5,...([4,3])])")),
-              ("(string.from {\\c 5 ~@{\\d 6} })", Right (emitPrimitives ++ "$$string$from({'c':5,...({'d':6})})")),
-              ("(let [k (fn [a b c] a)] (k 3 ~@[4 5]))", Right (emitPrimitives ++ "(function(){const k = ((a,b,c) => a);return k(3,...([4,5]));})()"))
             ]
         it "produces correct JS code" $ do
           testNode "test1"
