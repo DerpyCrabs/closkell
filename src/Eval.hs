@@ -23,12 +23,12 @@ eval env val = do
   steps <- lift $ evalSteps env val
   case last steps of
     Left err -> throwError err
-    Right zipper -> return $ vzToAST zipper
+    Right zipper -> return $ vzToValue zipper
 
 evalSteps :: Env -> Value -> IO [ThrowsError ValueZipper]
 evalSteps env val = evalSteps' [id] [Right zipper] zipper
   where
-    zipper = vzSetEnv env . vzFromAST $ val
+    zipper = vzSetEnv env . vzFromValue $ val
     evalSteps' :: [ValueZipperTurn] -> [ThrowsError ValueZipper] -> ValueZipper -> IO [ThrowsError ValueZipper]
     evalSteps' (step : steps) acc z@(_, val, _) = do
       res <- runExceptT $ stepEval (step z)

@@ -8,8 +8,8 @@ module Data.Value
     func,
     fn,
     makeLet,
-    vzFromAST,
-    vzToAST,
+    vzFromValue,
+    vzToValue,
     vzRight,
     vzDown,
     vzUp,
@@ -67,9 +67,9 @@ vzSet = vzModify . const
 vzSetEnv :: Env -> ValueZipperTurn
 vzSetEnv = vzModifyEnv . const
 
-vzFromAST :: Value -> ValueZipper
-vzFromAST val = ([], val, [])
+vzFromValue :: Value -> ValueZipper
+vzFromValue val = ([], val, [])
 
-vzToAST :: ValueZipper -> Value
-vzToAST (_, val, []) = val
-vzToAST z = vzToAST $ vzUp z
+vzToValue :: ValueZipper -> Value
+vzToValue (_, val, []) = val
+vzToValue z = vzToValue $ vzUp z

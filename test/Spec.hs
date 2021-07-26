@@ -170,14 +170,14 @@ macroSystemTests =
           sym `shouldSatisfy` \s -> "prefix" `isPrefixOf` s
 
 zipperTests = do
-  it "can be converted from Value" $ vzFromAST (int 1) `shouldBe` ([], int 1, [])
-  it "can be converted to Value" $ vzToAST ([], int 2, [ValueCrumb [] [int 1] [int 3]]) `shouldBe` Call [int 1, int 2, int 3]
-  it "can go down" $ (vzDown . vzFromAST . Call $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [ValueCrumb [] [] [int 2, int 3]])
+  it "can be converted from Value" $ vzFromValue (int 1) `shouldBe` ([], int 1, [])
+  it "can be converted to Value" $ vzToValue ([], int 2, [ValueCrumb [] [int 1] [int 3]]) `shouldBe` Call [int 1, int 2, int 3]
+  it "can go down" $ (vzDown . vzFromValue . Call $ [int 1, int 2, int 3]) `shouldBe` ([], int 1, [ValueCrumb [] [] [int 2, int 3]])
   it "can go up" $ vzUp ([], int 2, [ValueCrumb [] [int 1] [int 3]]) `shouldBe` ([], Call [int 1, int 2, int 3], [])
   it "can go right" $
-    (vzRight . vzRight . vzDown . vzFromAST . Call $ [int 1, int 2, int 3])
+    (vzRight . vzRight . vzDown . vzFromValue . Call $ [int 1, int 2, int 3])
       `shouldBe` ([], int 3, [ValueCrumb [] [int 1, int 2] []])
-  it "can modify current value" $ (vzModify (\(Integer n) -> Integer (n + 1)) . vzFromAST $ int 1) `shouldBe` vzFromAST (int 2)
+  it "can modify current value" $ (vzModify (\(Integer n) -> Integer (n + 1)) . vzFromValue $ int 1) `shouldBe` vzFromValue (int 2)
 
 typeSystemTests =
   let test = testTable runTypeSystem

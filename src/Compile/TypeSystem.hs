@@ -17,7 +17,7 @@ import Types
 typeSystem :: Value -> IOThrowsError Value
 typeSystem val =
   let env = typeBindings
-      z = vzSetEnv env . vzFromAST $ val
+      z = vzSetEnv env . vzFromValue $ val
    in do
         _ <- typeSystem' [] [id] z
         return val

@@ -10,7 +10,7 @@ macroSystem :: Value -> IOThrowsError Value
 macroSystem val =
   let state = MacroExpansionState 0
       env = primitiveBindings
-      z = vzSetEnv env . vzFromAST $ val
+      z = vzSetEnv env . vzFromValue $ val
    in snd <$> macroExpand state z
 
 macroExpand :: MacroExpansionState -> ValueZipper -> IOThrowsError (MacroExpansionState, Value)
@@ -38,10 +38,10 @@ macroExpand state z@(env, Call (Atom _ function : args), _) = do
     Right (Macro body macroEnv) ->
       evalMacro state (env ++ macroEnv) body args z
     _ -> do
-      expanded <- mapM (macroExpand state) (vzSetEnv env . vzFromAST <$> (atom function : args))
+      expanded <- mapM (macroExpand state) (vzSetEnv env . vzFromValue <$> (atom function : args))
       return (state, Call $ snd <$> expanded)
 macroExpand state (env, Call args, _) = do
-  expanded <- mapM (macroExpand state) (vzSetEnv env . vzFromAST <$> args)
+  expanded <- mapM (macroExpand state) (vzSetEnv env . vzFromValue <$> args)
   return (state, Call $ snd <$> expanded)
 macroExpand state (_, val, _) = return (state, val)
 

@@ -55,7 +55,7 @@ evalServer = eval
                 Left err -> return [Left err]
                 Right expr -> do
                   steps <- liftIO $ evalSteps env expr
-                  return $ ((\z -> (vzToAST z, getFocusedValPath z)) <$>) . filterEnv <$> steps
+                  return $ ((\z -> (vzToValue z, getFocusedValPath z)) <$>) . filterEnv <$> steps
         Left err -> return [Left err]
     filterEnv :: ThrowsError ValueZipper -> ThrowsError ValueZipper
     filterEnv =
