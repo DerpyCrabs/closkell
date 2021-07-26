@@ -142,13 +142,6 @@ parseUnquoted = do
   x <- parseExpr
   return $ Call [Atom (Just pos) "unquote", x]
 
-parseUnquoteSplicing :: Parser Value
-parseUnquoteSplicing = do
-  pos <- getSourcePos
-  char '~' >> char '@'
-  x <- parseExpr
-  return $ Call [Atom (Just pos) "unquote-splicing", x]
-
 parseExpr :: Parser Value
 parseExpr =
   lexeme $
@@ -159,7 +152,6 @@ parseExpr =
       <|> parseUnit
       <|> parseAtom
       <|> parseQuoted
-      <|> try parseUnquoteSplicing
       <|> parseUnquoted
       <|> parseCall
       <|> parseMap

@@ -100,16 +100,6 @@ stepEval z@(_, Call [Atom _ "if", Bool False, _, alt], _) =
   return (vzSet alt z, [id])
 stepEval z@(_, Call [Atom _ "if", _, _, _], _) =
   return (z, [vzRight . vzDown, vzUp])
-stepEval z@(_, Call [Atom _ "evaluating-unquote-list", val], _) =
-  return (vzSet ((\(Call args) -> List Nothing args) $ performUnquoteSplicing val) z, [])
-stepEval z@(_, Call [Atom _ "evaluating-unquote-map", val], _) =
-  return (vzSet ((\(Call args) -> Map args) $ performUnquoteSplicing val) z, [])
-stepEval z@(_, Call [Atom _ "unquote-splicing", val], _) =
-  return (vzSet (func "evaluating-unquote-splicing" [val]) z, [vzRight . vzDown, vzUp])
-stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", List _ _], _) =
-  return (z, [])
-stepEval z@(_, Call [Atom _ "evaluating-unquote-splicing", Map _], _) =
-  return (z, [])
 stepEval z@(_, Call (function : args), _) =
   case function of
     PrimitiveFunc _ f -> do
@@ -170,21 +160,10 @@ quoteEvalPath val =
             _ -> Just $ concat unquotePaths
     quoteEvalPath' :: Value -> Maybe [ValueZipperTurn]
     quoteEvalPath' (Call [Atom _ "unquote", val]) = Just [id, id]
-    quoteEvalPath' (Call [Atom _ "unquote-splicing", val]) = Just [id, id]
     quoteEvalPath' (Call args) = callPath args
     quoteEvalPath' _ = Nothing
     composeUpDown (x : y : xs) = (y . x) : composeUpDown xs
     composeUpDown [x] = [x]
-
-performUnquoteSplicing :: Value -> Value
-performUnquoteSplicing = performUnquoteSplicing'
-  where
-    performUnquoteSplicing' (Call vals) = Call (concat $ performUnquoteSplicing'' <$> vals)
-    performUnquoteSplicing'' :: Value -> [Value]
-    performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", List _ vals]) = vals
-    performUnquoteSplicing'' (Call [Atom _ "evaluating-unquote-splicing", Map vals]) = vals
-    performUnquoteSplicing'' v@(Call _) = [performUnquoteSplicing' v]
-    performUnquoteSplicing'' other = [other]
 
 evalUsingNode :: Value -> IOThrowsError String
 evalUsingNode val = do
