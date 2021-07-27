@@ -63,19 +63,19 @@ data Value
   | Type Type
 
 data Type
-  = TCharacter
-  | TList Type
-  | TMap Type Type
+  = TBottom
+  | TUnit
+  | TCharacter
   | TInteger
   | TFloat
   | TString
   | TBool
+  | TList Type
+  | TMap Type Type
   | TFunc [Type] Type
   | TSum [Type]
   | TProd [Type]
-  | TUnit
   | TVar String
-  | TAny
   deriving (Eq, Generic)
 
 type Env = [(String, Value)]
@@ -183,5 +183,5 @@ instance Show Type where
   show (TSum variants) = intercalate " | " (show <$> variants)
   show (TProd elements) = intercalate " & " (show <$> elements)
   show TUnit = "TUnit"
-  show TAny = "TAny"
   show (TVar var) = var
+  show TBottom = "TBottom"

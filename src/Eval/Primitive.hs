@@ -56,7 +56,7 @@ primitives =
     ("character?", isCharacter, TFunc [TVar "a"] TBool),
     ("bool?", isBool, TFunc [TVar "a"] TBool),
     ("dotted-list?", isDottedList, TFunc [TVar "a"] TBool),
-    ("do", doFunc, TFunc [TAny, TVar "a"] (TVar "a"))
+    ("do", doFunc, TFunc [TVar "a", TVar "b"] (TVar "b"))
   ]
 
 isPrimitive :: String -> Bool
