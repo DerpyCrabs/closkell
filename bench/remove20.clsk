@@ -1,11 +1,11 @@
 (let
-  [not #(if %% false true)]
-  [null? #(if (eq? %% []) true false)]
+  [not (fn [pred] (if pred false true))]
+  [null? (fn [v] (if (eq? v []) true false))]
   [foldr (fn [func end lst]
     (if (null? lst)
         end
         (func (car lst) (foldr func end (cdr lst)))))]
   [filter (fn [pred lst] (foldr (fn [x y] (if (pred x) (cons x y) y)) [] lst))]
-  [complement (fn [func] #(not (func %%)))]
+  [complement (fn [func] (fn [v] (not (func v))))]
   [remove (fn [pred lst] (filter (complement pred) lst))]
-  (remove #(< 5 %%) [1 3 5 7 9 11 13 15 17 19 21 -5 -3 -1 5 18 20 1 6 3]))
+  (remove (fn [n] (< 5 n)) [1 3 5 7 9 11 13 15 17 19 21 -5 -3 -1 5 18 20 1 6 3]))
