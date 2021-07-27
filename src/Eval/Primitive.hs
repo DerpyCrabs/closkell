@@ -15,9 +15,9 @@ import System.IO (IOMode (..), hClose, hGetLine, hPutStrLn, openFile, stdin, std
 import Types
 
 primitiveBindings :: Env
-primitiveBindings = map (makeFunc IOFunc) (stripType <$> ioPrimitives) ++ map (makeFunc PrimitiveFunc) (stripType <$> primitives)
+primitiveBindings = (makeFunc . stripType <$> ioPrimitives) ++ (makeFunc . stripType <$> primitives)
   where
-    makeFunc constructor (var, func) = (var, constructor var func)
+    makeFunc (var, _) = (var, PrimitiveFunc var)
 
 tNumber = TSum [TInteger, TFloat]
 

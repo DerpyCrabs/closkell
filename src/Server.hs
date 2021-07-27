@@ -69,8 +69,7 @@ evalServer = eval
     getFocusedValPath :: ValueZipper -> FocusedValPath
     getFocusedValPath z@(_, val, ValueCrumb _ ls rs : crumbs) = getFocusedValPath (vzUp z) ++ [length ls]
     getFocusedValPath _ = []
-    notIntrinsic (_, IOFunc _ _) = False
-    notIntrinsic (_, PrimitiveFunc _ _) = False
+    notIntrinsic (_, PrimitiveFunc _) = False
     notIntrinsic (_, _) = True
 
 server :: Application

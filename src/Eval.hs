@@ -13,8 +13,10 @@ import Control.Monad.Except
 import Data.AST
 import Data.Env
 import Data.Error
+import Data.List (find)
 import Data.Maybe (isJust, isNothing)
 import Data.Value
+import Eval.Primitive
 import System.Command
 import Types
 
@@ -103,12 +105,19 @@ stepEval z@(_, Call [Atom _ "if", _, _, _], _) =
   return (z, [vzRight . vzDown, vzUp])
 stepEval z@(_, Call (function : args), _) =
   case function of
-    PrimitiveFunc _ f -> do
-      res <- liftThrows $ f args
-      return (vzSet res z, [])
-    IOFunc _ f -> do
-      res <- f args
-      return (vzSet res z, [])
+    PrimitiveFunc n -> do
+      let maybePrimitive = find (\(name, _, _) -> name == n) primitives
+      case maybePrimitive of
+        Just (_, f, _) -> do
+          res <- liftThrows $ f args
+          return (vzSet res z, [])
+        Nothing -> do
+          let maybeIOPrimitive = find (\(name, _, _) -> name == n) ioPrimitives
+          case maybeIOPrimitive of
+            Just (_, f, _) -> do
+              res <- f args
+              return (vzSet res z, [])
+            Nothing -> throwError $ Default ("Invalid primitive: " ++ n)
     f@Func {} -> do
       res <- liftThrows $ applyFunc f z args
       return (res, [id])
@@ -128,8 +137,7 @@ isNormalForm (Character _) = True
 isNormalForm (Integer _) = True
 isNormalForm (Float _) = True
 isNormalForm (Bool _) = True
-isNormalForm (PrimitiveFunc _ _) = True
-isNormalForm (IOFunc _ _) = True
+isNormalForm (PrimitiveFunc _) = True
 isNormalForm Func {} = True
 isNormalForm (Type _) = True
 isNormalForm (List _ xs) | all isNormalForm xs = True

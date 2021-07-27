@@ -56,8 +56,7 @@ data Value
   | Bool Bool
   | Unit
   | Call [Value]
-  | PrimitiveFunc String ([Value] -> ThrowsError Value)
-  | IOFunc String ([Value] -> IOThrowsError Value)
+  | PrimitiveFunc String
   | Func {params :: [String], body :: Value, closure :: Env}
   | Macro {body :: Value, closure :: Env}
   | Type Type
@@ -118,8 +117,7 @@ instance Eq Value where
   (Float i1) == (Float i2) = i1 == i2
   (Bool i1) == (Bool i2) = i1 == i2
   (Character c1) == (Character c2) = c1 == c2
-  (PrimitiveFunc n1 _) == (PrimitiveFunc n2 _) = n1 == n2
-  (IOFunc n1 _) == (IOFunc n2 _) = n1 == n2
+  (PrimitiveFunc n1) == (PrimitiveFunc n2) = n1 == n2
   (Macro b1 c1) == (Macro b2 c2) = b1 == b2 && c1 == c2
   (Type t1) == (Type t2) = t1 == t2
   Unit == Unit = True
@@ -138,13 +136,12 @@ instance Show Value where
   show (Map contents) = "{" ++ unwordsList contents ++ "}"
   show (Call contents) = "(" ++ unwordsList contents ++ ")"
   show (DottedList _ head tail) = "[" ++ unwordsList head ++ " . " ++ show tail ++ "]"
-  show (PrimitiveFunc name _) = "<primitive " ++ name ++ ">"
+  show (PrimitiveFunc name) = "<primitive " ++ name ++ ">"
   show Func {params = args, body = body} =
     "{fn [" ++ unwords (map show args)
       ++ "] "
       ++ show body
       ++ "}"
-  show (IOFunc name _) = "<IO primitive " ++ name ++ ">"
   show (Macro body _) = "<Macro " ++ show body ++ ">"
   show (Type t) = show t
   show Unit = "unit"
