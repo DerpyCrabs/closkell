@@ -149,7 +149,7 @@ notOp :: [Value] -> ThrowsError Value
 notOp [v] = Bool . not <$> unpackBool v
 
 get :: [Value] -> ThrowsError Value
-get [key, Map (k : val : rest)]
+get [key, Map ((k, val) : rest)]
   | key == k = return val
   | otherwise = get [key, Map rest]
 

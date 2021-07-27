@@ -76,7 +76,7 @@ parsingTests =
             [(" [ 3 4 5]", list [int 3, int 4, int 5])]
         it "parses maps" $
           test
-            [(" {7 \\k \\e   \"s\"} ", Map [int 7, Character 'k', Character 'e', String "s"])]
+            [(" {7 \\k \\e   \"s\"} ", Map [(int 7, Character 'k'), (Character 'e', String "s")])]
         it "parses dotted lists" $
           test
             [ ("[tt1 tt2 . tt3]", dottedList [atom "tt1", atom "tt2"] (atom "tt3")),
@@ -133,6 +133,14 @@ evaluationTests =
           test
             [ ("(get \"k\" {\"b\" 5 \"k\" 6})", Right $ int 6),
               ("(get \"b\" {\"b\" 5 \"k\" 6})", Right $ int 5)
+            ]
+        it "supports list values evaluation" $
+          test
+            [ ("(car [(+ 1 (- 3 2)) (- 2 3)])", Right $ int 2)
+            ]
+        it "supports map values evaluation" $
+          test
+            [ ("(get \\c {\\c (+ 1 (- 3 2)) \\b (- 2 3)})", Right $ int 2)
             ]
         it "supports all of std" $
           test

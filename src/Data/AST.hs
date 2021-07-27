@@ -2,16 +2,16 @@
 
 module Data.AST where
 
+import Control.Monad (forM)
 import Data.Value
 import Types
 
 fromValue :: Value -> ThrowsError AST
 fromValue (List _ args) = ASTList <$> mapM fromValue args
-fromValue (Map args) | even (length args) = ASTMap . pairs <$> mapM fromValue args
-  where
-    pairs (key : value : rest) = (key, value) : pairs rest
-    pairs _ = []
-fromValue (Map args) = Left $ Default "Uneven map value count"
+fromValue (Map args) = do
+  keyValues <- forM args $ \(key, value) ->
+    (,) <$> fromValue key <*> fromValue value
+  return $ ASTMap keyValues
 fromValue (Call [Atom _ "fn", List _ params, body]) = do
   astBody <- fromValue body
   let paramNames = (\(Atom _ s) -> s) <$> params

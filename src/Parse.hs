@@ -118,8 +118,14 @@ parseList = do
   rbracket
   return x
 
+parseMapKeyValue :: Parser (Value, Value)
+parseMapKeyValue = (,) <$> parseExpr <*> parseExpr
+
 parseMapInner :: Parser Value
-parseMapInner = Map . catMaybes <$> sepBy parseExprOrSkip spaces
+parseMapInner = Map <$> sepBy parseMapKeyValue spaces
+
+pairs :: [Value] -> [(Value, Value)]
+pairs = error "not implemented"
 
 parseMap :: Parser Value
 parseMap = do

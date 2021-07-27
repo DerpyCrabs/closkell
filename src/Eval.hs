@@ -11,6 +11,7 @@ import Compile.ClosureCompilerPass (closureCompilerPass)
 import Compile.EmitJS (emitJS)
 import Control.Monad.Except
 import Data.AST
+import Data.Bifunctor (bimap)
 import Data.Env
 import Data.Error
 import Data.List (find)
@@ -51,10 +52,11 @@ stepEval z@(_, val@(List _ args), _) =
         0 -> return (vzSet val z, [])
         _ -> return (vzSet (func "evaluating-unquote-list" [Call args]) z, correctedPath)
 stepEval z@(_, val@(Map args), _) =
-  let correctedPath = correctQuoteEvalPath (Call args)
+  let callArgs = concat $ (\(k, v) -> [k, v]) <$> args
+      correctedPath = correctQuoteEvalPath (Call callArgs)
    in case length correctedPath of
         0 -> return (vzSet val z, [])
-        _ -> return (vzSet (func "evaluating-unquote-map" [Call args]) z, correctedPath)
+        _ -> return (vzSet (func "evaluating-unquote-map" [Call callArgs]) z, correctedPath)
 stepEval z@(env, fn@(Call (Atom _ "fn" : _)), _) =
   return (vzSet (createFn env fn) z, [])
 stepEval z@(env, Atom _ name, _) = do
@@ -141,7 +143,7 @@ isNormalForm (PrimitiveFunc _) = True
 isNormalForm Func {} = True
 isNormalForm (Type _) = True
 isNormalForm (List _ xs) | all isNormalForm xs = True
-isNormalForm (Map xs) | all isNormalForm xs = True
+isNormalForm (Map xs) | all (uncurry (&&) <$> bimap isNormalForm isNormalForm) xs = True
 isNormalForm _ = False
 
 applyFunc :: Value -> ValueZipper -> [Value] -> ThrowsError ValueZipper

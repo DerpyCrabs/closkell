@@ -48,7 +48,7 @@ data Value
   = Atom (Maybe SourcePos) String
   | Character Char
   | List (Maybe SourcePos) [Value]
-  | Map [Value]
+  | Map [(Value, Value)]
   | DottedList (Maybe SourcePos) [Value] Value
   | Integer Integer
   | Float Double
@@ -133,7 +133,7 @@ instance Show Value where
   show (Bool True) = "true"
   show (Bool False) = "false"
   show (List _ contents) = "[" ++ unwordsList contents ++ "]"
-  show (Map contents) = "{" ++ unwordsList contents ++ "}"
+  show (Map contents) = "{" ++ unwordsList (concat $ (\(key, val) -> [key, val]) <$> contents) ++ "}"
   show (Call contents) = "(" ++ unwordsList contents ++ ")"
   show (DottedList _ head tail) = "[" ++ unwordsList head ++ " . " ++ show tail ++ "]"
   show (PrimitiveFunc name) = "<primitive " ++ name ++ ">"
