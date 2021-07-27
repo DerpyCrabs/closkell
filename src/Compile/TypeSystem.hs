@@ -1,7 +1,7 @@
 module Compile.TypeSystem (typeSystem) where
 
 import Control.Applicative
-import Control.Monad (unless, zipWithM)
+import Control.Monad (unless, when, zipWithM)
 import Control.Monad.IO.Class
 import Data.Env
 import Data.Error
@@ -75,14 +75,9 @@ typeBindings = primitiveBindings ++ ioBindings
     ioBindings = makeFunc PrimitiveFunc <$> (transformType <$> ioPrimitives)
 
 createType :: Type -> ([Value] -> ThrowsError Value)
-createType (TFunc argTypes varArg retType) args = do
-  argTypesWithVarArgs <- case varArg of
-    Nothing ->
-      if length argTypes /= length args
-        then throwError $ NumArgs (toInteger $ length argTypes) args
-        else return argTypes
-    Just varArgType -> return (argTypes ++ replicate (length args - length argTypes) varArgType)
-  deducedArgTypes <- zipWithM deduceArgType argTypesWithVarArgs (typeOf <$> args)
+createType (TFunc argTypes retType) args = do
+  when (length argTypes /= length args) (throwError $ NumArgs (toInteger $ length argTypes) args)
+  deducedArgTypes <- zipWithM deduceArgType argTypes (typeOf <$> args)
   deducedArgTypes2 <- mapM tryDeduceVariables $ groupVariables $ catMaybes $ fst <$> deducedArgTypes
   mapM_ (uncurry checkTypeCompatibility) (zip (snd <$> deducedArgTypes) (typeOf <$> args))
   Type <$> applyVarsToType (catMaybes $ fst <$> deducedArgTypes) retType
@@ -110,11 +105,10 @@ applyVarsToType vars (TMap keyType valType) = do
   key <- applyVarsToType vars keyType
   val <- applyVarsToType vars valType
   return $ TMap key val
-applyVarsToType vars (TFunc argTypes varArgType retType) = do
+applyVarsToType vars (TFunc argTypes retType) = do
   args <- mapM (applyVarsToType vars) argTypes
-  varArg <- mapM (applyVarsToType vars) varArgType
   ret <- applyVarsToType vars retType
-  return $ TFunc args varArg ret
+  return $ TFunc args ret
 applyVarsToType _ t = return t
 
 deduceArgType :: Type -> Type -> ThrowsError (Maybe (String, Type), Type)

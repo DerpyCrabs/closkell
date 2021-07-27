@@ -261,7 +261,7 @@ typeSystemTests =
               ("(let [sum (fn [a b] (+ a b))] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr sum end (cdr lst)))))] (foldr sum 8 [1 2 4]))", Right Unit),
               ("(let [sum (fn [a b] (+ a b))] [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr end (cdr lst)))))] (foldr sum 3 [1 2 4]))", Left $ NumArgs 3 [int 3, Type $ TList TInteger]),
               ("(let [foldr (fn [func end lst] (if (eq? lst []) end (func (car lst) (foldr func end (cdr lst)))))] (foldr + 3 [1 2 4]))", Right Unit),
-              ("(do (+ 3 5) (io.write \"t\") 5)", Right Unit)
+              ("(do (+ 3 5) (io.write \"t\"))", Right Unit)
             ]
 
 emitJSTests =

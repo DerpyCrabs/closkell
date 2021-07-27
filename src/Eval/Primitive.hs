@@ -25,38 +25,38 @@ stripType (name, val, _) = (name, val)
 
 primitives :: [(String, [Value] -> ThrowsError Value, Type)]
 primitives =
-  [ ("+", numericBinop (+) (+), TFunc [tNumber, tNumber] Nothing tNumber),
-    ("-", numericBinop (-) (-), TFunc [tNumber, tNumber] Nothing tNumber),
-    ("*", numericBinop (*) (*), TFunc [tNumber, tNumber] Nothing tNumber),
-    ("/", integerBinop div, TFunc [TInteger, TInteger] Nothing TInteger),
-    ("rem", integerBinop rem, TFunc [TInteger, TInteger] Nothing TInteger),
-    ("==", numBoolBinop (==) (==), TFunc [tNumber, tNumber] Nothing TBool),
-    ("/=", numBoolBinop (/=) (/=), TFunc [tNumber, tNumber] Nothing TBool),
-    ("<", numBoolBinop (<) (<), TFunc [tNumber, tNumber] Nothing TBool),
-    (">", numBoolBinop (>) (>), TFunc [tNumber, tNumber] Nothing TBool),
-    ("<=", numBoolBinop (<=) (<=), TFunc [tNumber, tNumber] Nothing TBool),
-    (">=", numBoolBinop (>=) (>=), TFunc [tNumber, tNumber] Nothing TBool),
-    ("&&", boolBoolBinop (&&), TFunc [TBool, TBool] Nothing TBool),
-    ("||", boolBoolBinop (||), TFunc [TBool, TBool] Nothing TBool),
-    ("!", notOp, TFunc [TBool] Nothing TBool),
-    ("string.concat", strStringBinop (++), TFunc [TString, TString] Nothing TString),
-    ("string.from", stringFrom, TFunc [TVar "a"] Nothing TString),
-    ("string.toList", stringToList, TFunc [TString] Nothing (TList TCharacter)),
-    ("car", car, TFunc [TList (TVar "a")] Nothing (TVar "a")),
-    ("cdr", cdr, TFunc [TList (TVar "a")] Nothing (TList (TVar "a"))),
-    ("cons", cons, TFunc [TVar "a", TList (TVar "a")] Nothing (TList (TVar "a"))),
-    ("get", get, TFunc [TVar "a", TMap (TVar "a") (TVar "b")] Nothing (TVar "b")),
-    ("nth", nth, TFunc [TInteger, TList (TVar "a")] Nothing (TVar "a")),
-    ("eq?", eq, TFunc [TVar "a", TVar "a"] Nothing TBool),
-    ("list?", isList, TFunc [TVar "a"] Nothing TBool),
-    ("atom?", isAtom, TFunc [TVar "a"] Nothing TBool),
-    ("integer?", isInteger, TFunc [TVar "a"] Nothing TBool),
-    ("float?", isFloat, TFunc [TVar "a"] Nothing TBool),
-    ("string?", isString, TFunc [TVar "a"] Nothing TBool),
-    ("character?", isCharacter, TFunc [TVar "a"] Nothing TBool),
-    ("bool?", isBool, TFunc [TVar "a"] Nothing TBool),
-    ("dotted-list?", isDottedList, TFunc [TVar "a"] Nothing TBool),
-    ("do", doFunc, TFunc [] (Just $ TSum [TVar "a", TAny]) (TVar "a"))
+  [ ("+", numericBinop (+) (+), TFunc [tNumber, tNumber] tNumber),
+    ("-", numericBinop (-) (-), TFunc [tNumber, tNumber] tNumber),
+    ("*", numericBinop (*) (*), TFunc [tNumber, tNumber] tNumber),
+    ("/", integerBinop div, TFunc [TInteger, TInteger] TInteger),
+    ("rem", integerBinop rem, TFunc [TInteger, TInteger] TInteger),
+    ("==", numBoolBinop (==) (==), TFunc [tNumber, tNumber] TBool),
+    ("/=", numBoolBinop (/=) (/=), TFunc [tNumber, tNumber] TBool),
+    ("<", numBoolBinop (<) (<), TFunc [tNumber, tNumber] TBool),
+    (">", numBoolBinop (>) (>), TFunc [tNumber, tNumber] TBool),
+    ("<=", numBoolBinop (<=) (<=), TFunc [tNumber, tNumber] TBool),
+    (">=", numBoolBinop (>=) (>=), TFunc [tNumber, tNumber] TBool),
+    ("&&", boolBoolBinop (&&), TFunc [TBool, TBool] TBool),
+    ("||", boolBoolBinop (||), TFunc [TBool, TBool] TBool),
+    ("!", notOp, TFunc [TBool] TBool),
+    ("string.concat", strStringBinop (++), TFunc [TString, TString] TString),
+    ("string.from", stringFrom, TFunc [TVar "a"] TString),
+    ("string.toList", stringToList, TFunc [TString] (TList TCharacter)),
+    ("car", car, TFunc [TList (TVar "a")] (TVar "a")),
+    ("cdr", cdr, TFunc [TList (TVar "a")] (TList (TVar "a"))),
+    ("cons", cons, TFunc [TVar "a", TList (TVar "a")] (TList (TVar "a"))),
+    ("get", get, TFunc [TVar "a", TMap (TVar "a") (TVar "b")] (TVar "b")),
+    ("nth", nth, TFunc [TInteger, TList (TVar "a")] (TVar "a")),
+    ("eq?", eq, TFunc [TVar "a", TVar "a"] TBool),
+    ("list?", isList, TFunc [TVar "a"] TBool),
+    ("atom?", isAtom, TFunc [TVar "a"] TBool),
+    ("integer?", isInteger, TFunc [TVar "a"] TBool),
+    ("float?", isFloat, TFunc [TVar "a"] TBool),
+    ("string?", isString, TFunc [TVar "a"] TBool),
+    ("character?", isCharacter, TFunc [TVar "a"] TBool),
+    ("bool?", isBool, TFunc [TVar "a"] TBool),
+    ("dotted-list?", isDottedList, TFunc [TVar "a"] TBool),
+    ("do", doFunc, TFunc [TAny, TVar "a"] (TVar "a"))
   ]
 
 isPrimitive :: String -> Bool
@@ -64,9 +64,9 @@ isPrimitive str = str `elem` ((fst . stripType <$> primitives) ++ (fst . stripTy
 
 ioPrimitives :: [(String, [Value] -> IOThrowsError Value, Type)]
 ioPrimitives =
-  [ ("io.read", readProc, TFunc [] Nothing TString),
-    ("io.write", writeProc, TFunc [TString] Nothing TUnit),
-    ("io.panic", panic, TFunc [TVar "a"] Nothing (TVar "b"))
+  [ ("io.read", readProc, TFunc [] TString),
+    ("io.write", writeProc, TFunc [TString] TUnit),
+    ("io.panic", panic, TFunc [TVar "a"] (TVar "b"))
   ]
 
 panic :: [Value] -> IOThrowsError Value

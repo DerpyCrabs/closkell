@@ -70,7 +70,7 @@ data Type
   | TFloat
   | TString
   | TBool
-  | TFunc [Type] (Maybe Type) Type
+  | TFunc [Type] Type
   | TSum [Type]
   | TProd [Type]
   | TUnit
@@ -177,12 +177,9 @@ instance Show Type where
   show TFloat = "TFloat"
   show TString = "TString"
   show TBool = "TBool"
-  show (TFunc args varArg ret) =
+  show (TFunc args ret) =
     let listArgs = intercalate " -> " (show <$> args)
-     in "TFunc[" ++ listArgs ++ showVarArg varArg ++ " -> " ++ show ret ++ "]"
-    where
-      showVarArg (Just t) = " ~> " ++ show t
-      showVarArg Nothing = ""
+     in "TFunc[" ++ listArgs ++ " -> " ++ show ret ++ "]"
   show (TSum variants) = intercalate " | " (show <$> variants)
   show (TProd elements) = intercalate " & " (show <$> elements)
   show TUnit = "TUnit"
